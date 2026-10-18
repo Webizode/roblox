@@ -9,6 +9,7 @@ Roblox-Spiel: Eiskugeln fangen, einen wackelnden Turm mit dem Daumen balancieren
 1. **Roblox Studio** installieren und einloggen: <https://create.roblox.com>
 2. **Claude Code** installieren (Desktop-App oder CLI).
 3. **Studio-MCP verbinden:** In Studio *Assistant* öffnen → `…` → *Manage MCP Servers* → *Enable Studio as MCP server* einschalten → unter *Quick connect* Claude Code aktivieren → Studio und Claude neu starten. Der grüne Punkt in *Manage MCP Servers* zeigt die Verbindung.
+   Für Claude Code ist das schon im Repo eingerichtet: `.mcp.json` enthält die Studio-Konfiguration. Startest du Claude Code im Repo-Ordner, fragt es einmal, ob es den Server `Roblox_Studio` nutzen darf, dann zustimmen.
    Fallback per CLI (der Befehl, den Studio für Claude Code anzeigt, mit `--scope user`, damit er in jedem Ordner gilt):
    `claude mcp add --scope user --transport stdio Roblox_Studio -- "cmd.exe" "/c" "cd /d %LOCALAPPDATA%\Roblox && .\mcp.bat"`
 4. **Git** installieren und das Repo nach `Dokumente\roblox` klonen (normale PowerShell, nicht die ISE, nicht als Administrator):
