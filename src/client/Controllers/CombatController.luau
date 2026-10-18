@@ -113,13 +113,21 @@ local function knockback(root: BasePart, dirX: number, dirZ: number, strength: n
 	end)
 end
 
-local function knockDown(humanoid: Humanoid)
+-- The local player cannot move or jump while down. The body only lies down visually (MovementController): the
+-- root stays upright, so the tower, catching and serving keep working from the same spot.
+local function knockDown()
 	downUntil = os.clock() + CombatConfig.knockdownTime
-	humanoid.PlatformStand = true
+	local playerModule = player:WaitForChild("PlayerScripts"):FindFirstChild("PlayerModule")
+	local ok, controls = pcall(function()
+		return (require(playerModule :: ModuleScript) :: any):GetControls()
+	end)
+	if not ok or not controls then
+		return
+	end
+	controls:Disable()
 	task.delay(CombatConfig.knockdownTime, function()
-		if humanoid.Parent then
-			humanoid.PlatformStand = false
-			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+		if os.clock() >= downUntil - 0.05 then
+			controls:Enable()
 		end
 	end)
 end
@@ -145,8 +153,13 @@ local function onResolved(
 	end
 
 	local character = victim.Character
+	local strength = if knockdown then power * CombatConfig.knockdownBoost else power
 	if character then
 		flash(character)
+		registry.MovementController.stumble(character, dirX, dirZ, strength)
+		if knockdown then
+			registry.MovementController.knockDown(character, CombatConfig.knockdownTime)
+		end
 	end
 	if thrower == player and victim ~= player then
 		registry.Hud.toast(if knockdown then "KNOCKDOWN!" else "HIT!", Palette.lemon)
@@ -156,16 +169,14 @@ local function onResolved(
 	end
 
 	-- the local player was hit: the server already decided how hard and whether it knocks down
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local strength = if knockdown then power * CombatConfig.knockdownBoost else power
 	Sfx.play("hit")
 	if root then
 		knockback(root, dirX, dirZ, strength)
 	end
 	registry.TowerController.hit(dirX, dirZ, strength)
-	if knockdown and humanoid then
-		knockDown(humanoid)
+	if knockdown then
+		knockDown()
 		registry.Hud.toast("KNOCKED DOWN!", Palette.awning)
 	end
 end

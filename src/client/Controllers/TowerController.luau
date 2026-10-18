@@ -275,6 +275,7 @@ local function onDash(who: Player, dirX: number, dirZ: number)
 		return
 	end
 	burstRing(root, Palette.lemon)
+	registry.MovementController.dash(character :: Model, Tuning.dash.duration)
 	if who ~= player then
 		return
 	end
