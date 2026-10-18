@@ -1,0 +1,15 @@
+# Rojo / Studio
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+/build/
+sourcemap.json
+
+# selene generates this from the Roblox API dump on first run
+roblox.yml
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/

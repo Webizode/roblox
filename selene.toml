@@ -1,0 +1,5 @@
+std = "roblox"
+
+[lints]
+# Roblox code often shadows on purpose (e.g. `local root = ...` inside helpers)
+shadowing = "allow"
