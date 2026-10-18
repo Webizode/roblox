@@ -194,10 +194,12 @@ describe("TowerModel", function()
 		expect(state.toppled).toBe(false)
 	end)
 
-	it("40 scoops on a starter cone are beyond a 0.2 s player, whatever their style", function()
+	-- Since the pad only corrects at full strength, a fast, hard player no longer overshoots and holds up to 43
+	-- (was 28); the other styles are unchanged. The starter cone only takes 20 anyway.
+	it("50 scoops on a starter cone are beyond a 0.2 s player, whatever their style", function()
 		for _, gains in { { 3, 0.8 }, { 2, 0.6 }, { 1.6, 0.4 }, { 1, 0.4 } } do
 			local state = TowerModel.newState(13)
-			local params = paramsFor(stack("vanilla", 40))
+			local params = paramsFor(stack("vanilla", 50))
 			simulate(state, params, PAD, 30, padPlayer(gains[1], gains[2]), 12)
 			expect(state.toppled).toBe(true)
 		end
@@ -380,6 +382,85 @@ describe("Pad and keyboard input", function()
 		expect(vx).toBeCloseTo(18, 0.01)
 		expect(vz).toBe(0)
 		expect(peak).toBeLessThan(18 / Tuning.accelSmoothing + 1e-6)
+	end)
+
+	it("holding a key on an upright short tower leans it a little, never into the groan", function()
+		for count = 1, 9 do
+			for _, dir in { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } } do
+				local state = TowerModel.newState(count)
+				local params = paramsFor(stack("vanilla", count))
+				local key, peak = 0, 0
+				for _ = 1, 3 / DT do
+					key = math.min(1, key + DT / Tuning.keyRampTime)
+					TowerModel.step(
+						state,
+						params,
+						{ ax = 0, az = 0, padX = dir[1] * key, padZ = dir[2] * key },
+						PAD,
+						Tuning,
+						DT
+					)
+					peak = math.max(peak, TowerModel.tilt(state))
+				end
+				expect(peak).toBeLessThan(Tuning.groanFraction * Tuning.tipAngle)
+				-- and it leans the way the key points
+				expect(state.x * dir[1] + state.z * dir[2]).toBeGreaterThan(0)
+			end
+		end
+	end)
+
+	it("a key against the lean brings the tower back without throwing it over the other side", function()
+		for _, count in { 5, 9, 12, 15 } do
+			local state = TowerModel.newState(4)
+			local params = paramsFor(stack("vanilla", count))
+			state.x = 0.6 * Tuning.tipAngle
+			local lowest, elapsed = state.x, 0
+			-- a player holds the key and lets go a moment before the tower is upright; letting go late swings it over
+			-- the other side by its own momentum, that part is skill
+			while state.x + 0.3 * state.vx > 0.1 * Tuning.tipAngle and elapsed < 2 do
+				TowerModel.step(state, params, { ax = 0, az = 0, padX = -1, padZ = 0 }, PAD, Tuning, DT)
+				elapsed += DT
+			end
+			for _ = 1, 0.5 / DT do
+				TowerModel.step(state, params, TowerModel.NO_INPUT, PAD, Tuning, DT)
+				lowest = math.min(lowest, state.x)
+			end
+			expect(elapsed).toBeLessThan(2)
+			expect(state.toppled).toBe(false)
+			expect(lowest).toBeGreaterThan(-0.25 * Tuning.tipAngle)
+		end
+	end)
+
+	it("a key with the lean still makes it worse, so the wrong key is a risk", function()
+		local helped, hurt = TowerModel.newState(4), TowerModel.newState(4)
+		local params = paramsFor(stack("vanilla", 12))
+		helped.x, hurt.x = 0.4 * Tuning.tipAngle, 0.4 * Tuning.tipAngle
+		simulate(helped, params, PAD, 0.5, function()
+			return { ax = 0, az = 0, padX = -1, padZ = 0 }
+		end)
+		simulate(hurt, params, PAD, 0.5, function()
+			return { ax = 0, az = 0, padX = 1, padZ = 0 }
+		end)
+		expect(hurt.x).toBeGreaterThan(0.4 * Tuning.tipAngle)
+		expect(helped.x).toBeLessThan(0.4 * Tuning.tipAngle)
+	end)
+
+	it("walking, stopping and turning with an upright short tower never reaches the groan", function()
+		for _, count in { 2, 5, 8 } do
+			local state = TowerModel.newState(count)
+			local params = paramsFor(stack("vanilla", count))
+			local vx, vz, peak = 0, 0, 0
+			local legs = { { 0, 18 }, { 0, 0 }, { 18, 0 }, { -18, 0 }, { 0, -18 }, { 13, 13 }, { 0, 0 } }
+			for _, leg in legs do
+				for _ = 1, 0.8 / DT do
+					local ax, az
+					vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, leg[1], leg[2], Tuning.accelSmoothing, DT)
+					TowerModel.step(state, params, { ax = ax, az = az, padX = 0, padZ = 0 }, PAD, Tuning, DT)
+					peak = math.max(peak, TowerModel.tilt(state))
+				end
+			end
+			expect(peak).toBeLessThan(Tuning.groanFraction * Tuning.tipAngle)
+		end
 	end)
 
 	it("a dash kicks against its direction, grows with height and is capped", function()

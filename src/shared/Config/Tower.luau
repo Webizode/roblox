@@ -28,6 +28,9 @@ return {
 	padBase = 1.0,
 	padPerInstability = 1.7,
 	padMax = 10,
+	-- Share of that authority for input that does not reduce the current lean (pushing an upright tower, pushing
+	-- with the lean, sideways). Holding a key on an upright tower used to lean it 50-100 % of the tip angle.
+	padWrongWay = 0.35,
 	driftStartScoops = 10, -- below this the tower never wanders on its own
 	driftPerScoop = 0.12, -- rad/s^2 of slow wandering per scoop above the start
 	jerkInterval = 0.9, -- seconds between cursed pickle kicks

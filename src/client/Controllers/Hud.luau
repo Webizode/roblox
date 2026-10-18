@@ -21,6 +21,8 @@ local Hud = {}
 
 local CONTROLS_HINT_SECONDS = 8 -- how long the balancing hint stays once a tower starts
 local METER_HEIGHT = 170
+local LEVEL_SIZE = 46
+local LEVEL_DOT = 14
 
 -- Tutorial lines. "catch" and "cart" show until the first serve; the control lines show at the start of the
 -- first tower and again after the scheme changes (for example when the balance pad is switched on).
@@ -56,6 +58,7 @@ local keycaps: Frame
 local meter: Frame
 local meterStroke: UIStroke
 local meterFill: Frame
+local levelDot: Frame
 local toastLabel: TextLabel
 local toastStroke: UIStroke
 local cartMarker: BillboardGui
@@ -299,6 +302,30 @@ local function buildMeter()
 		Position = UDim2.new(0.5, 0, 0, -6),
 	}).Parent =
 		meter
+
+	-- A spirit level above the bar: the dot shows which way the top leans, seen from the camera (up = away from
+	-- you). Leaning towards or away from the camera is hard to see on the tower itself, and walking causes it.
+	local level = Ui.card({
+		Name = "Level",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 0, -28),
+		Size = UDim2.fromOffset(LEVEL_SIZE, LEVEL_SIZE),
+	}, UDim.new(0.5, 0))
+	local centre = Ui.circle(10, "vanilla", {
+		Name = "Centre",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		BackgroundTransparency = 0.7,
+	})
+	centre.Parent = level
+	levelDot = Ui.circle(LEVEL_DOT, "mint", {
+		Name = "Dot",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		ZIndex = 2,
+	})
+	levelDot.Parent = level
+	level.Parent = meter
 	meter.Parent = gui
 end
 
@@ -443,15 +470,22 @@ function Hud.setControls(scheme: string)
 	end
 end
 
--- tilt is the share of the tip angle.
-function Hud.setBalance(tilt: number, groaning: boolean, visible: boolean)
+-- tilt is the share of the tip angle; leanX/leanY the lean in screen space as a share of it (x right, y away
+-- from the camera).
+function Hud.setBalance(tilt: number, groaning: boolean, visible: boolean, leanX: number, leanY: number)
 	meter.Visible = visible
 	if not visible then
 		return
 	end
 	meterFill.Size = UDim2.fromScale(1, math.clamp(1 - tilt, 0, 1))
 	local danger = groaning or tilt >= Tuning.groanFraction
-	meterFill.BackgroundColor3 = if danger then COLORS.awning elseif tilt >= 0.5 then COLORS.lemon else COLORS.mint
+	local color = if danger then COLORS.awning elseif tilt >= 0.5 then COLORS.lemon else COLORS.mint
+	meterFill.BackgroundColor3 = color
+	local radius = (LEVEL_SIZE - LEVEL_DOT) / 2 - 2
+	local dotX = math.round(math.clamp(leanX, -1, 1) * radius)
+	local dotY = math.round(-math.clamp(leanY, -1, 1) * radius)
+	levelDot.Position = UDim2.new(0.5, dotX, 0.5, dotY)
+	levelDot.BackgroundColor3 = color
 	meterFill.BackgroundTransparency = if groaning then 0.35 + 0.35 * math.sin(os.clock() * 18) else 0
 	meterStroke.Color = if danger then COLORS.awning else COLORS.vanilla
 	meterStroke.Transparency = if danger then 0 else 0.6

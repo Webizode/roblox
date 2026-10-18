@@ -40,6 +40,7 @@ export type Tuning = {
 	padBase: number,
 	padPerInstability: number,
 	padMax: number,
+	padWrongWay: number,
 	driftStartScoops: number,
 	driftPerScoop: number,
 	jerkInterval: number,
@@ -314,17 +315,32 @@ function TowerModel.step(
 		end
 	end
 
+	-- The pad corrects: the part of the input that pushes against the current lean has full strength, the rest
+	-- (pushing an upright tower, pushing with the lean, pushing sideways) only padWrongWay of it. So a correct
+	-- press brings the tower back and runs out of force as it passes upright, a wrong one still adds risk.
+	local padX, padZ = input.padX, input.padZ
+	local lean = TowerModel.tilt(state)
+	local fixX, fixZ = 0, 0
+	if lean > 1e-4 then
+		local along = (padX * state.x + padZ * state.z) / lean
+		if along < 0 then
+			fixX, fixZ = along * state.x / lean, along * state.z / lean
+		end
+	end
+	padX = fixX + (padX - fixX) * tuning.padWrongWay
+	padZ = fixZ + (padZ - fixZ) * tuning.padWrongWay
+
 	local accelX = params.gravity * math.sin(state.x)
 		- params.stiffness * state.x
 		- params.damping * state.vx
 		- walk * input.ax
-		+ pad * input.padX
+		+ pad * padX
 		+ driftX
 	local accelZ = params.gravity * math.sin(state.z)
 		- params.stiffness * state.z
 		- params.damping * state.vz
 		- walk * input.az
-		+ pad * input.padZ
+		+ pad * padZ
 		+ driftZ
 
 	-- semi-implicit Euler: stable at 60 Hz for the stiffness range we use

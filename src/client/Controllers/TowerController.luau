@@ -250,7 +250,7 @@ local function updateHud(root: BasePart)
 	local leanY = lean:Dot(flatten(camera.CFrame.LookVector))
 	registry.BalancePad.setLevel(tilt, state.groan > 0, leanX, leanY)
 	-- with the pad on screen its ring already shows the level
-	registry.Hud.setBalance(tilt, state.groan > 0, #scoops > 0 and scheme ~= "pad")
+	registry.Hud.setBalance(tilt, state.groan > 0, #scoops > 0 and scheme ~= "pad", leanX, leanY)
 
 	local target = servePoint()
 	local distance = if target then (root.Position - target.Position).Magnitude else math.huge
