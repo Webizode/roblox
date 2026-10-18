@@ -381,4 +381,47 @@ describe("Pad and keyboard input", function()
 		expect(vz).toBe(0)
 		expect(peak).toBeLessThan(18 / Tuning.accelSmoothing + 1e-6)
 	end)
+
+	it("a dash kicks against its direction, grows with height and is capped", function()
+		local small, tall = TowerModel.newState(1), TowerModel.newState(1)
+		local kickSmall = TowerModel.dashKick(small, Tuning.dash, 3, 1, 0)
+		local kickTall = TowerModel.dashKick(tall, Tuning.dash, 12, 2, 0)
+		expect(small.vx).toBeLessThan(0)
+		expect(kickTall).toBeGreaterThan(kickSmall)
+		expect(TowerModel.dashKick(TowerModel.newState(1), Tuning.dash, 500, 0, 1)).toBe(Tuning.dash.kickMax)
+		expect(TowerModel.dashKick(TowerModel.newState(1), Tuning.dash, 0, 1, 0)).toBe(0)
+	end)
+
+	it("an upright tower of up to 8 scoops survives a dash with nobody balancing", function()
+		for count = 1, 8 do
+			local state = TowerModel.newState(count)
+			TowerModel.dashKick(state, Tuning.dash, count, 1, 0)
+			simulate(state, paramsFor(stack("vanilla", count)), PAD, 4, nil)
+			expect(state.toppled).toBe(false)
+		end
+	end)
+
+	it("a player with 0.25 s reaction time can dash with an upright 15-scoop tower", function()
+		for seed = 1, 4 do
+			local state = TowerModel.newState(seed)
+			TowerModel.dashKick(state, Tuning.dash, 15, 1, 0)
+			simulate(state, paramsFor(stack("vanilla", 15)), PAD, 10, padPlayer(1.6, 0.4), 15)
+			expect(state.toppled).toBe(false)
+		end
+	end)
+
+	it("a dash while a tall tower already leans back topples it, the same tower survives without the dash", function()
+		local function leaningBack(dash: boolean)
+			local state = TowerModel.newState(2)
+			state.x = -0.6 * Tuning.tipAngle
+			state.vx = -0.15
+			if dash then
+				TowerModel.dashKick(state, Tuning.dash, 15, 1, 0)
+			end
+			simulate(state, paramsFor(stack("vanilla", 15)), PAD, 6, padPlayer(1.6, 0.4), 15)
+			return state.toppled
+		end
+		expect(leaningBack(false)).toBe(false)
+		expect(leaningBack(true)).toBe(true)
+	end)
 end)

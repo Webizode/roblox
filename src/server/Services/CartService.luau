@@ -54,7 +54,7 @@ end
 local function onCharacter(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid.UseJumpPower = true
-	humanoid.JumpPower = 0
+	humanoid.JumpPower = EconomyConfig.jumpPower
 
 	local cart = assigned[player]
 	local servePoint = cart and cart:FindFirstChild("ServePoint")

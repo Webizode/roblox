@@ -3,9 +3,11 @@
 -- The control scheme is picked automatically from the device and the settings (see controlSchemes in
 -- Config/Tower); the HUD never shows or switches it.
 
+local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -31,6 +33,7 @@ TowerController.RENDER_PRIORITY = Enum.RenderPriority.Character.Value + 1
 local STEP = 1 / Tuning.stepRate
 local MAX_FRAME = 0.1 -- never simulate more than this per frame after a hitch
 local TOPPLE_TIMEOUT = 2
+local DASH_ACTION = "WobbleDash"
 local SCHEME_REPORT_DELAY = 1 -- a scheme is reported to the kill-test log once it has been stable this long
 
 local player = Players.LocalPlayer
@@ -54,6 +57,7 @@ local scheme = "walk"
 local schemeSince = 0
 local reportedScheme: string? = nil
 local groundY = 1
+local dashReadyAt = 0 -- local cooldown so the key cannot spam requests; the server has the final say
 
 local function coneLevel(): number
 	local value = player:GetAttribute("ConeLevel")
@@ -311,6 +315,94 @@ local function canCatch(): boolean
 	return #scoops < Economy.capacity(coneLevel(), EconomyConfig)
 end
 
+-- A lemon ring that bursts out under the character, seen by everyone.
+local function dashEffect(root: BasePart)
+	local ring = Instance.new("Part")
+	ring.Name = "DashRing"
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.CastShadow = false
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Material = Enum.Material.Neon
+	ring.Color = Color3.fromHex(Palette.lemon)
+	ring.Transparency = 0.25
+	ring.Size = Vector3.new(0.2, 3, 3)
+	ring.CFrame = CFrame.new(root.Position - Vector3.new(0, 2.6, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Parent = TowerVisual.root()
+	TweenService:Create(ring, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(0.2, 11, 11),
+		Transparency = 1,
+	}):Play()
+	task.delay(0.4, function()
+		ring:Destroy()
+	end)
+end
+
+-- The burst itself: a horizontal velocity for a moment, gravity untouched, then the humanoid takes over again.
+local function dashBurst(root: BasePart, dirX: number, dirZ: number)
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "DashAttachment"
+	attachment.Parent = root
+	local velocity = Instance.new("LinearVelocity")
+	velocity.Name = "DashVelocity"
+	velocity.Attachment0 = attachment
+	velocity.RelativeTo = Enum.ActuatorRelativeTo.World
+	velocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+	velocity.PrimaryTangentAxis = Vector3.xAxis
+	velocity.SecondaryTangentAxis = Vector3.zAxis
+	velocity.PlaneVelocity = Vector2.new(dirX, dirZ) * Tuning.dash.speed
+	velocity.MaxForce = root.AssemblyMass * 2000
+	velocity.Parent = root
+	task.delay(Tuning.dash.duration, function()
+		velocity:Destroy()
+		attachment:Destroy()
+	end)
+end
+
+local function onDash(who: Player, dirX: number, dirZ: number)
+	local character = who.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return
+	end
+	dashEffect(root)
+	if who ~= player then
+		return
+	end
+	dashReadyAt = os.clock() + Tuning.dash.cooldown
+	dashBurst(root, dirX, dirZ)
+	Sfx.play("dash")
+	if #scoops > 0 and not state.toppled and not toppledAt then
+		TowerModel.dashKick(state, Tuning.dash, #scoops, dirX, dirZ)
+	end
+end
+
+-- Shift on PC, the dash button on touch screens. Asks the server; the burst happens when it agrees.
+local function requestDash(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
+	if inputState ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Sink
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = rootPart()
+	if not humanoid or not root or humanoid.Health <= 0 or os.clock() < dashReadyAt then
+		return Enum.ContextActionResult.Sink
+	end
+	local direction = flatten(humanoid.MoveDirection)
+	if direction == Vector3.zero then
+		direction = flatten(root.CFrame.LookVector)
+	end
+	if direction == Vector3.zero then
+		return Enum.ContextActionResult.Sink
+	end
+	dashReadyAt = os.clock() + Tuning.dash.cooldown
+	Remotes.Dash:FireServer(direction.X, direction.Z)
+	-- Sink: Shift would otherwise also toggle shift lock
+	return Enum.ContextActionResult.Sink
+end
+
 function TowerController.Init(reg)
 	registry = reg
 	visual = TowerVisual.new("MyTower")
@@ -333,6 +425,17 @@ function TowerController.Start()
 		end
 	end)
 	schemeSince = os.clock()
+
+	Remotes.Dash.OnClientEvent:Connect(onDash)
+	ContextActionService:BindActionAtPriority(
+		DASH_ACTION,
+		requestDash,
+		true, -- creates the dash button on touch screens
+		Enum.ContextActionPriority.High.Value,
+		Enum.KeyCode.LeftShift,
+		Enum.KeyCode.RightShift
+	)
+	ContextActionService:SetTitle(DASH_ACTION, "Dash")
 
 	RunService:BindToRenderStep("WobbleTower", TowerController.RENDER_PRIORITY, onRenderStep)
 end

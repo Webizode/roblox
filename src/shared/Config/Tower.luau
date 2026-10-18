@@ -73,4 +73,18 @@ return {
 	keyReleaseTime = 0.06, -- seconds from full deflection back to 0
 
 	tiltSendRate = 10, -- Hz, tilt replication for other players
+
+	-- Dash (Shift on PC, a dash button on touch): a short burst in the move direction. The server checks the
+	-- cooldown. The cone is yanked forward, so the tower gets a tilt-rate kick against the dash direction that grows
+	-- with its height: a tower leaning into the dash is pushed upright, one already leaning back can go over.
+	dash = {
+		cooldown = 4, -- seconds
+		speed = 55, -- studs/s during the burst
+		duration = 0.18, -- seconds
+		kickBase = 0.2, -- rad/s
+		kickPerScoop = 0.03, -- rad/s per scoop
+		kickMax = 0.9, -- rad/s
+		unsteadySeconds = 0.6, -- afterwards pad and walking corrections are weaker for this long
+		unsteadyFactor = 0.3, -- share of the normal correction strength during that window
+	},
 }

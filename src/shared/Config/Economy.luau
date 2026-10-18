@@ -10,6 +10,7 @@ return {
 	baseWalkSpeed = 18,
 	walkSpeedPenaltyPerScoop = 0.012,
 	minWalkSpeed = 9,
+	jumpPower = 40, -- Roblox default is 50; a bit lower so a jump with a tower stays a hop
 
 	serveRadius = 8, -- studs around the cart's ServePoint
 	serveCooldown = 0.5,

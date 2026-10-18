@@ -26,6 +26,7 @@ type TowerState = {
 	cartLevel: number,
 	controls: string, -- control scheme the client reported, for the kill-test log only
 	lastControlsAt: number,
+	lastDashAt: number,
 	carryStartedAt: number?,
 	tiltX: number,
 	tiltZ: number,
@@ -43,6 +44,8 @@ local states: { [Player]: TowerState } = {}
 local MIN_TILT_INTERVAL = 0.5 / TowerTuning.tiltSendRate
 -- honest clients report their control scheme once it has been stable for a second; faster reports are dropped
 local CONTROLS_INTERVAL = 0.5
+-- the client starts its own cooldown when it asks, so the server allows a little network jitter on top
+local DASH_SLACK = 0.25
 
 local function now(): number
 	return workspace:GetServerTimeNow()
@@ -96,6 +99,7 @@ local function createState(player: Player): TowerState
 		cartLevel = 0,
 		controls = "unknown",
 		lastControlsAt = 0,
+		lastDashAt = 0,
 		carryStartedAt = nil,
 		tiltX = 0,
 		tiltZ = 0,
@@ -196,6 +200,29 @@ local function onTilt(player: Player, x: any, z: any)
 	end
 end
 
+-- A dash only moves the asker's own character and shakes their own tower; it pays nothing. The server decides
+-- whether it may happen (cooldown, alive, not seated) and tells every client, which plays the burst and effect.
+local function onDash(player: Player, dirX: any, dirZ: any)
+	local state = states[player]
+	if not state or not isFiniteNumber(dirX) or not isFiniteNumber(dirZ) then
+		return
+	end
+	local length = math.sqrt(dirX * dirX + dirZ * dirZ)
+	if length < 0.5 or length > 1.5 then
+		return
+	end
+	local time = now()
+	if time - state.lastDashAt < TowerTuning.dash.cooldown - DASH_SLACK then
+		return
+	end
+	local humanoid = humanoidOf(player)
+	if not humanoid or humanoid.Health <= 0 or humanoid.Sit then
+		return
+	end
+	state.lastDashAt = time
+	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length)
+end
+
 -- The client picks its control scheme by itself and only reports it, so the kill-test log can split serves and
 -- topples by scheme. It changes nothing on the server.
 local function onControlScheme(player: Player, scheme: any)
@@ -245,6 +272,7 @@ function TowerService.Start()
 	Remotes.ServeRequest.OnServerEvent:Connect(onServe)
 	Remotes.TowerTilt.OnServerEvent:Connect(onTilt)
 	Remotes.ControlScheme.OnServerEvent:Connect(onControlScheme)
+	Remotes.Dash.OnServerEvent:Connect(onDash)
 end
 
 function TowerService.count(player: Player): number

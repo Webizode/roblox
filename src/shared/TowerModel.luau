@@ -74,6 +74,8 @@ export type State = {
 	toppled: boolean,
 	steadySeconds: number,
 	rigidUntil: number,
+	unsteadyUntil: number, -- after a dash: corrections only partly land until this time
+	unsteadyFactor: number,
 }
 
 export type Input = {
@@ -104,6 +106,8 @@ function TowerModel.newState(seed: number): State
 		toppled = false,
 		steadySeconds = 0,
 		rigidUntil = 0,
+		unsteadyUntil = 0,
+		unsteadyFactor = 1,
 	}
 end
 
@@ -117,6 +121,7 @@ function TowerModel.reset(state: State)
 	state.toppled = false
 	state.steadySeconds = 0
 	state.rigidUntil = 0
+	state.unsteadyUntil = 0
 end
 
 -- flavorIds are bottom to top. stiffnessMultiplier comes from the cone upgrade.
@@ -183,6 +188,33 @@ function TowerModel.impulse(state: State, ix: number, iz: number)
 	end
 	state.vx += ix
 	state.vz += iz
+end
+
+-- A dash yanks the cone, so the top lags behind: a tilt-rate kick against the dash direction (a unit vector on the
+-- ground) that grows with the scoop count, and a short window in which pad and walking corrections are weaker.
+-- Returns the kick size.
+function TowerModel.dashKick(
+	state: State,
+	dash: {
+		kickBase: number,
+		kickPerScoop: number,
+		kickMax: number,
+		unsteadySeconds: number,
+		unsteadyFactor: number,
+	},
+	count: number,
+	dirX: number,
+	dirZ: number
+): number
+	local length = math.sqrt(dirX * dirX + dirZ * dirZ)
+	if count <= 0 or length < 1e-6 then
+		return 0
+	end
+	local kick = math.min(dash.kickMax, dash.kickBase + dash.kickPerScoop * count)
+	TowerModel.impulse(state, -dirX / length * kick, -dirZ / length * kick)
+	state.unsteadyUntil = state.t + dash.unsteadySeconds
+	state.unsteadyFactor = dash.unsteadyFactor
+	return kick
 end
 
 -- Small nudge when a scoop lands. Direction varies with the scoop count so it is never the same twice.
@@ -266,6 +298,11 @@ function TowerModel.step(
 	local driftZ = drift * wander(state.seed, state.t, 2)
 	local pad = TowerModel.padAuthority(params, variant, tuning)
 	local walk = TowerModel.accelAuthority(params, variant)
+	if state.t < state.unsteadyUntil then
+		-- right after a dash the cone is still swinging, so corrections only partly land
+		pad *= state.unsteadyFactor
+		walk *= state.unsteadyFactor
+	end
 
 	if params.jerk > 0 then
 		local interval = math.max(1, math.floor(tuning.jerkInterval / dt + 0.5))
