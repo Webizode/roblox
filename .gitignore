@@ -5,6 +5,8 @@
 *.rbxlx.lock
 /build/
 sourcemap.json
+# start-rojo.cmd remembers which plugin version it installed
+.rojo-plugin-version
 
 # selene generates this from the Roblox API dump on first run
 roblox.yml

@@ -12,9 +12,9 @@ Roblox-Spiel: Eiskugeln fangen, einen wackelnden Turm mit dem Daumen balancieren
    Für Claude Code ist das schon im Repo eingerichtet: `.mcp.json` enthält die Studio-Konfiguration. Startest du Claude Code im Repo-Ordner, fragt es einmal, ob es den Server `Roblox_Studio` nutzen darf, dann zustimmen.
    Fallback per CLI (der Befehl, den Studio für Claude Code anzeigt, mit `--scope user`, damit er in jedem Ordner gilt):
    `claude mcp add --scope user --transport stdio Roblox_Studio -- "cmd.exe" "/c" "cd /d %LOCALAPPDATA%\Roblox && .\mcp.bat"`
-4. **Git** installieren und das Repo nach `Dokumente\roblox` klonen (normale PowerShell, nicht die ISE, nicht als Administrator):
+4. **Git** installieren und das Repo nach `C:\Users\<Name>\roblox` klonen (normale PowerShell, nicht die ISE, nicht als Administrator). Ein anderer Ordner geht auch, dann die Pfade unten anpassen; OneDrive-Ordner meiden:
    ```powershell
-   cd $HOME\Documents
+   cd $HOME
    git clone -b claude/wobble-scoops-week1 https://github.com/Webizode/roblox.git roblox
    ```
 5. **Rokit** (Toolchain-Manager) in PowerShell installieren:
@@ -24,7 +24,7 @@ Roblox-Spiel: Eiskugeln fangen, einen wackelnden Turm mit dem Daumen balancieren
 6. Im selben Fenster weiter, **im Repo-Ordner**:
    ```powershell
    $env:Path = "$HOME\.rokit\bin;$env:Path"   # Rokit sofort nutzbar, ohne neu anzumelden
-   cd $HOME\Documents\roblox
+   cd $HOME\roblox
    rokit trust rojo-rbx/rojo JohnnyMorganz/StyLua Kampfkarren/selene lune-org/lune
    rokit install          # Rojo, StyLua, Selene, Lune in den Versionen aus rokit.toml
    rojo plugin install    # Rojo-Plugin für Studio
@@ -32,14 +32,16 @@ Roblox-Spiel: Eiskugeln fangen, einen wackelnden Turm mit dem Daumen balancieren
 
 ## Spielen und testen
 
-**Rojo starten:** im Repo-Ordner `start-rojo.cmd` doppelklicken. Das Skript wechselt selbst in den richtigen Ordner, installiert fehlende Tools und das Studio-Plugin und startet den Server. Oder in einer normalen PowerShell (nicht in der ISE):
+**Rojo starten:** im Repo-Ordner `start-rojo.cmd` doppelklicken. Das Skript wechselt selbst in den richtigen Ordner, zeigt die Rokit- und Rojo-Version, installiert fehlende Tools und das passende Studio-Plugin, verhindert einen zweiten Server und startet `rojo serve default.project.json`. Oder in einer normalen PowerShell (nicht in der ISE):
 
 ```powershell
-cd $HOME\Documents\roblox
+cd $HOME\roblox
 rojo serve default.project.json
 ```
 
-Das Fenster offen lassen. In Studio eine neue *Baseplate* öffnen → Plugins → Rojo → *Connect*. Dann **Play (F5)**: Der Server baut beim Start automatisch einen Graybox-Pier, wenn im Place noch keiner existiert.
+Das Fenster offen lassen. In Studio den Place öffnen (beim ersten Mal eine neue *Baseplate*) → Plugins → Rojo → *Connect*, die angezeigten Änderungen prüfen, *Accept*. Dann **Play (F5)**: Der Server baut beim Start automatisch einen Graybox-Pier, wenn im Place noch keiner existiert.
+
+**Live-Sync:** Jede gespeicherte Datei unter `src/` ist sofort in Studio. Einstellungen, Grenzen bei laufendem Playtest (nach Codeänderungen Stop + F5) und Fehlerbehebung: [`docs/live-sync.md`](docs/live-sync.md). Änderungen aus Cloud-Sessions holst du mit `git pull --ff-only` im Repo-Ordner, Rojo übernimmt sie ohne Neustart.
 
 - **Mehrspieler:** Test → *Clients and Servers* → 2–3 Spieler → Start.
 - **Handy:** Test → *Device* (Emulator) und echtes Handy über eine privat veröffentlichte Version (File → Publish to Roblox).
@@ -58,7 +60,7 @@ Das Fenster offen lassen. In Studio eine neue *Baseplate* öffnen → Plugins �
 
 | Meldung | Ursache | Lösung |
 |---|---|---|
-| `Failed to find tool 'rojo' in any project manifest file` | Rokit sucht `rokit.toml` nur im aktuellen Ordner und den Ordnern darüber. Das Fenster steht nicht im Repo-Ordner (neue PowerShell startet in `C:\Users\<Name>`, als Admin in `C:\WINDOWS\system32`). | `cd $HOME\Documents\roblox`, dann erneut. Oder `start-rojo.cmd` doppelklicken. |
+| `Failed to find tool 'rojo' in any project manifest file` | Rokit sucht `rokit.toml` nur im aktuellen Ordner und den Ordnern darüber. Das Fenster steht nicht im Repo-Ordner (neue PowerShell startet in `C:\Users\<Name>`, als Admin in `C:\WINDOWS\system32`). | `cd $HOME\roblox`, dann erneut. Oder `start-rojo.cmd` doppelklicken. |
 | `Installed and created links for 0 tools` | `rokit install` lief außerhalb des Repo-Ordners. | Im Repo-Ordner wiederholen. |
 | `The following tool has not been marked as trusted` | Die Vertrauens-Abfrage von `rokit install` funktioniert nicht in der PowerShell ISE. | `rokit trust …` aus Setup-Schritt 6 ausführen, dann `rokit install`. |
 | `rokit` wird nicht erkannt | Rokit trägt sich bei der Installation nur in die Registry ein. Neue Fenster sehen das erst nach dem nächsten Anmelden. | Im Fenster `$env:Path = "$HOME\.rokit\bin;$env:Path"` ausführen, oder `start-rojo.cmd` doppelklicken (das macht es selbst). Fehlt Rokit ganz: Setup-Schritt 5. |
@@ -85,4 +87,4 @@ Führt StyLua, Selene, die Lune-Tests, einen Rojo-Build und die Prüfung des geb
 | `src/server` | `ServerScriptService.Server` | Services: Graybox, Cart, Tower, Launcher, KillTestLog |
 | `src/client` | `StarterPlayerScripts.Client` | TowerVisual, Sfx, Ui (gemeinsamer UI-Stil), Controllers: Hud, Settings, BalancePad, TowerController, ShotRenderer, RemoteTowers |
 | `tests` | (nur Lune) | Unit-Tests der reinen Logik, Syntax-Check aller Dateien, Place-Check |
-| `docs` | | Konzept, Kill-Test |
+| `docs` | | Konzept, Kill-Test, Live-Sync mit Studio |

@@ -4,7 +4,7 @@ Roblox-Spiel, Solo-Projekt mit Claude Code. Ziel: ~2.000 € über DevEx. Refere
 
 ## Workflow
 
-- **Code lebt in Dateien** unter `src/` und wird per Rojo (`rojo serve`) live nach Studio gesynct. Scripts nie direkt in Studio ändern, Rojo überschreibt sie.
+- **Code lebt in Dateien** unter `src/` und wird per Rojo (`rojo serve`) live nach Studio gesynct. Scripts nie direkt in Studio ändern, Rojo überschreibt sie. Ablauf, Plugin-Einstellungen und Grenzen (laufender Playtest lädt Code nicht nach): `docs/live-sync.md`.
 - **Die Map lebt im Place** (`Workspace.Pier`). Sie wird in Studio gebaut (per Studio-MCP oder von Hand) und muss dem Map-Vertrag oben in `src/server/Services/GrayboxService.luau` folgen. Fehlt `Workspace.Pier`, baut der Server eine Graybox.
 - **Studio-MCP** (nur lokal auf Windows/Mac) ist für Playtests da: Play starten, Konsole auf Fehler prüfen, Screenshots, Spieler steuern, Map bauen, `ServerStorage.KillTestLog` lesen.
 - Vor jedem Commit: `lune run scripts/check` (StyLua, Selene, Lune-Tests, Rojo-Build, Place-Check). Muss grün sein.
