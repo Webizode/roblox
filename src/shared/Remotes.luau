@@ -15,7 +15,7 @@ local DEFINITIONS = {
 	ServeRequest = "RemoteEvent", -- client -> server: steadyBonus
 	Served = "RemoteEvent", -- server -> all: player, count, value
 	Dash = "RemoteEvent", -- client -> server: dirX, dirZ (request); server -> all: player, dirX, dirZ (granted)
-	ControlScheme = "RemoteEvent", -- client -> server: scheme from Config/Tower controlSchemes (kill-test log only)
+	Rescue = "RemoteEvent", -- client -> server: request; server -> all: player (granted)
 }
 
 local remotes = {}

@@ -29,7 +29,7 @@ return {
 	padPerInstability = 1.7,
 	padMax = 10,
 	-- Share of that authority for input that does not reduce the current lean (pushing an upright tower, pushing
-	-- with the lean, sideways). Holding a key on an upright tower used to lean it 50-100 % of the tip angle.
+	-- with the lean, sideways). The stabiliser and the rescue act through this, so they cannot push a tower over.
 	padWrongWay = 0.35,
 	driftStartScoops = 10, -- below this the tower never wanders on its own
 	driftPerScoop = 0.12, -- rad/s^2 of slow wandering per scoop above the start
@@ -46,34 +46,34 @@ return {
 
 	accelSmoothing = 0.25, -- seconds, MoveDirection lerp that feeds the tower instead of raw Humanoid velocity
 
-	-- Physics profile per variant. padGain multiplies the pad authority above, driftScale the random wandering.
-	-- accelSmoothing overrides the movement smoothing per variant.
-	-- A balances by walking only. Simulated through the real input path (capped walk speed, 0.25 s reaction) it
-	-- held at most 11 scoops with the shared 0.25 s smoothing; with 0.08 s smoothing and extra leverage on
-	-- unstable towers it holds about 15, and a full-speed reversal stays below the groan line up to 8 scoops.
-	variants = {
-		A = { accelGain = 0.025, accelPerInstability = 3, accelSmoothing = 0.08, padGain = 0, driftScale = 0.6 },
-		B = { accelGain = 0.02, padGain = 1, driftScale = 1 },
-		C = { accelGain = 0.02, padGain = 0.8, driftScale = 1 },
+	-- Physics profile. padGain multiplies the pad authority above (the stabiliser and the rescue act through it),
+	-- driftScale the random wandering.
+	variant = { accelGain = 0.02, padGain = 1, driftScale = 1 },
+
+	-- Automatic stabiliser (TowerModel.assist), a PD controller on the lean that is deliberately imperfect: it sees
+	-- the lean smoothed over `lag` seconds, uses at most `strength` of the pad, gives up between fadeFrom and fadeTo
+	-- of the tip angle, and gets weaker from fullUntil scoops to `floor` of its strength at zeroAt scoops.
+	-- In simulation (no player input at all): standing still, towers of up to 20 scoops stay up for 60 s; walking
+	-- with a full-speed 90 degree turn every 1.5 s peaks at about 30 % of the tip angle up to 9 scoops, 47 % at 11,
+	-- risks a topple from 13 and needs rescues from 15.
+	assist = {
+		kp = 2.0,
+		kd = 0.6,
+		lag = 0.35,
+		strength = 0.35,
+		fadeFrom = 0.3,
+		fadeTo = 0.6,
+		fullUntil = 2,
+		zeroAt = 20,
+		floor = 0.55,
 	},
 
-	-- There is no control switch in the HUD. The client picks the scheme by itself, first match wins:
-	-- pad (balance pad switched on in Settings), keys (a keyboard is connected), gyro (the device reports
-	-- gravity and tilt controls are on in Settings), walk (everything else, e.g. phones without a sensor).
-	-- Each scheme runs the physics variant named here.
-	controlSchemes = { pad = "B", keys = "B", gyro = "C", walk = "A" },
-
-	-- gyro: device gravity is measured in the phone's own axes. In landscape the long axis runs along the screen,
-	-- and LandscapeLeft/Right are 180 degrees apart. The signs below are a best guess and must be checked on a
-	-- real phone before the kill test.
-	gyroGain = 2.5, -- unit-gravity delta to pad units
-	gyroSignX = 1,
-	gyroSignY = 1,
-
-	-- keyboard on PC: I/J/K/L push like the pad. Keys ramp up so a tap is a nudge and holding is a full push.
-	keyboardPad = true,
-	keyRampTime = 0.2, -- seconds from 0 to full deflection
-	keyReleaseTime = 0.06, -- seconds from full deflection back to 0
+	-- Rescue (F on PC, Steady button on touch): full pad strength against the real lean, without the stabiliser's
+	-- delay, for `duration` seconds. The next one is allowed `cooldown` seconds after it ends; the server checks it.
+	-- Its push is capped at `authority` rad/s^2 (tall towers otherwise get up to padMax), so it can fail: in
+	-- simulation 60-75 % leans are saved, a tall tower groaning near the tip angle with momentum is not.
+	rescue = { duration = 1.5, cooldown = 6, authority = 4 },
+	warnFraction = 0.6, -- from this share of the tip angle the HUD warns (the stabiliser has given up by then)
 
 	tiltSendRate = 10, -- Hz, tilt replication for other players
 

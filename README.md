@@ -2,7 +2,7 @@
 
 Roblox-Spiel: Eiskugeln fangen, einen wackelnden Turm mit dem Daumen balancieren und ihn zum eigenen Eiswagen tragen, bevor er kippt. Volles Konzept in [`docs/concept.md`](docs/concept.md), der Kill-Test für Woche 1 in [`docs/killtest.md`](docs/killtest.md).
 
-**Stand:** Woche 1, Feel-Prototyp. Big Swirl schießt Kugeln, Fangen, Wackelturm mit automatisch gewählter Steuerung (Tasten am PC, Neigen am Handy, sonst Laufen; Balance-Pad optional in den Einstellungen), Servieren am Wagen, Coins, Kill-Test-Log. Rempeln, Greg, Golden Scoops, Speichern und Shop kommen ab Woche 2.
+**Stand:** Woche 1, Feel-Prototyp. Big Swirl schießt Kugeln, Fangen, Wackelturm mit automatischer Grundstabilisierung und Rettung (F / Steady), Springen und Dash, Servieren am Wagen, Coins, Kill-Test-Log. Rempeln, Greg, Golden Scoops, Speichern und Shop kommen ab Woche 2.
 
 ## Setup auf Windows (einmalig, ca. 1 Abend)
 
@@ -46,12 +46,13 @@ Das Fenster offen lassen. In Studio den Place öffnen (beim ersten Mal eine neue
 - **Mehrspieler:** Test → *Clients and Servers* → 2–3 Spieler → Start.
 - **Handy:** Test → *Device* (Emulator) und echtes Handy über eine privat veröffentlichte Version (File → Publish to Roblox).
 - **Latenz:** Studio-Einstellungen → Network → *Incoming Replication Lag* auf 0,2 s, so fühlt sich ein typisches Handy an.
-- **Steuerung:** wird automatisch gewählt, es gibt keinen Umschalter im HUD.
-  - **PC (Tastatur):** WASD laufen, I/J/K/L drücken den Turm gegen die Neigung. Tippen = kleiner Schubs, Halten = voller Schub. Beim ersten Turm zeigt ein Hinweis die Tasten.
-  - **Handy mit Lagesensor:** Gerät gegen die Neigung kippen. Abschaltbar in den Einstellungen („Tilt controls“), dann wird durch Laufen balanciert.
-  - **Handy ohne Sensor / Gamepad:** Balancieren durch Laufen in Richtung der Neigung.
-  - **Balance-Pad:** nur, wenn es in den Einstellungen (Regler-Symbol unter den Coins) eingeschaltet ist. Auf das Pad klicken oder tippen und von dort gegen die Neigung ziehen; der Punkt im Pad zeigt, wohin der Turm kippt. Solange das Pad an ist, zählt nur das Pad (I/J/K/L sind dann aus), damit es keine doppelte Steuerung gibt.
-- **HUD:** Coins und Einstellungen links, Turm-Karte (Kugeln, Wert, Steady-Bonus) unten Mitte mit höchstens einem Hinweis darüber, Balance-Anzeige rechts (am PC unten rechts, am Handy über dem Sprung-Button), solange du einen Turm trägst. Es gibt keine Wurf- oder Fang-Buttons: Die Big Swirl schießt von selbst, gefangen und serviert wird automatisch.
+- **Steuerung:**
+  - **PC:** WASD laufen, Maus Kamera, Leertaste springen, Shift Dash (4 s Abklingzeit), **F Rettung**.
+  - **Handy:** Joystick, Sprung-Button, Buttons *Dash* und *Steady* (Rettung).
+  - **Balance:** Ein eingebauter Stabilisator gleicht kleine Schwankungen von selbst aus. Er reagiert etwas verzögert, gibt bei starker Neigung auf und wird mit der Turmhöhe schwächer. Bis etwa 10 Kugeln musst du nichts tun, darüber machen Laufen, Richtungswechsel und Dash den Turm gefährlich. Im Stand fällt kein Turm bis 20 Kugeln von selbst.
+  - **Rettung (F / Steady):** 1,5 s volle Gegenkraft gegen die tatsächliche Neigung, danach 6 s Abklingzeit. Ein Druck ist eine Rettung, Halten verlängert nichts. Zu spät (Turm ächzt schon nahe am Kippwinkel, vor allem mit Schwung) kann sie scheitern.
+  - I/J/K/L haben keine Funktion mehr; I/O zoomen wieder die Kamera wie im Roblox-Standard.
+- **HUD:** Coins links, Turm-Karte (Kugeln, Wert, Steady-Bonus) unten Mitte mit höchstens einem Hinweis darüber, Balance-Anzeige mit Wasserwaage rechts (am PC unten rechts, am Handy über dem Sprung-Button), solange du einen Turm trägst. Der Punkt zeigt die Neigungsrichtung aus Kamerasicht (oben = von dir weg). Ab 60 % Neigung pulsiert der Rand rot und darüber steht „Press F to steady it“ bzw. „Tap Steady“; während einer Rettung leuchtet er mint, in der Abklingzeit ist er blass. Es gibt keine Wurf- oder Fang-Buttons: Die Big Swirl schießt von selbst, gefangen und serviert wird automatisch.
 - **Fangen:** Eine Kugel zählt, sobald sie den Turm irgendwo berührt, nicht nur die Spitze. Servieren passiert automatisch, wenn du mit dem Turm von draußen auf die gelbe Matte am eigenen Wagen läufst.
 - **Kill-Test-Daten:** Die Ausgabe zeigt alle 2 Minuten `[KillTest] summary`, die Rohdaten liegen als JSON in `ServerStorage.KillTestLog`.
 - **Fang-Diagnose:** Solange `debugCatch` in `src/shared/Config/Features.luau` an ist, schreibt der Server jeden abgelehnten Fang mit Grund in die Ausgabe (`[Catch] rejected …`).
@@ -85,6 +86,6 @@ Führt StyLua, Selene, die Lune-Tests, einen Rojo-Build und die Prüfung des geb
 |---|---|---|
 | `src/shared` | `ReplicatedStorage.Shared` | reine Logik (TowerModel, TowerShape, Economy, Recipes, ShotMath), Remotes, `Config/*` |
 | `src/server` | `ServerScriptService.Server` | Services: Graybox, Cart, Tower, Launcher, KillTestLog |
-| `src/client` | `StarterPlayerScripts.Client` | TowerVisual, Sfx, Ui (gemeinsamer UI-Stil), Controllers: Hud, Settings, BalancePad, TowerController, ShotRenderer, RemoteTowers |
+| `src/client` | `StarterPlayerScripts.Client` | TowerVisual, Sfx, Ui (gemeinsamer UI-Stil), Controllers: Hud, TowerController, ShotRenderer, RemoteTowers |
 | `tests` | (nur Lune) | Unit-Tests der reinen Logik, Syntax-Check aller Dateien, Place-Check |
 | `docs` | | Konzept, Kill-Test, Live-Sync mit Studio |

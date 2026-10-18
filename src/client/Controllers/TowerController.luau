@@ -1,14 +1,12 @@
--- Owns the local tower: runs TowerModel at a fixed step, feeds it smoothed movement plus pad/key/gyro input,
--- renders it, reports topples, replicates tilt and serves automatically at the player's cart.
--- The control scheme is picked automatically from the device and the settings (see controlSchemes in
--- Config/Tower); the HUD never shows or switches it.
+-- Owns the local tower: runs TowerModel at a fixed step, feeds it smoothed movement plus the automatic
+-- stabiliser (TowerModel.assist), renders it, reports topples, replicates tilt and serves automatically at the
+-- player's cart. Players only steer with WASD; F or the Steady button asks the server for a short rescue.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -34,7 +32,9 @@ local STEP = 1 / Tuning.stepRate
 local MAX_FRAME = 0.1 -- never simulate more than this per frame after a hitch
 local TOPPLE_TIMEOUT = 2
 local DASH_ACTION = "WobbleDash"
-local SCHEME_REPORT_DELAY = 1 -- a scheme is reported to the kill-test log once it has been stable this long
+local RESCUE_ACTION = "WobbleSteady"
+-- above the default camera and player scripts, so no core binding can take these keys first
+local ACTION_PRIORITY = Enum.ContextActionPriority.High.Value + 100
 
 local player = Players.LocalPlayer
 local registry
@@ -51,13 +51,9 @@ local lastServeRequest = 0
 -- a tower is only served after it has been carried outside the serve radius once, so catching next to the
 -- cart does not instantly serve every single scoop
 local serveArmed = false
-local gyroBase: Vector3? = nil
-local gyroSeen = false -- the motion sensor has delivered a real reading, so tilt controls can work here
-local scheme = "walk"
-local schemeSince = 0
-local reportedScheme: string? = nil
 local groundY = 1
 local dashReadyAt = 0 -- local cooldown so the key cannot spam requests; the server has the final say
+local rescueReadyAt = 0 -- same for the rescue
 
 local function coneLevel(): number
 	local value = player:GetAttribute("ConeLevel")
@@ -84,96 +80,6 @@ end
 local function flatten(vector: Vector3): Vector3
 	local flat = Vector3.new(vector.X, 0, vector.Z)
 	return if flat.Magnitude > 1e-4 then flat.Unit else Vector3.zero
-end
-
--- Device gravity as a unit vector in screen axes (x right, y up), or nil while the sensor has no reading.
--- The device reports in its own axes; in landscape its long axis runs along the screen, and the two landscape
--- orientations are 180 degrees apart. Signs come from Config/Tower and are unverified on real phones.
-local function screenGravity(): Vector3?
-	local gravity = UserInputService:GetDeviceGravity().Position
-	if gravity.Magnitude < 0.5 then
-		return nil
-	end
-	gravity = gravity.Unit
-	local orientation = player.PlayerGui.CurrentScreenOrientation
-	local x, y = gravity.X, gravity.Y
-	if orientation == Enum.ScreenOrientation.LandscapeLeft then
-		x, y = -gravity.Y, gravity.X
-	elseif orientation == Enum.ScreenOrientation.LandscapeRight then
-		x, y = gravity.Y, -gravity.X
-	end
-	return Vector3.new(x * Tuning.gyroSignX, y * Tuning.gyroSignY, gravity.Z)
-end
-
-local function gyroAvailable(): boolean
-	if not UserInputService.AccelerometerEnabled then
-		return false
-	end
-	if not gyroSeen then
-		gyroSeen = screenGravity() ~= nil
-	end
-	return gyroSeen
-end
-
--- First match wins: the pad when it is switched on, keys when a keyboard is connected, tilt when the device has a
--- working motion sensor and tilt controls are on, otherwise balancing by walking.
-local function pickScheme(): string
-	if registry.Settings.get("balancePad") then
-		return "pad"
-	elseif Tuning.keyboardPad and UserInputService.KeyboardEnabled then
-		return "keys"
-	elseif registry.Settings.get("tiltControls") and gyroAvailable() then
-		return "gyro"
-	end
-	return "walk"
-end
-
-local function updateScheme()
-	local picked = pickScheme()
-	if picked ~= scheme then
-		scheme = picked
-		schemeSince = os.clock()
-		gyroBase = nil -- recalibrate the neutral phone angle on every change
-		registry.BalancePad.setMode(if picked == "pad" then "pad" elseif picked == "keys" then "keys" else "off")
-		registry.Hud.setControls(picked)
-	end
-	-- only for the kill-test log; waiting until it settles keeps a quick back-and-forth in the settings quiet
-	if scheme ~= reportedScheme and os.clock() - schemeSince >= SCHEME_REPORT_DELAY then
-		reportedScheme = scheme
-		Remotes.ControlScheme:FireServer(scheme)
-	end
-end
-
--- Corrective input in world space, from the pad or keys (screen space) or the device tilt.
-local function correctiveInput(): (number, number)
-	local screenX, screenY = 0, 0
-	if scheme == "gyro" then
-		if #scoops == 0 then
-			-- the neutral angle is taken when the next tower starts, not while the phone is still tilted from
-			-- the tower just served
-			gyroBase = nil
-			return 0, 0
-		end
-		local gravity = screenGravity()
-		if gravity then
-			if not gyroBase then
-				gyroBase = gravity
-			end
-			local delta = gravity - gyroBase
-			screenX = math.clamp(delta.X * Tuning.gyroGain, -1, 1)
-			screenY = math.clamp(delta.Y * Tuning.gyroGain, -1, 1)
-		end
-	elseif scheme == "pad" or scheme == "keys" then
-		screenX, screenY = registry.BalancePad.get()
-	else
-		return 0, 0
-	end
-
-	local camera = workspace.CurrentCamera
-	local right = flatten(camera.CFrame.RightVector)
-	local forward = flatten(camera.CFrame.LookVector)
-	local world = right * screenX + forward * screenY
-	return world.X, world.Z
 end
 
 local function onEvent(event: string)
@@ -219,8 +125,8 @@ local function onTowerChanged(newScoops: { string }, reason: string)
 end
 
 local function simulate(dt: number, humanoid: Humanoid)
-	local variant = Tuning.variants[Tuning.controlSchemes[scheme]]
-	local smoothing = variant.accelSmoothing or Tuning.accelSmoothing
+	local variant = Tuning.variant
+	local smoothing = Tuning.accelSmoothing
 	accumulator = math.min(accumulator + dt, MAX_FRAME)
 	while accumulator >= STEP do
 		accumulator -= STEP
@@ -229,7 +135,7 @@ local function simulate(dt: number, humanoid: Humanoid)
 		baseVelocityX, baseVelocityZ, ax, az =
 			TowerModel.baseVelocityStep(baseVelocityX, baseVelocityZ, target.X, target.Z, smoothing, STEP)
 
-		local padX, padZ = correctiveInput()
+		local padX, padZ = TowerModel.assist(state, params, Tuning.variant, Tuning, STEP)
 		local event = TowerModel.step(state, params, {
 			ax = ax,
 			az = az,
@@ -248,9 +154,11 @@ local function updateHud(root: BasePart)
 	local lean = Vector3.new(state.x, 0, state.z) / Tuning.tipAngle
 	local leanX = lean:Dot(flatten(camera.CFrame.RightVector))
 	local leanY = lean:Dot(flatten(camera.CFrame.LookVector))
-	registry.BalancePad.setLevel(tilt, state.groan > 0, leanX, leanY)
-	-- with the pad on screen its ring already shows the level
-	registry.Hud.setBalance(tilt, state.groan > 0, #scoops > 0 and scheme ~= "pad", leanX, leanY)
+	local rescue = if TowerModel.rescueActive(state)
+		then "active"
+		elseif os.clock() < rescueReadyAt then "cooldown"
+		else "ready"
+	registry.Hud.setBalance(tilt, state.groan > 0, #scoops > 0, leanX, leanY, rescue)
 
 	local target = servePoint()
 	local distance = if target then (root.Position - target.Position).Magnitude else math.huge
@@ -293,8 +201,6 @@ local function onRenderStep(dt: number)
 		return
 	end
 
-	updateScheme()
-
 	if toppledAt and os.clock() - toppledAt > TOPPLE_TIMEOUT then
 		-- the server never answered the topple: fall back to the last list it sent
 		TowerModel.reset(state)
@@ -315,8 +221,8 @@ local function canCatch(): boolean
 	return #scoops < Economy.capacity(coneLevel(), EconomyConfig)
 end
 
--- A lemon ring that bursts out under the character, seen by everyone.
-local function dashEffect(root: BasePart)
+-- A ring that bursts out under the character, seen by everyone: lemon for a dash, mint for a rescue.
+local function burstRing(root: BasePart, colorHex: string)
 	local ring = Instance.new("Part")
 	ring.Name = "DashRing"
 	ring.Anchored = true
@@ -326,7 +232,7 @@ local function dashEffect(root: BasePart)
 	ring.CastShadow = false
 	ring.Shape = Enum.PartType.Cylinder
 	ring.Material = Enum.Material.Neon
-	ring.Color = Color3.fromHex(Palette.lemon)
+	ring.Color = Color3.fromHex(colorHex)
 	ring.Transparency = 0.25
 	ring.Size = Vector3.new(0.2, 3, 3)
 	ring.CFrame = CFrame.new(root.Position - Vector3.new(0, 2.6, 0)) * CFrame.Angles(0, 0, math.rad(90))
@@ -367,7 +273,7 @@ local function onDash(who: Player, dirX: number, dirZ: number)
 	if not root then
 		return
 	end
-	dashEffect(root)
+	burstRing(root, Palette.lemon)
 	if who ~= player then
 		return
 	end
@@ -403,6 +309,35 @@ local function requestDash(_: string, inputState: Enum.UserInputState): Enum.Con
 	return Enum.ContextActionResult.Sink
 end
 
+local function onRescue(who: Player)
+	local character = who.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return
+	end
+	burstRing(root, Palette.mint)
+	if who ~= player then
+		return
+	end
+	rescueReadyAt = os.clock() + Tuning.rescue.duration + Tuning.rescue.cooldown
+	TowerModel.rescue(state, Tuning.rescue.duration)
+	Sfx.play("saved")
+end
+
+-- F on PC, the Steady button on touch screens. One press is one rescue: only the Begin of an input counts, so
+-- holding the key does nothing more, and the server checks the cooldown before the rescue starts.
+local function requestRescue(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
+	if inputState ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Sink
+	end
+	if #scoops == 0 or state.toppled or toppledAt or os.clock() < rescueReadyAt then
+		return Enum.ContextActionResult.Sink
+	end
+	rescueReadyAt = os.clock() + Tuning.rescue.duration + Tuning.rescue.cooldown
+	Remotes.Rescue:FireServer()
+	return Enum.ContextActionResult.Sink
+end
+
 function TowerController.Init(reg)
 	registry = reg
 	visual = TowerVisual.new("MyTower")
@@ -424,18 +359,26 @@ function TowerController.Start()
 			registry.Hud.toast(string.format("%s served %d scoops!", who.DisplayName, count), Palette.strawberry)
 		end
 	end)
-	schemeSince = os.clock()
-
 	Remotes.Dash.OnClientEvent:Connect(onDash)
 	ContextActionService:BindActionAtPriority(
 		DASH_ACTION,
 		requestDash,
 		true, -- creates the dash button on touch screens
-		Enum.ContextActionPriority.High.Value,
+		ACTION_PRIORITY,
 		Enum.KeyCode.LeftShift,
 		Enum.KeyCode.RightShift
 	)
 	ContextActionService:SetTitle(DASH_ACTION, "Dash")
+
+	Remotes.Rescue.OnClientEvent:Connect(onRescue)
+	ContextActionService:BindActionAtPriority(
+		RESCUE_ACTION,
+		requestRescue,
+		true, -- creates the Steady button on touch screens
+		ACTION_PRIORITY,
+		Enum.KeyCode.F
+	)
+	ContextActionService:SetTitle(RESCUE_ACTION, "Steady")
 
 	RunService:BindToRenderStep("WobbleTower", TowerController.RENDER_PRIORITY, onRenderStep)
 end

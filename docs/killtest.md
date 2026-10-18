@@ -4,7 +4,7 @@ Eine Frage entscheidet, ob wir Wobble Scoops weiterbauen: **Fühlt sich das Bala
 
 ## Vorbereitung
 
-- Place mit `rojo serve` + Studio, ein Testlauf allein: Fangen, Wackeln, Servieren, einmal das Balance-Pad in den Einstellungen ein- und wieder ausschalten.
+- Place mit `rojo serve` + Studio, ein Testlauf allein: Fangen, Wackeln, Servieren, einmal Rettung (F) und Dash (Shift).
 - In Studio die Latenz auf 0,2 s stellen und einmal selbst spielen. In der Ausgabe dürfen dabei kaum `[Catch] rejected`-Zeilen auftauchen. Vor dem Test mit Spielern `debugCatch` in `Config/Features.luau` ausschalten.
 - Für Handys: Place veröffentlichen (File → Publish to Roblox), privat lassen und den Testern Zugriff geben. Mindestens ein schwaches Android dabei.
 - 5 Tester, davon mindestens 2 zwischen 10 und 15 (Geschwister, Kinder von Freunden, **nur mit Einverständnis der Eltern**).
@@ -12,10 +12,7 @@ Eine Frage entscheidet, ob wir Wobble Scoops weiterbauen: **Fühlt sich das Bala
 ## Ablauf pro Tester (ca. 12 Minuten)
 
 1. Nichts erklären außer: „Fang Kugeln und bring sie zu deinem Wagen.“
-2. Je **3 Minuten pro Steuerung**, Reihenfolge rotieren. Die Steuerung wählt das Spiel selbst; verglichen wird über die Einstellungen (Regler-Symbol unter den Coins):
-   - **Handy:** Neigen (Standard) → „Tilt controls“ aus (Laufen) → „Balance pad“ an. Beim nächsten Tester mit einer anderen Steuerung anfangen.
-   - **PC:** Tasten I/J/K/L (Standard) → „Balance pad“ an (Maus).
-   Die Einstellungen stellst du als Testleiter um, der Tester bekommt davon nichts erklärt.
+2. **9 Minuten spielen.** Es gibt nur noch eine Steuerung: WASD, automatische Grundstabilisierung, Rettung mit F bzw. *Steady*, Dash mit Shift bzw. *Dash*. Nichts davon erklären; beobachten, ob der Hinweis „Press F to steady it“ verstanden wird.
 3. **Nach jedem Sturz** fragen: „War das deine Schuld oder Pech?“ Strichliste unten.
 4. Nach 9 Minuten: „Du kannst aufhören oder weiterspielen.“ Notieren, ob freiwillig weitergespielt wird.
 5. Danach 3 Fragen:
@@ -25,11 +22,10 @@ Eine Frage entscheidet, ob wir Wobble Scoops weiterbauen: **Fühlt sich das Bala
 
 ## Strichliste
 
-| Tester | Alter | Gerät | Steuerung | Stürze „meine Schuld“ | Stürze „Pech“ | spielt weiter? | Satz |
-|---|---|---|---|---|---|---|---|
-| 1 | | | gyro | | | | |
-| 1 | | | walk | | | | |
-| 1 | | | pad | | | | |
+| Tester | Alter | Gerät | Stürze „meine Schuld“ | Stürze „Pech“ | spielt weiter? | Satz |
+|---|---|---|---|---|---|---|
+| 1 | | PC | | | | |
+| 2 | | Handy | | | | |
 
 ## Daten aus dem Spiel
 
@@ -37,10 +33,10 @@ Die Server-Ausgabe zeigt alle 2 Minuten und beim Beenden:
 
 ```
 [KillTest] summary
-  controls gyro: 14 serves, median height 11.0 (after minute 5: 13.0), 6 topples at median 16.0
+  controls auto: 14 serves, median height 11.0 (after minute 5: 13.0), 6 topples at median 16.0
 ```
 
-Die Steuerung (`keys`, `pad`, `gyro`, `walk`) meldet der Client von selbst, sobald sie eine Sekunde stabil ist. Per Studio-MCP abrufbar: `ServerStorage.KillTestLog.Value` (JSON mit allen Serves, Stürzen und Sessions).
+Seit der automatischen Grundstabilisierung gibt es nur noch eine Steuerung (`auto`). Per Studio-MCP abrufbar: `ServerStorage.KillTestLog.Value` (JSON mit allen Serves, Stürzen und Sessions).
 
 ## Bestanden, wenn
 
@@ -48,7 +44,7 @@ Die Steuerung (`keys`, `pad`, `gyro`, `walk`) meldet der Client von selbst, soba
 - **≥ 3 von 5 Testern** spielen nach der Zeit freiwillig weiter,
 - die **mediane Serve-Höhe nach 5 Minuten liegt zwischen 8 und 15 Kugeln** (Push-your-Luck funktioniert: nicht zu leicht, nicht zu schwer).
 
-Gewinnt am Handy nicht das Neigen, wird die Reihenfolge in `pickScheme` (`src/client/Controllers/TowerController.luau`) bzw. der Standard der Einstellungen (`src/client/Controllers/Settings.luau`) angepasst. Welche Physik zu welcher Steuerung gehört, steht in `controlSchemes` in `src/shared/Config/Tower.luau`.
+Stabilisator und Rettung stellst du in `assist` und `rescue` in `src/shared/Config/Tower.luau` ein.
 
 ## Wenn es nicht besteht: eine Tuning-Runde
 
@@ -58,7 +54,9 @@ Alle Werte liegen in `src/shared/Config/Tower.luau`. Nach jeder Änderung `lune 
 |---|---|
 | Stürze fühlen sich zufällig an | `driftPerScoop` runter, `groanDuration` hoch (mehr Zeit zum Retten) |
 | zu leicht, Türme werden riesig | `baseStiffness` runter oder `driftStartScoops` runter |
-| zu schwer, Median unter 8 | `baseStiffness` hoch, `padGain` der Variante hoch (Variante je Steuerung: `controlSchemes`) |
+| zu schwer, Median unter 8 | `assist.floor` bzw. `assist.zeroAt` hoch (Stabilisator bei hohen Türmen stärker), `rescue.authority` hoch |
+| zu leicht, Türme werden riesig | `assist.zeroAt` runter, `assist.floor` runter |
+| Rettung zu stark/zu schwach | `rescue.authority`, `rescue.duration`, `rescue.cooldown` |
 | Anlaufen wirft den Turm um | `accelSmoothing` hoch oder `accelGain` der Variante runter |
 | Pad fühlt sich träge an | `padPerInstability` hoch (hohe Türme) bzw. `padBase` hoch (kleine Türme), `baseDamping` runter |
 | Kleine Türme kippen beim Gegensteuern | `padBase` runter, `keyRampTime` hoch (Tasten weicher) |

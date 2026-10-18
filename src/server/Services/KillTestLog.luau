@@ -1,5 +1,5 @@
--- Records what the week-1 kill test needs: serve heights, topples and session length per control scheme
--- (pad, keys, gyro, walk; "unknown" until the client has reported one).
+-- Records what the week-1 kill test needs: serve heights, topples and session length, grouped by control scheme
+-- (today only "auto": WASD plus the automatic stabiliser and the rescue).
 -- Prints a summary every two minutes and on shutdown, and mirrors it as JSON in ServerStorage.KillTestLog
 -- so it can be read through the Studio MCP during a playtest.
 
@@ -10,10 +10,7 @@ local KillTestLog = {}
 
 type Serve = { userId: number, controls: string, count: number, value: number, carry: number, minute: number }
 type Topple = { userId: number, controls: string, count: number, cause: string }
-type Session = { userId: number, name: string, joinedAt: number, leftAt: number?, controls: { string } }
-
--- a player who keeps switching settings cannot grow the log without bound
-local MAX_CONTROL_CHANGES = 20
+type Session = { userId: number, name: string, joinedAt: number, leftAt: number? }
 
 local serves: { Serve } = {}
 local topples: { Topple } = {}
@@ -89,13 +86,7 @@ function KillTestLog.summary(): string
 		local minutes = ((session.leftAt or now()) - session.joinedAt) / 60
 		table.insert(
 			lines,
-			string.format(
-				"  %s: %.1f min, controls %s%s",
-				session.name,
-				minutes,
-				if #session.controls > 0 then table.concat(session.controls, ">") else "unknown",
-				if session.leftAt then "" else " (still playing)"
-			)
+			string.format("  %s: %.1f min%s", session.name, minutes, if session.leftAt then "" else " (still playing)")
 		)
 	end
 	return table.concat(lines, "\n")
@@ -125,7 +116,6 @@ function KillTestLog.join(player: Player)
 		name = player.Name,
 		joinedAt = now(),
 		leftAt = nil,
-		controls = {},
 	}
 	changed()
 end
@@ -136,14 +126,6 @@ function KillTestLog.leave(player: Player)
 		session.leftAt = now()
 		changed()
 		print(KillTestLog.summary())
-	end
-end
-
-function KillTestLog.controls(player: Player, scheme: string)
-	local session = sessions[player.UserId]
-	if session and #session.controls < MAX_CONTROL_CHANGES then
-		table.insert(session.controls, scheme)
-		changed()
 	end
 end
 

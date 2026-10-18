@@ -50,7 +50,7 @@ end
 for _, name in { "TowerVisual", "Sfx", "Ui" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", name }, "ModuleScript")
 end
-for _, name in { "Hud", "Settings", "BalancePad", "TowerController", "ShotRenderer", "RemoteTowers" } do
+for _, name in { "Hud", "TowerController", "ShotRenderer", "RemoteTowers" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", "Controllers", name }, "ModuleScript")
 end
 

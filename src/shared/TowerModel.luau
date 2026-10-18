@@ -77,6 +77,11 @@ export type State = {
 	rigidUntil: number,
 	unsteadyUntil: number, -- after a dash: corrections only partly land until this time
 	unsteadyFactor: number,
+	seenX: number, -- the lean as the automatic stabiliser sees it: smoothed, so it reacts late
+	seenZ: number,
+	seenVx: number,
+	seenVz: number,
+	rescueUntil: number,
 }
 
 export type Input = {
@@ -109,6 +114,11 @@ function TowerModel.newState(seed: number): State
 		rigidUntil = 0,
 		unsteadyUntil = 0,
 		unsteadyFactor = 1,
+		seenX = 0,
+		seenZ = 0,
+		seenVx = 0,
+		seenVz = 0,
+		rescueUntil = 0,
 	}
 end
 
@@ -123,6 +133,8 @@ function TowerModel.reset(state: State)
 	state.steadySeconds = 0
 	state.rigidUntil = 0
 	state.unsteadyUntil = 0
+	state.seenX, state.seenZ, state.seenVx, state.seenVz = 0, 0, 0, 0
+	state.rescueUntil = 0
 end
 
 -- flavorIds are bottom to top. stiffnessMultiplier comes from the cone upgrade.
@@ -189,6 +201,78 @@ function TowerModel.impulse(state: State, ix: number, iz: number)
 	end
 	state.vx += ix
 	state.vz += iz
+end
+
+export type AssistTuning = {
+	kp: number,
+	kd: number,
+	lag: number,
+	strength: number,
+	fadeFrom: number,
+	fadeTo: number,
+	fullUntil: number,
+	zeroAt: number,
+	floor: number,
+}
+
+-- The automatic stabiliser, fed into step() as pad input (so the pad authority and the full-strength-only-
+-- against-the-lean rule apply to it). It is deliberately imperfect: it sees the lean late (smoothed over
+-- assist.lag), gives up between fadeFrom and fadeTo of the tip angle, and gets weaker on taller towers. Small
+-- wobbles go away by themselves; a big lean, fast turns and tall towers need the rescue. During a rescue it
+-- works on the real lean without the delay, with at most rescue.authority rad/s^2, so a late rescue on a tall,
+-- groaning tower can fail. Call once per step, before step().
+function TowerModel.assist(
+	state: State,
+	params: Params,
+	variant: Variant,
+	tuning: Tuning & { assist: AssistTuning, rescue: { authority: number } },
+	dt: number
+): (number, number)
+	local assist = tuning.assist
+	local tipAngle = tuning.tipAngle
+	local blend = math.min(1, dt / assist.lag)
+	state.seenX += (state.x - state.seenX) * blend
+	state.seenZ += (state.z - state.seenZ) * blend
+	state.seenVx += (state.vx - state.seenVx) * blend
+	state.seenVz += (state.vz - state.seenVz) * blend
+	if params.count == 0 or state.toppled then
+		return 0, 0
+	end
+
+	if state.t < state.rescueUntil then
+		local limit = math.min(1, tuning.rescue.authority / TowerModel.padAuthority(params, variant, tuning))
+		return math.clamp(-(assist.kp * state.x + assist.kd * state.vx), -limit, limit),
+			math.clamp(-(assist.kp * state.z + assist.kd * state.vz), -limit, limit)
+	end
+
+	local seen = math.sqrt(state.seenX * state.seenX + state.seenZ * state.seenZ) / tipAngle
+	local fade = math.clamp((assist.fadeTo - seen) / (assist.fadeTo - assist.fadeFrom), 0, 1)
+	local height = math.clamp((assist.zeroAt - params.count) / (assist.zeroAt - assist.fullUntil), 0, 1)
+	local share = assist.strength * fade * (assist.floor + (1 - assist.floor) * height)
+	return math.clamp(-(assist.kp * state.seenX + assist.kd * state.seenVx), -share, share),
+		math.clamp(-(assist.kp * state.seenZ + assist.kd * state.seenVz), -share, share)
+end
+
+-- Starts a rescue window (the server has already checked the cooldown).
+function TowerModel.rescue(state: State, duration: number)
+	if not state.toppled then
+		state.rescueUntil = state.t + duration
+	end
+end
+
+-- The rescue cooldown, shared by server and client: a new rescue `cooldown` seconds after the last one ended.
+-- `slack` lets the server accept a request that network jitter brought in a little early.
+function TowerModel.rescueReady(
+	lastStart: number,
+	now: number,
+	rescue: { duration: number, cooldown: number },
+	slack: number?
+): boolean
+	return now - lastStart >= rescue.duration + rescue.cooldown - (slack or 0)
+end
+
+function TowerModel.rescueActive(state: State): boolean
+	return state.t < state.rescueUntil
 end
 
 -- A dash yanks the cone, so the top lags behind: a tilt-rate kick against the dash direction (a unit vector on the

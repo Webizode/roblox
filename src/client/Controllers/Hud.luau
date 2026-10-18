@@ -1,9 +1,8 @@
--- The HUD. Coins and the settings button on the left edge; at the bottom the tower card (scoops, worth, steady
--- bonus) with at most one hint above it; a balance meter on the right edge while carrying; toasts for
+-- The HUD. Coins on the left edge; at the bottom the tower card (scoops, worth, steady bonus) with at most one
+-- hint above it; a balance meter with a spirit level on the right edge while carrying, which pulses when the tower
+-- leans dangerously and shows whether the rescue (F / Steady) is working or cooling down; toasts for
 -- SERVE!/SAVED!/TOPPLED!; and a marker on the player's own cart. Everything stays out of the middle of the
--- screen, where the character and the tower are. Catching and serving happen automatically, so there are no
--- action buttons, and the control scheme is never named: the only hint about it says what to do.
-
+-- screen, where the character and the tower are. Catching and serving happen automatically.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -19,20 +18,18 @@ local Ui = require(client:WaitForChild("Ui"))
 
 local Hud = {}
 
-local CONTROLS_HINT_SECONDS = 8 -- how long the balancing hint stays once a tower starts
 local METER_HEIGHT = 170
 local LEVEL_SIZE = 46
 local LEVEL_DOT = 14
 
--- Tutorial lines. "catch" and "cart" show until the first serve; the control lines show at the start of the
--- first tower and again after the scheme changes (for example when the balance pad is switched on).
+-- "catch" and "cart" show until the first serve; "steady" whenever the tower leans dangerously and a rescue is
+-- ready, so the player learns when to react.
 local HINTS = {
 	catch = "Stand in a landing circle to catch scoops",
 	cart = "Carry your tower to your cart",
-	keys = "Push it back against the lean",
-	pad = "Drag the pad against the lean",
-	gyro = "Tilt your device against the lean",
-	walk = "Walk the way it leans to keep it up",
+	steady = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+		then "It's tipping! Tap Steady"
+		else "It's tipping! Press F to steady it",
 }
 
 local COLORS = {
@@ -44,7 +41,6 @@ local COLORS = {
 }
 
 local player = Players.LocalPlayer
-local registry
 local gui: ScreenGui
 local coinsText: TextLabel
 local towerCard: Frame
@@ -54,20 +50,19 @@ local steadyDot: Frame
 local steadyText: TextLabel
 local hintCard: Frame
 local hintText: TextLabel
-local keycaps: Frame
 local meter: Frame
 local meterStroke: UIStroke
 local meterFill: Frame
 local levelDot: Frame
+local levelStroke: UIStroke
 local toastLabel: TextLabel
 local toastStroke: UIStroke
 local cartMarker: BillboardGui
 local toastTweens: { Tween } = {}
 
 local towerCount = 0
-local controls = "walk"
-local controlsHintPending = true
-local controlsHintUntil = 0
+local warning = false
+local rescueState = "ready"
 local hasServed = false
 local atCart = false
 local shownHint: string? = nil
@@ -126,51 +121,6 @@ local function scoopIcon(): Frame
 	return icon
 end
 
--- three slider bars, the usual settings symbol
-local function settingsIcon(parent: GuiObject)
-	for index, knobX in { 0.3, 0.7, 0.45 } do
-		local bar = Instance.new("Frame")
-		bar.AnchorPoint = Vector2.new(0.5, 0.5)
-		bar.Position = UDim2.new(0.5, 0, 0.5, (index - 2) * 7)
-		bar.Size = UDim2.fromOffset(20, 3)
-		bar.BackgroundColor3 = Ui.color("vanilla")
-		bar.BorderSizePixel = 0
-		Ui.corner(bar, UDim.new(0.5, 0))
-		bar.Parent = parent
-		Ui.circle(8, "lemon", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(knobX, 0.5),
-		}).Parent =
-			bar
-	end
-end
-
-local function keycap(letter: string, x: number, y: number): TextLabel
-	local cap = Ui.text({
-		Name = letter,
-		Text = letter,
-		AutomaticSize = Enum.AutomaticSize.None,
-		Size = UDim2.fromOffset(24, 24),
-		Position = UDim2.fromOffset(x, y),
-		BackgroundTransparency = 0,
-		BackgroundColor3 = Ui.color("vanilla"),
-		TextColor3 = Ui.color("ink"),
-		TextSize = 16,
-	})
-	Ui.corner(cap, UDim.new(0, 6))
-	return cap
-end
-
--- I J K L as an inverted T, laid out like the keys themselves
-local function keycapCluster(): Frame
-	local cluster = holder("Keys", { AutomaticSize = Enum.AutomaticSize.None, Size = UDim2.fromOffset(78, 51) })
-	keycap("I", 27, 0).Parent = cluster
-	keycap("J", 0, 27).Parent = cluster
-	keycap("K", 27, 27).Parent = cluster
-	keycap("L", 54, 27).Parent = cluster
-	return cluster
-end
-
 -- Left edge, a little above the middle: clear of the chat (top left), the player list (top right) and the
 -- thumbstick (bottom left).
 local function buildSide()
@@ -194,13 +144,6 @@ local function buildSide()
 	coinsText = Ui.text({ Name = "Amount", LayoutOrder = 2, Text = "0", TextSize = 24 })
 	coinsText.Parent = coins
 	coins.Parent = side
-
-	local settings = Ui.button({ Name = "Settings", LayoutOrder = 2, Size = UDim2.fromOffset(44, 44) })
-	settingsIcon(settings)
-	settings.Activated:Connect(function()
-		registry.Settings.toggle()
-	end)
-	settings.Parent = side
 	side.Parent = gui
 end
 
@@ -223,9 +166,6 @@ local function buildBottom()
 	})
 	Ui.padding(hintCard, 14, 8)
 	Ui.list(hintCard, Enum.FillDirection.Horizontal, 10)
-	keycaps = keycapCluster()
-	keycaps.LayoutOrder = 1
-	keycaps.Parent = hintCard
 	hintText = Ui.text({ Name = "Text", LayoutOrder = 2, TextSize = 19 })
 	hintText.Parent = hintCard
 	hintCard.Parent = bottom
@@ -256,8 +196,7 @@ local function buildBottom()
 end
 
 -- Right edge: how much balance is left. Full and green is steady; below the red line the tower groans.
--- It sits where the balance pad would be (the two never show together): bottom right on PC, below the player
--- list; above the jump button on touch screens.
+-- Bottom right on PC, below the player list; above the jump button on touch screens.
 local function buildMeter()
 	meter, meterStroke = Ui.card({
 		Name = "Balance",
@@ -305,7 +244,8 @@ local function buildMeter()
 
 	-- A spirit level above the bar: the dot shows which way the top leans, seen from the camera (up = away from
 	-- you). Leaning towards or away from the camera is hard to see on the tower itself, and walking causes it.
-	local level = Ui.card({
+	local level
+	level, levelStroke = Ui.card({
 		Name = "Level",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 0, -28),
@@ -390,7 +330,6 @@ local function setHint(key: string?)
 	shownHint = key
 	hintCard.Visible = key ~= nil
 	if key then
-		keycaps.Visible = key == "keys"
 		hintText.Text = HINTS[key]
 	end
 end
@@ -398,8 +337,8 @@ end
 local function refreshHint()
 	if towerCount == 0 then
 		setHint(if hasServed then nil else "catch")
-	elseif os.clock() < controlsHintUntil then
-		setHint(controls)
+	elseif warning and rescueState == "ready" then
+		setHint("steady")
 	elseif not hasServed and not atCart then
 		setHint("cart")
 	else
@@ -407,8 +346,7 @@ local function refreshHint()
 	end
 end
 
-function Hud.Init(reg)
-	registry = reg
+function Hud.Init()
 	gui = Instance.new("ScreenGui")
 	gui.Name = "Hud"
 	gui.ResetOnSpawn = false
@@ -440,10 +378,6 @@ function Hud.Start()
 end
 
 function Hud.setTower(count: number, value: number, steady: number)
-	if count > 0 and towerCount == 0 and controlsHintPending then
-		controlsHintPending = false
-		controlsHintUntil = os.clock() + CONTROLS_HINT_SECONDS
-	end
 	towerCount = count
 	towerCard.Visible = count > 0
 	if count > 0 then
@@ -457,23 +391,12 @@ function Hud.setTower(count: number, value: number, steady: number)
 	refreshHint()
 end
 
--- Called when the control scheme changes. Only decides when the balancing hint shows again.
-function Hud.setControls(scheme: string)
-	if scheme == controls then
-		return
-	end
-	controls = scheme
-	if towerCount > 0 then
-		controlsHintUntil = os.clock() + CONTROLS_HINT_SECONDS
-	else
-		controlsHintPending = true
-	end
-end
-
 -- tilt is the share of the tip angle; leanX/leanY the lean in screen space as a share of it (x right, y away
--- from the camera).
-function Hud.setBalance(tilt: number, groaning: boolean, visible: boolean, leanX: number, leanY: number)
+-- from the camera). rescue is "ready", "active" or "cooldown".
+function Hud.setBalance(tilt: number, groaning: boolean, visible: boolean, leanX: number, leanY: number, rescue: string)
 	meter.Visible = visible
+	warning = visible and tilt >= Tuning.warnFraction
+	rescueState = rescue
 	if not visible then
 		return
 	end
@@ -489,6 +412,21 @@ function Hud.setBalance(tilt: number, groaning: boolean, visible: boolean, leanX
 	meterFill.BackgroundTransparency = if groaning then 0.35 + 0.35 * math.sin(os.clock() * 18) else 0
 	meterStroke.Color = if danger then COLORS.awning else COLORS.vanilla
 	meterStroke.Transparency = if danger then 0 else 0.6
+
+	-- the level's rim: mint while a rescue works, a red pulse when it is time to react, faded while cooling down
+	if rescue == "active" then
+		levelStroke.Color = COLORS.mint
+		levelStroke.Transparency = 0
+		levelStroke.Thickness = 3
+	elseif warning then
+		levelStroke.Color = COLORS.awning
+		levelStroke.Transparency = 0.5 - 0.5 * math.sin(os.clock() * 10)
+		levelStroke.Thickness = 3
+	else
+		levelStroke.Color = COLORS.vanilla
+		levelStroke.Transparency = if rescue == "cooldown" then 0.85 else 0.6
+		levelStroke.Thickness = 2
+	end
 end
 
 function Hud.toast(text: string, colorHex: string?)

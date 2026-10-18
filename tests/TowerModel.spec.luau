@@ -8,8 +8,7 @@ local Tuning = require("../src/shared/Config/Tower")
 local EconomyConfig = require("../src/shared/Config/Economy")
 
 local DT = 1 / Tuning.stepRate
-local PAD = Tuning.variants.B
-local JOYSTICK = Tuning.variants.A
+local PAD = Tuning.variant
 
 local function stack(id: string, count: number): { string }
 	local ids = table.create(count, id)
@@ -51,53 +50,6 @@ local function padPlayer(kp: number, kd: number)
 			padX = math.clamp(-(kp * observed.x + kd * observed.vx), -1, 1),
 			padZ = math.clamp(-(kp * observed.z + kd * observed.vz), -1, 1),
 		}
-	end
-end
-
--- The keyboard ramp from BalancePad: towards the target over keyRampTime, back to 0 over keyReleaseTime.
-local function ramp(current: number, target: number): number
-	if target == 0 then
-		local step = DT / Tuning.keyReleaseTime
-		return if current > 0 then math.max(0, current - step) else math.min(0, current + step)
-	end
-	return math.clamp(current + target * DT / Tuning.keyRampTime, -1, 1)
-end
-
--- Someone on I/J/K/L: presses the key against the lean once it is clearly visible, through the key ramp.
-local function keyboardPlayer()
-	local x, z = 0, 0
-	local function key(tilt: number, rate: number): number
-		local lean = tilt + 0.35 * rate
-		if lean > 0.05 then
-			return -1
-		elseif lean < -0.05 then
-			return 1
-		end
-		return 0
-	end
-	return function(observed)
-		x = ramp(x, key(observed.x, observed.vx))
-		z = ramp(z, key(observed.z, observed.vz))
-		return { ax = 0, az = 0, padX = x, padZ = z }
-	end
-end
-
--- Variant A through the real input path: the player steers MoveDirection (length <= 1) towards where the tower
--- falls, the Humanoid walks at most Economy.walkSpeed, and baseVelocityStep turns that into the acceleration the
--- tower feels, exactly like TowerController.
-local function walkingPlayer(count: number, variant)
-	local vx, vz = 0, 0
-	local speed = Economy.walkSpeed(count, 0, EconomyConfig)
-	local smoothing = variant.accelSmoothing or Tuning.accelSmoothing
-	return function(observed)
-		local mx, mz = observed.x + 3 * observed.vx, observed.z + 3 * observed.vz
-		local length = math.sqrt(mx * mx + mz * mz)
-		if length > 1 then
-			mx, mz = mx / length, mz / length
-		end
-		local ax, az
-		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, mx * speed, mz * speed, smoothing, DT)
-		return { ax = ax, az = az, padX = 0, padZ = 0 }
 	end
 end
 
@@ -205,21 +157,11 @@ describe("TowerModel", function()
 		end
 	end)
 
-	it("variant A can hold 14 scoops by walking, through the real input path and 0.25 s reaction", function()
-		for seed = 1, 3 do
-			local state = TowerModel.newState(seed)
-			simulate(state, paramsFor(stack("vanilla", 14)), JOYSTICK, 30, walkingPlayer(14, JOYSTICK), 15)
-			expect(state.toppled).toBe(false)
-		end
-	end)
-
-	it("a full-speed reversal does not push towers of up to 8 scoops into the groan, in A and B", function()
-		for _, variant in { JOYSTICK, PAD } do
-			for _, count in { 3, 5, 8 } do
-				local toppled, peak = reversalPeak(count, variant)
-				expect(toppled).toBe(false)
-				expect(peak).toBeLessThan(Tuning.groanFraction)
-			end
+	it("a full-speed reversal does not push towers of up to 8 scoops into the groan", function()
+		for _, count in { 3, 5, 8 } do
+			local toppled, peak = reversalPeak(count, PAD)
+			expect(toppled).toBe(false)
+			expect(peak).toBeLessThan(Tuning.groanFraction)
 		end
 	end)
 
@@ -318,48 +260,12 @@ describe("TowerModel", function()
 	end)
 end)
 
-describe("Pad and keyboard input", function()
+describe("Pad input (the path the stabiliser and the rescue use)", function()
 	it("gives short towers a gentle pad and tall towers more leverage", function()
 		local short = TowerModel.padAuthority(paramsFor(stack("vanilla", 1)), PAD, Tuning)
 		local tall = TowerModel.padAuthority(paramsFor(stack("vanilla", 20)), PAD, Tuning)
 		expect(short).toBeCloseTo(Tuning.padBase)
 		expect(tall).toBeGreaterThan(9)
-		expect(TowerModel.padAuthority(paramsFor(stack("vanilla", 20)), JOYSTICK, Tuning)).toBe(0)
-	end)
-
-	it("holding a key does not topple a tower of up to 5 scoops", function()
-		-- regression: with a fixed pad strength a held key toppled even a one-scoop tower in 0.85 s
-		for _, count in { 1, 3, 5 } do
-			local state = TowerModel.newState(1)
-			simulate(state, paramsFor(stack("vanilla", count)), PAD, 10, function()
-				return { ax = 0, az = 0, padX = 1, padZ = 0 }
-			end)
-			expect(state.toppled).toBe(false)
-			expect(TowerModel.tilt(state)).toBeLessThan(Tuning.groanFraction * Tuning.tipAngle)
-		end
-	end)
-
-	it("a short key tap only nudges a tower of up to 8 scoops", function()
-		for _, count in { 1, 5, 8 } do
-			local state = TowerModel.newState(1)
-			local u, step, peak = 0, 0, 0
-			simulate(state, paramsFor(stack("vanilla", count)), PAD, 3, function()
-				step += 1
-				u = ramp(u, if step <= 9 then 1 else 0) -- 0.15 s tap
-				peak = math.max(peak, TowerModel.tilt(state))
-				return { ax = 0, az = 0, padX = u, padZ = 0 }
-			end)
-			expect(state.toppled).toBe(false)
-			expect(peak / Tuning.tipAngle).toBeLessThan(0.3)
-		end
-	end)
-
-	it("a keyboard player with 0.25 s reaction can hold 12 scoops", function()
-		for seed = 1, 4 do
-			local state = TowerModel.newState(seed)
-			simulate(state, paramsFor(stack("vanilla", 12)), PAD, 30, keyboardPlayer(), 15)
-			expect(state.toppled).toBe(false)
-		end
 	end)
 
 	it("pad input actually moves the tower in the pushed direction", function()
@@ -384,32 +290,7 @@ describe("Pad and keyboard input", function()
 		expect(peak).toBeLessThan(18 / Tuning.accelSmoothing + 1e-6)
 	end)
 
-	it("holding a key on an upright short tower leans it a little, never into the groan", function()
-		for count = 1, 9 do
-			for _, dir in { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } } do
-				local state = TowerModel.newState(count)
-				local params = paramsFor(stack("vanilla", count))
-				local key, peak = 0, 0
-				for _ = 1, 3 / DT do
-					key = math.min(1, key + DT / Tuning.keyRampTime)
-					TowerModel.step(
-						state,
-						params,
-						{ ax = 0, az = 0, padX = dir[1] * key, padZ = dir[2] * key },
-						PAD,
-						Tuning,
-						DT
-					)
-					peak = math.max(peak, TowerModel.tilt(state))
-				end
-				expect(peak).toBeLessThan(Tuning.groanFraction * Tuning.tipAngle)
-				-- and it leans the way the key points
-				expect(state.x * dir[1] + state.z * dir[2]).toBeGreaterThan(0)
-			end
-		end
-	end)
-
-	it("a key against the lean brings the tower back without throwing it over the other side", function()
+	it("a full push against the lean brings the tower back without throwing it over the other side", function()
 		for _, count in { 5, 9, 12, 15 } do
 			local state = TowerModel.newState(4)
 			local params = paramsFor(stack("vanilla", count))
@@ -431,7 +312,7 @@ describe("Pad and keyboard input", function()
 		end
 	end)
 
-	it("a key with the lean still makes it worse, so the wrong key is a risk", function()
+	it("a push with the lean still makes it worse", function()
 		local helped, hurt = TowerModel.newState(4), TowerModel.newState(4)
 		local params = paramsFor(stack("vanilla", 12))
 		helped.x, hurt.x = 0.4 * Tuning.tipAngle, 0.4 * Tuning.tipAngle
@@ -504,5 +385,163 @@ describe("Pad and keyboard input", function()
 		end
 		expect(leaningBack(false)).toBe(false)
 		expect(leaningBack(true)).toBe(true)
+	end)
+end)
+
+-- Runs the game's real per-step input: smoothed walking plus TowerModel.assist, no player input. `walk` turns
+-- 90 degrees at full speed every 1.5 s; `rescueAt` triggers a rescue whenever the lean passes that share of the
+-- tip angle and the cooldown allows. Returns the survival time and the peak lean as a share of the tip angle.
+local function assistedRun(count: number, seed: number, seconds: number, walk: boolean, rescueAt: number?)
+	local state = TowerModel.newState(seed)
+	local params = paramsFor(stack("vanilla", count))
+	local vx, vz, peak, lastRescue = 0, 0, 0, -math.huge
+	for step = 1, seconds / DT do
+		local t = step * DT
+		if rescueAt and TowerModel.tilt(state) > rescueAt * Tuning.tipAngle then
+			if TowerModel.rescueReady(lastRescue, state.t, Tuning.rescue) then
+				lastRescue = state.t
+				TowerModel.rescue(state, Tuning.rescue.duration)
+			end
+		end
+		local tx, tz = 0, 0
+		if walk then
+			local leg = math.floor(t / 1.5) % 4
+			tx, tz = ({ 18, 0, -18, 0 })[leg + 1], ({ 0, 18, 0, -18 })[leg + 1]
+		end
+		local ax, az
+		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, tx, tz, Tuning.accelSmoothing, DT)
+		local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
+		TowerModel.step(state, params, { ax = ax, az = az, padX = px, padZ = pz }, PAD, Tuning, DT)
+		peak = math.max(peak, TowerModel.tilt(state) / Tuning.tipAngle)
+		if state.toppled then
+			return t, peak
+		end
+	end
+	return seconds, peak
+end
+
+describe("Automatic stabiliser and rescue", function()
+	it("keeps 1 to 5 scoops calm while standing and while walking with hard turns, without any input", function()
+		for count = 1, 5 do
+			local standing, standPeak = assistedRun(count, count, 30, false)
+			local walking, walkPeak = assistedRun(count, count, 30, true)
+			expect(standing).toBe(30)
+			expect(walking).toBe(30)
+			expect(standPeak).toBeLessThan(0.1)
+			expect(walkPeak).toBeLessThan(0.5)
+		end
+	end)
+
+	it("lets 6 to 10 scoops wobble more than short towers, but not fall on their own", function()
+		local _, shortPeak = assistedRun(3, 1, 30, true)
+		for count = 6, 10 do
+			local walking, peak = assistedRun(count, count, 30, true)
+			expect(walking).toBe(30)
+			expect(peak).toBeGreaterThan(shortPeak)
+			expect(assistedRun(count, count, 60, false)).toBe(60)
+		end
+	end)
+
+	it("never lets a tall tower fall while standing still: no hidden time limit up to 20 scoops", function()
+		for _, count in { 11, 14, 17, 20 } do
+			for seed = 1, 3 do
+				expect(assistedRun(count, seed, 90, false)).toBe(90)
+			end
+		end
+	end)
+
+	it("makes walking with tall towers dangerous, and well-timed rescues buy real time", function()
+		for _, count in { 15, 17, 20 } do
+			local without, with = 0, 0
+			for seed = 1, 5 do
+				without += assistedRun(count, seed, 30, true)
+				with += assistedRun(count, seed, 30, true, 0.6)
+			end
+			expect(without / 5).toBeLessThan(20)
+			expect(with).toBeGreaterThan(without * 1.4)
+		end
+	end)
+
+	it("a rescue saves a tall tower from a lean the stabiliser has given up on", function()
+		local function leaning(rescue: boolean)
+			local state = TowerModel.newState(3)
+			local params = paramsFor(stack("vanilla", 15))
+			state.x = 0.75 * Tuning.tipAngle
+			state.seenX = state.x
+			if rescue then
+				TowerModel.rescue(state, Tuning.rescue.duration)
+			end
+			for _ = 1, 3 / DT do
+				local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
+				TowerModel.step(state, params, { ax = 0, az = 0, padX = px, padZ = pz }, PAD, Tuning, DT)
+			end
+			return state.toppled
+		end
+		expect(leaning(false)).toBe(true)
+		expect(leaning(true)).toBe(false)
+	end)
+
+	it("a rescue can fail: a tall tower already at the tip angle and groaning goes over anyway", function()
+		local state = TowerModel.newState(3)
+		local params = paramsFor(stack("vanilla", 20))
+		state.x, state.vx = 0.9 * Tuning.tipAngle, 0.4
+		state.seenX = state.x
+		state.groan = 0.25
+		TowerModel.rescue(state, Tuning.rescue.duration)
+		for _ = 1, 2 / DT do
+			local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
+			TowerModel.step(state, params, { ax = 0, az = 0, padX = px, padZ = pz }, PAD, Tuning, DT)
+		end
+		expect(state.toppled).toBe(true)
+	end)
+
+	it("a rescue lasts exactly its duration", function()
+		local state = TowerModel.newState(1)
+		local params = paramsFor(stack("vanilla", 5))
+		TowerModel.rescue(state, Tuning.rescue.duration)
+		local activeFor = 0
+		for _ = 1, 4 / DT do
+			if TowerModel.rescueActive(state) then
+				activeFor += DT
+			end
+			TowerModel.step(state, params, TowerModel.NO_INPUT, PAD, Tuning, DT)
+		end
+		expect(activeFor).toBeCloseTo(Tuning.rescue.duration, DT + 1e-6)
+	end)
+
+	it("the next rescue is only allowed after the duration plus the cooldown", function()
+		local rescue = Tuning.rescue
+		expect(rescue.duration).toBe(1.5)
+		expect(rescue.cooldown).toBe(6)
+		expect(TowerModel.rescueReady(10, 10, rescue)).toBe(false)
+		expect(TowerModel.rescueReady(10, 10 + rescue.duration, rescue)).toBe(false)
+		expect(TowerModel.rescueReady(10, 10 + rescue.duration + rescue.cooldown - 0.01, rescue)).toBe(false)
+		expect(TowerModel.rescueReady(10, 10 + rescue.duration + rescue.cooldown, rescue)).toBe(true)
+		-- the server's jitter slack only shaves off a fraction, it never makes back-to-back rescues possible
+		expect(TowerModel.rescueReady(10, 10 + rescue.duration + 1, rescue, 0.25)).toBe(false)
+		expect(TowerModel.rescueReady(-math.huge, 0, rescue)).toBe(true)
+	end)
+
+	it("a dash with an upright 10-scoop tower and only the stabiliser does not topple it", function()
+		for seed = 1, 4 do
+			local state = TowerModel.newState(seed)
+			local params = paramsFor(stack("vanilla", 10))
+			TowerModel.dashKick(state, Tuning.dash, 10, 1, 0)
+			for _ = 1, 6 / DT do
+				local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
+				TowerModel.step(state, params, { ax = 0, az = 0, padX = px, padZ = pz }, PAD, Tuning, DT)
+			end
+			expect(state.toppled).toBe(false)
+		end
+	end)
+
+	it("reset clears the stabiliser's view and any running rescue", function()
+		local state = TowerModel.newState(1)
+		state.seenX, state.seenVz = 0.3, 0.2
+		TowerModel.rescue(state, Tuning.rescue.duration)
+		TowerModel.reset(state)
+		expect(state.seenX).toBe(0)
+		expect(state.seenVz).toBe(0)
+		expect(TowerModel.rescueActive(state)).toBe(false)
 	end)
 end)

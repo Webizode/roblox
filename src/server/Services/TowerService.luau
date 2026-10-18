@@ -8,6 +8,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Economy = require(Shared:WaitForChild("Economy"))
+local TowerModel = require(Shared:WaitForChild("TowerModel"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
@@ -24,9 +25,9 @@ type TowerState = {
 	coneLevel: number,
 	sneakersLevel: number,
 	cartLevel: number,
-	controls: string, -- control scheme the client reported, for the kill-test log only
-	lastControlsAt: number,
+	controls: string, -- kill-test log bucket; one control scheme since the automatic stabiliser
 	lastDashAt: number,
+	lastRescueAt: number,
 	carryStartedAt: number?,
 	tiltX: number,
 	tiltZ: number,
@@ -42,10 +43,9 @@ local states: { [Player]: TowerState } = {}
 
 -- honest clients send tilt at Tuning.tiltSendRate (10 Hz); anything faster than twice that is dropped
 local MIN_TILT_INTERVAL = 0.5 / TowerTuning.tiltSendRate
--- honest clients report their control scheme once it has been stable for a second; faster reports are dropped
-local CONTROLS_INTERVAL = 0.5
 -- the client starts its own cooldown when it asks, so the server allows a little network jitter on top
 local DASH_SLACK = 0.25
+local RESCUE_SLACK = 0.25
 
 local function now(): number
 	return workspace:GetServerTimeNow()
@@ -97,9 +97,9 @@ local function createState(player: Player): TowerState
 		coneLevel = 0,
 		sneakersLevel = 0,
 		cartLevel = 0,
-		controls = "unknown",
-		lastControlsAt = 0,
+		controls = "auto",
 		lastDashAt = 0,
+		lastRescueAt = 0,
 		carryStartedAt = nil,
 		tiltX = 0,
 		tiltZ = 0,
@@ -223,20 +223,23 @@ local function onDash(player: Player, dirX: any, dirZ: any)
 	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length)
 end
 
--- The client picks its control scheme by itself and only reports it, so the kill-test log can split serves and
--- topples by scheme. It changes nothing on the server.
-local function onControlScheme(player: Player, scheme: any)
+-- The rescue (F / Steady button) only strengthens the asker's own stabiliser for a moment and pays nothing. The
+-- server owns its timing: a new one only after the last one plus its cooldown, and only while carrying a tower.
+local function onRescue(player: Player)
 	local state = states[player]
-	if not state or type(scheme) ~= "string" or TowerTuning.controlSchemes[scheme] == nil then
+	if not state or #state.scoops == 0 then
 		return
 	end
 	local time = now()
-	if scheme == state.controls or time - state.lastControlsAt < CONTROLS_INTERVAL then
+	if not TowerModel.rescueReady(state.lastRescueAt, time, TowerTuning.rescue, RESCUE_SLACK) then
 		return
 	end
-	state.lastControlsAt = time
-	state.controls = scheme
-	registry.KillTestLog.controls(player, scheme)
+	local humanoid = humanoidOf(player)
+	if not humanoid or humanoid.Health <= 0 then
+		return
+	end
+	state.lastRescueAt = time
+	Remotes.Rescue:FireAllClients(player)
 end
 
 function TowerService.Init(reg)
@@ -271,7 +274,7 @@ function TowerService.Start()
 	Remotes.TowerToppled.OnServerEvent:Connect(onToppled)
 	Remotes.ServeRequest.OnServerEvent:Connect(onServe)
 	Remotes.TowerTilt.OnServerEvent:Connect(onTilt)
-	Remotes.ControlScheme.OnServerEvent:Connect(onControlScheme)
+	Remotes.Rescue.OnServerEvent:Connect(onRescue)
 	Remotes.Dash.OnServerEvent:Connect(onDash)
 end
 
