@@ -156,17 +156,11 @@ local function logRejection(player: Player, id: number, reason: string, distance
 	print(string.format("[Catch] rejected shot %d for %s: %s%s", id, player.Name, reason, detail))
 end
 
--- Horizontal root speed, capped by what the Humanoid may actually walk. A spoofed velocity must not widen
--- the catch tolerance.
-local function cappedSpeed(root: BasePart): number
-	local velocity = root.AssemblyLinearVelocity
-	local flat = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
-	if flat ~= flat then
-		return 0
-	end
-	local humanoid = root.Parent and root.Parent:FindFirstChildOfClass("Humanoid")
-	local walkSpeed = if humanoid then humanoid.WalkSpeed else 18
-	return math.min(flat, walkSpeed * 1.25)
+-- Turns a claim down. The claimant already shows the scoop on its tower, so it is told right away (only that
+-- client; for everyone else the scoop keeps flying and can still be caught).
+local function reject(player: Player, id: number, reason: string, distance: number?)
+	logRejection(player, id, reason, distance)
+	Remotes.ShotResolved:FireClient(player, id, nil)
 end
 
 -- claimTime: server time (GetServerTimeNow on the client) at which the scoop touched the tower.
@@ -180,35 +174,38 @@ local function onCatchClaim(player: Player, id: any, claimTime: any, tiltX: any,
 		return
 	end
 
-	local time = workspace:GetServerTimeNow()
-	if time - (lastCatchAt[player] or 0) < Tuning.minCatchGap then
-		logRejection(player, id, "caught another scoop just before")
-		return
-	end
-
 	local root = rootOf(player)
 	local base = registry.TowerService.towerBase(player)
 	if not root or not base then
+		reject(player, id, "no character")
 		return
 	end
 
+	local velocity = root.AssemblyLinearVelocity
+	local humanoid = root.Parent and root.Parent:FindFirstChildOfClass("Humanoid")
 	local result = CatchRules.check({ claimTime = claimTime, tiltX = tiltX, tiltZ = tiltZ }, shot, {
 		baseX = base.X,
 		baseY = base.Y,
 		baseZ = base.Z,
 		count = registry.TowerService.count(player),
-		speed = cappedSpeed(root),
-	}, time, Tuning, TowerTuning, ShotMath, TowerShape)
+		speed = CatchRules.cappedSpeed(velocity.X, velocity.Z, if humanoid then humanoid.WalkSpeed else 0),
+	}, workspace:GetServerTimeNow(), Tuning, TowerTuning, ShotMath, TowerShape)
 	if not result.ok then
-		logRejection(player, id, result.reason, result.distance)
+		reject(player, id, result.reason, result.distance)
+		return
+	end
+
+	-- compared on the claimed times, so claims that arrive bunched up after a lag spike still count
+	if math.abs(claimTime - (lastCatchAt[player] or -math.huge)) < Tuning.minCatchGap then
+		reject(player, id, "caught another scoop at the same moment")
 		return
 	end
 
 	if registry.TowerService.addScoop(player, shot.flavorId) then
-		lastCatchAt[player] = time
+		lastCatchAt[player] = claimTime
 		resolve(shot, player)
 	else
-		logRejection(player, id, "cone is full")
+		reject(player, id, "cone is full")
 	end
 end
 

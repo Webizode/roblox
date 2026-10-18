@@ -98,6 +98,16 @@ end
 
 local function updateKeys(dt: number)
 	local target = Vector2.zero
+	-- while typing (chat) the keys belong to the text box; and a release that went to a text box never reached
+	-- onKey, so anything that is no longer physically held is dropped here
+	if UserInputService:GetFocusedTextBox() then
+		table.clear(keysDown)
+	end
+	for keyCode in keysDown do
+		if not UserInputService:IsKeyDown(keyCode) then
+			keysDown[keyCode] = nil
+		end
+	end
 	if Tuning.keyboardPad and mode == "interactive" then
 		for keyCode in keysDown do
 			target += KEY_DIRECTIONS[keyCode]
@@ -160,11 +170,16 @@ function BalancePad.Init()
 			release()
 		end
 	end)
-	-- keys can get stuck when the window loses focus mid-press
-	UserInputService.WindowFocusReleased:Connect(function()
+	-- key and pointer state can go stale when focus moves mid-press (window or chat), like the default
+	-- PlayerModule resets its own key state on the same signals
+	local function resetInput()
 		table.clear(keysDown)
 		release()
-	end)
+	end
+	UserInputService.WindowFocusReleased:Connect(resetInput)
+	UserInputService.WindowFocused:Connect(resetInput)
+	UserInputService.TextBoxFocused:Connect(resetInput)
+	UserInputService.TextBoxFocusReleased:Connect(resetInput)
 
 	ContextActionService:BindActionAtPriority(
 		KEY_ACTION,

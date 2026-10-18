@@ -186,14 +186,53 @@ describe("CatchRules", function()
 		expect(result.reason).toBe("too far from the tower")
 	end)
 
+	it("caps the replicated speed at 1.25 x WalkSpeed and ignores garbage", function()
+		expect(CatchRules.cappedSpeed(3, 4, 18)).toBeCloseTo(5)
+		expect(CatchRules.cappedSpeed(1000, 0, 18)).toBeCloseTo(22.5)
+		expect(CatchRules.cappedSpeed(0 / 0, 0, 18)).toBe(0)
+		expect(CatchRules.cappedSpeed(math.huge, 0, 18)).toBe(0)
+		expect(CatchRules.cappedSpeed(10, 0, 0 / 0)).toBe(0)
+		expect(CatchRules.cappedSpeed(10, 0, -5)).toBe(0)
+	end)
+
 	it("does not let a spoofed speed widen the tolerance beyond the walk-speed cap", function()
-		-- LauncherService caps speed at 1.25 x WalkSpeed before calling CatchRules; with that cap a tower 10 studs
-		-- off the path is still rejected
+		-- an exploiter reporting a velocity of 1000 studs/s, through the same cap LauncherService uses
 		local shot = makeShot(80, 0)
 		local claim, tower = honestClaim(shot, 10)
 		tower.baseZ += 10
-		tower.speed = 18 * 1.25
+		tower.speed = CatchRules.cappedSpeed(1000, 0, 18)
 		expect(check(claim, shot, tower, claim.claimTime + 0.1).ok).toBe(false)
+	end)
+
+	it("accepts a claim while the server already counts one more scoop than the client", function()
+		-- a TowerChanged for the previous catch is still on its way to the client
+		local shot = makeShot(70, -25)
+		local count = 10
+		local tower = towerFor(shot, count)
+		local points = worldColumn(tower.baseX, tower.baseY, tower.baseZ, count, 0.2, -0.1)
+		local hit = clientContact(shot, points, 60)
+		assert(hit, "the honest client should catch this scoop")
+		local claim = { claimTime = shot.t0 + hit * shot.flight, tiltX = 0.2, tiltZ = -0.1 }
+		tower.count = count + 1
+		expect(check(claim, shot, tower, claim.claimTime + 0.15).ok).toBe(true)
+	end)
+
+	it("accepts claims exactly at the start of the window with real server clock values", function()
+		-- regression: at t0 around 1.76e9 s, t0 + alpha * flight loses precision and came back below the window
+		for distance = 20, 80, 5 do
+			local shot = makeShot(distance, 0)
+			shot.t0 = 1.76e9 + distance * 0.37
+			local windowStart = ShotMath.apexAlpha(shot.fy, shot.ty, shot.apex) - Launcher.apexSlack
+			local x, y, z =
+				ShotMath.position(shot.fx, shot.fy, shot.fz, shot.tx, shot.ty, shot.tz, shot.apex, windowStart)
+			local _, slotY = TowerShape.top(0, 0, 0, TowerTuning)
+			local tower = { baseX = x, baseY = y - slotY, baseZ = z, count = 0, speed = 0 }
+			local claim = { claimTime = shot.t0 + windowStart * shot.flight, tiltX = 0, tiltZ = 0 }
+			local result = check(claim, shot, tower, claim.claimTime + 0.1)
+			if not result.ok then
+				error(`claim at the window start rejected for distance {distance}: {result.reason}`)
+			end
+		end
 	end)
 
 	it("rejects claim times from the future or too far in the past", function()

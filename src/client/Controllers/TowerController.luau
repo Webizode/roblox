@@ -103,6 +103,12 @@ end
 local function correctiveInput(variant): (number, number)
 	local screenX, screenY = 0, 0
 	if variant.usesGyro and UserInputService.AccelerometerEnabled then
+		if #scoops == 0 then
+			-- the neutral angle is taken when the next tower starts, not while the phone is still tilted from
+			-- the tower just served
+			gyroBase = nil
+			return 0, 0
+		end
 		local gravity = screenGravity()
 		if gravity then
 			if not gyroBase then
@@ -171,7 +177,6 @@ local function onTowerChanged(newScoops: { string }, reason: string)
 	end
 	if #scoops == 0 then
 		serveArmed = false
-		gyroBase = nil -- re-zero the neutral phone angle whenever the cone is empty
 	end
 	visual:setFlavors(scoops)
 end

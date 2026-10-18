@@ -32,7 +32,9 @@ return {
 	claimSweep = 0.03, -- seconds around the claimed time the server re-checks
 	apexSlack = 0.02, -- catches count from just before the highest point of the arc on
 	catchWindowEnd = 1.15, -- share of flight time; a little after landing so a slow claim still counts
-	minCatchGap = 0.2, -- seconds between two catches of one player
+	-- seconds between the claimed times of two catches of one player: a sanity bound only, the geometry check is
+	-- the real guard, and two scoops can legitimately touch a tower within a fraction of a second
+	minCatchGap = 0.05,
 	resolveAfter = 1.2, -- share of flight time after which an uncaught scoop splats
 
 	goldenChance = 1 / 40, -- used once Features.goldenScoops is on

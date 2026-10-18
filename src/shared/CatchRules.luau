@@ -52,8 +52,23 @@ export type Result = {
 
 local CatchRules = {}
 
+-- Claim times are absolute server times around 1.7e9 s, where a double only resolves about 2.4e-7 s. A claim
+-- made exactly at the edge of the window can come back a hair outside it, so the edges get this much slack
+-- (in shares of the flight time, about 0.3 ms).
+local ALPHA_EPSILON = 1e-4
+
 local function isFinite(value: any): boolean
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+end
+
+-- Horizontal speed of the character, capped at what its Humanoid may walk. The replicated velocity of a
+-- client-owned character is whatever that client says, so it must never widen the catch tolerance unbounded.
+function CatchRules.cappedSpeed(vx: any, vz: any, walkSpeed: any): number
+	if not isFinite(vx) or not isFinite(vz) then
+		return 0
+	end
+	local cap = if isFinite(walkSpeed) and walkSpeed > 0 then walkSpeed * 1.25 else 0
+	return math.min(math.sqrt(vx * vx + vz * vz), cap)
 end
 
 -- tilt is clamped to what an honest tower can reach, so a forged tilt cannot stretch the column
@@ -89,12 +104,13 @@ function CatchRules.check(
 	local alpha = (claimTime - shot.t0) / shot.flight
 	local apexAlpha = ShotMath.apexAlpha(shot.fy, shot.ty, shot.apex)
 	local windowStart = apexAlpha - rules.apexSlack
-	if alpha < windowStart then
+	if alpha < windowStart - ALPHA_EPSILON then
 		return { ok = false, reason = "scoop still rising" }
 	end
-	if alpha > rules.catchWindowEnd then
+	if alpha > rules.catchWindowEnd + ALPHA_EPSILON then
 		return { ok = false, reason = "scoop already landed" }
 	end
+	alpha = math.clamp(alpha, windowStart, rules.catchWindowEnd)
 
 	local tiltX, tiltZ = clampTilt(claim.tiltX, claim.tiltZ, towerTuning.tipAngle)
 	local offsets = TowerShape.column(tower.count, tiltX, tiltZ, towerTuning)
