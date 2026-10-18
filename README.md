@@ -9,14 +9,20 @@ Roblox-Spiel: Eiskugeln fangen, einen wackelnden Turm mit dem Daumen balancieren
 1. **Roblox Studio** installieren und einloggen: <https://create.roblox.com>
 2. **Claude Code** installieren (Desktop-App oder CLI).
 3. **Studio-MCP verbinden:** In Studio *Assistant* öffnen → `…` → *Manage MCP Servers* → *Enable Studio as MCP server* einschalten → unter *Quick connect* Claude Code aktivieren → Studio und Claude neu starten. Der grüne Punkt in *Manage MCP Servers* zeigt die Verbindung.
-   Fallback per CLI: `claude mcp add Roblox_Studio -- cmd.exe /c %LOCALAPPDATA%\Roblox\mcp.bat`
-4. **Git** installieren und das Repo klonen.
+   Fallback per CLI (der Befehl, den Studio für Claude Code anzeigt, mit `--scope user`, damit er in jedem Ordner gilt):
+   `claude mcp add --scope user --transport stdio Roblox_Studio -- "cmd.exe" "/c" "cd /d %LOCALAPPDATA%\Roblox && .\mcp.bat"`
+4. **Git** installieren und das Repo nach `Dokumente\roblox` klonen (normale PowerShell, nicht die ISE, nicht als Administrator):
+   ```powershell
+   cd $HOME\Documents
+   git clone -b claude/wobble-scoops-week1 https://github.com/Webizode/roblox.git roblox
+   ```
 5. **Rokit** (Toolchain-Manager) in PowerShell installieren:
    ```powershell
    Invoke-RestMethod https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.ps1 | Invoke-Expression
    ```
-6. PowerShell schließen, neu öffnen (nicht die ISE, nicht als Administrator) und **im Repo-Ordner**:
+6. Im selben Fenster weiter, **im Repo-Ordner**:
    ```powershell
+   $env:Path = "$HOME\.rokit\bin;$env:Path"   # Rokit sofort nutzbar, ohne neu anzumelden
    cd $HOME\Documents\roblox
    rokit trust rojo-rbx/rojo JohnnyMorganz/StyLua Kampfkarren/selene lune-org/lune
    rokit install          # Rojo, StyLua, Selene, Lune in den Versionen aus rokit.toml
@@ -25,7 +31,7 @@ Roblox-Spiel: Eiskugeln fangen, einen wackelnden Turm mit dem Daumen balancieren
 
 ## Spielen und testen
 
-**Rojo starten:** im Repo-Ordner `start-rojo.cmd` doppelklicken. Das Skript wechselt selbst in den richtigen Ordner, installiert fehlende Tools und startet den Server. Oder in PowerShell:
+**Rojo starten:** im Repo-Ordner `start-rojo.cmd` doppelklicken. Das Skript wechselt selbst in den richtigen Ordner, installiert fehlende Tools und das Studio-Plugin und startet den Server. Oder in einer normalen PowerShell (nicht in der ISE):
 
 ```powershell
 cd $HOME\Documents\roblox
@@ -46,10 +52,14 @@ Das Fenster offen lassen. In Studio eine neue *Baseplate* öffnen → Plugins �
 
 | Meldung | Ursache | Lösung |
 |---|---|---|
-| `Failed to find tool 'rojo' in any project manifest file` | Rokit sucht `rokit.toml` nur im aktuellen Ordner und den Ordnern darüber. Das Fenster steht nicht im Repo-Ordner (neue PowerShell startet in `C:\Users\<Name>`, als Admin in `C:\WINDOWS\system32`). | `cd $HOME\Documents\roblox`, dann erneut. Oder `start-rojo.cmd` doppelklicken. **Nicht** `rokit add` ausführen, das trägt Tools in eine andere Datei ein. |
+| `Failed to find tool 'rojo' in any project manifest file` | Rokit sucht `rokit.toml` nur im aktuellen Ordner und den Ordnern darüber. Das Fenster steht nicht im Repo-Ordner (neue PowerShell startet in `C:\Users\<Name>`, als Admin in `C:\WINDOWS\system32`). | `cd $HOME\Documents\roblox`, dann erneut. Oder `start-rojo.cmd` doppelklicken. |
 | `Installed and created links for 0 tools` | `rokit install` lief außerhalb des Repo-Ordners. | Im Repo-Ordner wiederholen. |
 | `The following tool has not been marked as trusted` | Die Vertrauens-Abfrage von `rokit install` funktioniert nicht in der PowerShell ISE. | `rokit trust …` aus Setup-Schritt 6 ausführen, dann `rokit install`. |
-| `rojo` / `rokit` wird nicht erkannt | Rokit fehlt oder das Fenster war schon vor der Installation offen. | Setup-Schritt 5, danach ein neues Fenster öffnen. |
+| `rokit` wird nicht erkannt | Rokit trägt sich bei der Installation nur in die Registry ein. Neue Fenster sehen das erst nach dem nächsten Anmelden. | Im Fenster `$env:Path = "$HOME\.rokit\bin;$env:Path"` ausführen, oder `start-rojo.cmd` doppelklicken (das macht es selbst). Fehlt Rokit ganz: Setup-Schritt 5. |
+| `rokit` geht, aber `rojo` wird nicht erkannt | Die Tools wurden noch nicht im Repo-Ordner installiert. | Im Repo-Ordner `rokit install`, oder `start-rojo.cmd` doppelklicken. |
+| `Could not start the Rojo server on 127.0.0.1:34872` | Ein anderer Rojo-Server läuft schon (anderes Fenster, oder ein Start aus der ISE ohne sichtbares Fenster). | Das andere Fenster schließen oder im Task-Manager `rojo.exe` beenden. |
+
+**Nicht** `rokit add`, `rokit init` oder `rokit add --global` ausführen, auch wenn Rokit das in einer Meldung vorschlägt: Rojo steht schon in der `rokit.toml` des Repos. Außerhalb des Repos bricht `rokit add` nur ab, und `rokit init` würde dort eine zweite `rokit.toml` anlegen, die das Projekt durcheinanderbringt.
 
 Prüfen, ob du im richtigen Ordner bist: `Test-Path .\rokit.toml` muss `True` ausgeben.
 
