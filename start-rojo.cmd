@@ -57,6 +57,7 @@ if errorlevel 3 if not errorlevel 4 (
     echo.
     echo Auf Port 34872 laeuft schon ein Rojo-Server, vermutlich in einem anderen Fenster.
     echo Dieses andere Fenster weiter benutzen oder dort mit Strg+C beenden und dieses Skript neu starten.
+    echo Kein solches Fenster offen? Im Task-Manager rojo.exe beenden und dieses Skript neu starten.
     pause
     exit /b 1
 )
