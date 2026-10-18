@@ -28,8 +28,8 @@ Roblox-Spiel, Solo-Projekt mit Claude Code. Ziel: ~2.000 € über DevEx. Refere
 ## Befehle
 
 ```
-rokit install                       # Toolchain aus rokit.toml
-rojo serve                          # Live-Sync nach Studio
+rokit install                       # Toolchain aus rokit.toml (nur im Repo-Ordner, Rokit sucht rokit.toml von dort aufwärts)
+rojo serve default.project.json     # Live-Sync nach Studio; unter Windows reicht ein Doppelklick auf start-rojo.cmd
 lune run scripts/check              # alle Checks
 lune run tests/run.luau             # nur Unit-Tests + Syntax-Check
 stylua src tests scripts            # formatieren

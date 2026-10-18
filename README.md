@@ -15,19 +15,24 @@ Roblox-Spiel: Eiskugeln fangen, einen wackelnden Turm mit dem Daumen balancieren
    ```powershell
    Invoke-RestMethod https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.ps1 | Invoke-Expression
    ```
-6. Im Repo-Ordner:
+6. PowerShell schließen, neu öffnen (nicht die ISE, nicht als Administrator) und **im Repo-Ordner**:
    ```powershell
+   cd $HOME\Documents\roblox
+   rokit trust rojo-rbx/rojo JohnnyMorganz/StyLua Kampfkarren/selene lune-org/lune
    rokit install          # Rojo, StyLua, Selene, Lune in den Versionen aus rokit.toml
    rojo plugin install    # Rojo-Plugin für Studio
    ```
 
 ## Spielen und testen
 
+**Rojo starten:** im Repo-Ordner `start-rojo.cmd` doppelklicken. Das Skript wechselt selbst in den richtigen Ordner, installiert fehlende Tools und startet den Server. Oder in PowerShell:
+
 ```powershell
-rojo serve
+cd $HOME\Documents\roblox
+rojo serve default.project.json
 ```
 
-In Studio eine neue *Baseplate* öffnen → Plugins → Rojo → *Connect*. Dann **Play (F5)**: Der Server baut beim Start automatisch einen Graybox-Pier, wenn im Place noch keiner existiert.
+Das Fenster offen lassen. In Studio eine neue *Baseplate* öffnen → Plugins → Rojo → *Connect*. Dann **Play (F5)**: Der Server baut beim Start automatisch einen Graybox-Pier, wenn im Place noch keiner existiert.
 
 - **Mehrspieler:** Test → *Clients and Servers* → 2–3 Spieler → Start.
 - **Handy:** Test → *Device* (Emulator) und echtes Handy über eine privat veröffentlichte Version (File → Publish to Roblox).
@@ -36,6 +41,17 @@ In Studio eine neue *Baseplate* öffnen → Plugins → Rojo → *Connect*. Dann
 - **Fangen:** Eine Kugel zählt, sobald sie den Turm irgendwo berührt, nicht nur die Spitze. Servieren passiert automatisch, wenn du mit dem Turm von draußen auf die gelbe Matte am eigenen Wagen läufst.
 - **Kill-Test-Daten:** Die Ausgabe zeigt alle 2 Minuten `[KillTest] summary`, die Rohdaten liegen als JSON in `ServerStorage.KillTestLog`.
 - **Fang-Diagnose:** Solange `debugCatch` in `src/shared/Config/Features.luau` an ist, schreibt der Server jeden abgelehnten Fang mit Grund in die Ausgabe (`[Catch] rejected …`).
+
+## Probleme beim Start
+
+| Meldung | Ursache | Lösung |
+|---|---|---|
+| `Failed to find tool 'rojo' in any project manifest file` | Rokit sucht `rokit.toml` nur im aktuellen Ordner und den Ordnern darüber. Das Fenster steht nicht im Repo-Ordner (neue PowerShell startet in `C:\Users\<Name>`, als Admin in `C:\WINDOWS\system32`). | `cd $HOME\Documents\roblox`, dann erneut. Oder `start-rojo.cmd` doppelklicken. **Nicht** `rokit add` ausführen, das trägt Tools in eine andere Datei ein. |
+| `Installed and created links for 0 tools` | `rokit install` lief außerhalb des Repo-Ordners. | Im Repo-Ordner wiederholen. |
+| `The following tool has not been marked as trusted` | Die Vertrauens-Abfrage von `rokit install` funktioniert nicht in der PowerShell ISE. | `rokit trust …` aus Setup-Schritt 6 ausführen, dann `rokit install`. |
+| `rojo` / `rokit` wird nicht erkannt | Rokit fehlt oder das Fenster war schon vor der Installation offen. | Setup-Schritt 5, danach ein neues Fenster öffnen. |
+
+Prüfen, ob du im richtigen Ordner bist: `Test-Path .\rokit.toml` muss `True` ausgeben.
 
 ## Checks (vor jedem Push)
 
