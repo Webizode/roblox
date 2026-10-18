@@ -9,6 +9,7 @@ local ORDER = {
 	"CartService",
 	"TowerService",
 	"LauncherService",
+	"CombatService",
 }
 
 local registry = {}

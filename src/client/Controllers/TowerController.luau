@@ -18,6 +18,7 @@ local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local Palette = require(Config:WaitForChild("Palette"))
 local Tuning = require(Config:WaitForChild("Tower"))
+local CombatConfig = require(Config:WaitForChild("Combat"))
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
@@ -399,6 +400,13 @@ function TowerController.catchColumn(): ({ number }?, number, number)
 		points[index + 2] = base.Z + offsets[index + 2]
 	end
 	return points, state.x, state.z
+end
+
+-- An ice-ball hit announced by the server: shove the tower along the ball's flight. The server decided the power.
+function TowerController.hit(dirX: number, dirZ: number, power: number)
+	if #scoops > 0 and not state.toppled and not toppledAt then
+		TowerModel.hitKick(state, CombatConfig, #scoops, dirX, dirZ, power)
+	end
 end
 
 -- Where the next scoop sits on the tower, used to show a claimed scoop until the server confirms it.

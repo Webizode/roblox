@@ -1,10 +1,11 @@
--- The HUD. Coins on the left edge; at the bottom the tower card (scoops, worth, steady bonus) with at most one
+-- The HUD. Coins and the ice-ball ammo (with the reload countdown) on the left edge; at the bottom the tower card (scoops, worth, steady bonus) with at most one
 -- hint above it; a balance meter with a spirit level on the right edge while carrying, which pulses when the tower
 -- leans dangerously and shows whether the rescue (F / Steady) is working or cooling down; toasts for
 -- SERVE!/SAVED!/TOPPLED!; and a marker on the player's own cart. Everything stays out of the middle of the
 -- screen, where the character and the tower are. Catching and serving happen automatically.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -12,6 +13,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Tuning = require(Config:WaitForChild("Tower"))
+local CombatConfig = require(Config:WaitForChild("Combat"))
 
 local client = script.Parent.Parent
 local Ui = require(client:WaitForChild("Ui"))
@@ -43,6 +45,8 @@ local COLORS = {
 local player = Players.LocalPlayer
 local gui: ScreenGui
 local coinsText: TextLabel
+local ammoBalls: { Frame } = {}
+local reloadText: TextLabel
 local towerCard: Frame
 local countText: TextLabel
 local worthText: TextLabel
@@ -144,6 +148,25 @@ local function buildSide()
 	coinsText = Ui.text({ Name = "Amount", LayoutOrder = 2, Text = "0", TextSize = 24 })
 	coinsText.Parent = coins
 	coins.Parent = side
+
+	-- ice balls left in the load; while the load reloads, the seconds until it is full again
+	local ammo = Ui.card({
+		Name = "IceBalls",
+		LayoutOrder = 2,
+		Size = UDim2.fromOffset(0, 36),
+		AutomaticSize = Enum.AutomaticSize.X,
+	}, UDim.new(0.5, 0))
+	Ui.padding(ammo, 10, 0)
+	Ui.list(ammo, Enum.FillDirection.Horizontal, 6)
+	for index = 1, CombatConfig.ammo do
+		local ball = Ui.circle(18, "skyTop", { Name = "Ball" .. index, LayoutOrder = index })
+		Ui.stroke(ball, "vanilla", 2, 0.4)
+		ball.Parent = ammo
+		ammoBalls[index] = ball
+	end
+	reloadText = Ui.text({ Name = "Reload", LayoutOrder = CombatConfig.ammo + 1, TextSize = 18, Visible = false })
+	reloadText.Parent = ammo
+	ammo.Parent = side
 	side.Parent = gui
 end
 
@@ -365,6 +388,20 @@ function Hud.Start()
 		if who == player then
 			hasServed = true
 			refreshHint()
+		end
+	end)
+
+	RunService.RenderStepped:Connect(function()
+		local count = player:GetAttribute("IceBalls")
+		count = if type(count) == "number" then count else CombatConfig.ammo
+		for index, ball in ammoBalls do
+			ball.BackgroundTransparency = if index <= count then 0 else 0.8
+		end
+		local readyAt = player:GetAttribute("IceBallsReadyAt")
+		local left = if type(readyAt) == "number" then readyAt - workspace:GetServerTimeNow() else 0
+		reloadText.Visible = count <= 0 and left > 0
+		if reloadText.Visible then
+			reloadText.Text = string.format("%.1fs", left)
 		end
 	end)
 

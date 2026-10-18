@@ -38,19 +38,19 @@ expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client" }, "LocalScri
 expectInstance({ "ReplicatedStorage", "Shared" }, "Folder")
 expectInstance({ "ReplicatedStorage", "Shared", "Config" }, "Folder")
 
-for _, name in { "Remotes", "TowerModel", "TowerShape", "Economy", "Recipes", "ShotMath", "CatchRules" } do
+for _, name in { "Remotes", "TowerModel", "TowerShape", "Economy", "Recipes", "ShotMath", "CatchRules", "Combat" } do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")
 end
-for _, name in { "Flavors", "Tower", "Economy", "Recipes", "Palette", "Launcher", "Features", "Sounds" } do
+for _, name in { "Flavors", "Tower", "Economy", "Recipes", "Palette", "Launcher", "Features", "Sounds", "Combat" } do
 	expectInstance({ "ReplicatedStorage", "Shared", "Config", name }, "ModuleScript")
 end
-for _, name in { "GrayboxService", "KillTestLog", "CartService", "TowerService", "LauncherService" } do
+for _, name in { "GrayboxService", "KillTestLog", "CartService", "TowerService", "LauncherService", "CombatService" } do
 	expectInstance({ "ServerScriptService", "Server", "Services", name }, "ModuleScript")
 end
 for _, name in { "TowerVisual", "Sfx", "Ui" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", name }, "ModuleScript")
 end
-for _, name in { "Hud", "TowerController", "ShotRenderer", "RemoteTowers" } do
+for _, name in { "Hud", "TowerController", "CombatController", "ShotRenderer", "RemoteTowers" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", "Controllers", name }, "ModuleScript")
 end
 

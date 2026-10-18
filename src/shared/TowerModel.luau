@@ -302,6 +302,33 @@ function TowerModel.dashKick(
 	return kick
 end
 
+-- An ice-ball hit pushes the top along the ball's flight (dirX/dirZ on the ground) with a kick that grows with the
+-- height and the hit power, and leaves corrections weaker for a moment. Returns the kick size.
+function TowerModel.hitKick(
+	state: State,
+	hit: {
+		towerKickBase: number,
+		towerKickPerScoop: number,
+		towerKickMax: number,
+		unsteadySeconds: number,
+		unsteadyFactor: number,
+	},
+	count: number,
+	dirX: number,
+	dirZ: number,
+	power: number
+): number
+	local length = math.sqrt(dirX * dirX + dirZ * dirZ)
+	if count <= 0 or length < 1e-6 or state.toppled then
+		return 0
+	end
+	local kick = math.min(hit.towerKickMax, hit.towerKickBase + hit.towerKickPerScoop * count) * power
+	TowerModel.impulse(state, dirX / length * kick, dirZ / length * kick)
+	state.unsteadyUntil = math.max(state.unsteadyUntil, state.t + hit.unsteadySeconds)
+	state.unsteadyFactor = hit.unsteadyFactor
+	return kick
+end
+
 -- Small nudge when a scoop lands. Direction varies with the scoop count so it is never the same twice.
 function TowerModel.landingKick(state: State, tuning: Tuning, count: number)
 	local angle = (hash(state.seed, count * 7919) % 6283) / 1000

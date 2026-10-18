@@ -16,6 +16,9 @@ local DEFINITIONS = {
 	Served = "RemoteEvent", -- server -> all: player, count, value
 	Dash = "RemoteEvent", -- client -> server: dirX, dirZ (request); server -> all: player, dirX, dirZ (granted)
 	Rescue = "RemoteEvent", -- client -> server: request; server -> all: player (granted)
+	ThrowIceBall = "RemoteEvent", -- client -> server: aimX, aimY, aimZ (camera look vector)
+	IceBallThrown = "RemoteEvent", -- server -> all: id, thrower, origin, velocity, t0 (server time)
+	IceBallResolved = "RemoteEvent", -- server -> all: id, thrower, victim (nil on a miss), position, dirX, dirZ, power, knockdown
 }
 
 local remotes = {}

@@ -9,6 +9,8 @@ return {
 	topple = "rbxasset://sounds/splat.wav",
 	saved = "rbxasset://sounds/swoosh.wav",
 	dash = "rbxasset://sounds/swoosh.wav",
+	throw = "rbxasset://sounds/swoosh.wav",
+	hit = "rbxasset://sounds/snap.wav",
 
 	-- every catch climbs one step of a pentatonic scale so a growing tower "sings"
 	pentatonic = { 0, 2, 4, 7, 9 },
