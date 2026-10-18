@@ -43,35 +43,31 @@ return {
 
 	accelSmoothing = 0.25, -- seconds, MoveDirection lerp that feeds the tower instead of raw Humanoid velocity
 
-	-- padGain multiplies the pad authority above, driftScale the random wandering. accelSmoothing overrides the
-	-- movement smoothing per variant.
+	-- Physics profile per variant. padGain multiplies the pad authority above, driftScale the random wandering.
+	-- accelSmoothing overrides the movement smoothing per variant.
 	-- A balances by walking only. Simulated through the real input path (capped walk speed, 0.25 s reaction) it
 	-- held at most 11 scoops with the shared 0.25 s smoothing; with 0.08 s smoothing and extra leverage on
 	-- unstable towers it holds about 15, and a full-speed reversal stays below the groan line up to 8 scoops.
 	variants = {
-		A = {
-			label = "Joystick",
-			accelGain = 0.025,
-			accelPerInstability = 3,
-			accelSmoothing = 0.08,
-			padGain = 0,
-			driftScale = 0.6,
-			usesPad = false,
-			usesGyro = false,
-		},
-		B = { label = "Balance Pad", accelGain = 0.02, padGain = 1, driftScale = 1, usesPad = true, usesGyro = false },
-		C = { label = "Gyro", accelGain = 0.02, padGain = 0.8, driftScale = 1, usesPad = false, usesGyro = true },
+		A = { accelGain = 0.025, accelPerInstability = 3, accelSmoothing = 0.08, padGain = 0, driftScale = 0.6 },
+		B = { accelGain = 0.02, padGain = 1, driftScale = 1 },
+		C = { accelGain = 0.02, padGain = 0.8, driftScale = 1 },
 	},
-	defaultVariant = "B",
 
-	-- gyro (variant C): device gravity is measured in the phone's own axes. In landscape the long axis runs
-	-- along the screen, and LandscapeLeft/Right are 180 degrees apart. The signs below are a best guess and must
-	-- be checked on a real phone before the kill test.
+	-- There is no control switch in the HUD. The client picks the scheme by itself, first match wins:
+	-- pad (balance pad switched on in Settings), keys (a keyboard is connected), gyro (the device reports
+	-- gravity and tilt controls are on in Settings), walk (everything else, e.g. phones without a sensor).
+	-- Each scheme runs the physics variant named here.
+	controlSchemes = { pad = "B", keys = "B", gyro = "C", walk = "A" },
+
+	-- gyro: device gravity is measured in the phone's own axes. In landscape the long axis runs along the screen,
+	-- and LandscapeLeft/Right are 180 degrees apart. The signs below are a best guess and must be checked on a
+	-- real phone before the kill test.
 	gyroGain = 2.5, -- unit-gravity delta to pad units
 	gyroSignX = 1,
 	gyroSignY = 1,
 
-	-- keyboard pad on PC: I/J/K/L. Keys ramp up so a tap is a nudge and holding is a full push.
+	-- keyboard on PC: I/J/K/L push like the pad. Keys ramp up so a tap is a nudge and holding is a full push.
 	keyboardPad = true,
 	keyRampTime = 0.2, -- seconds from 0 to full deflection
 	keyReleaseTime = 0.06, -- seconds from full deflection back to 0

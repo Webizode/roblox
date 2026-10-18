@@ -24,7 +24,8 @@ type TowerState = {
 	coneLevel: number,
 	sneakersLevel: number,
 	cartLevel: number,
-	variant: string,
+	controls: string, -- control scheme the client reported, for the kill-test log only
+	lastControlsAt: number,
 	carryStartedAt: number?,
 	tiltX: number,
 	tiltZ: number,
@@ -40,6 +41,8 @@ local states: { [Player]: TowerState } = {}
 
 -- honest clients send tilt at Tuning.tiltSendRate (10 Hz); anything faster than twice that is dropped
 local MIN_TILT_INTERVAL = 0.5 / TowerTuning.tiltSendRate
+-- honest clients report their control scheme once it has been stable for a second; faster reports are dropped
+local CONTROLS_INTERVAL = 0.5
 
 local function now(): number
 	return workspace:GetServerTimeNow()
@@ -91,7 +94,8 @@ local function createState(player: Player): TowerState
 		coneLevel = 0,
 		sneakersLevel = 0,
 		cartLevel = 0,
-		variant = TowerTuning.defaultVariant,
+		controls = "unknown",
+		lastControlsAt = 0,
 		carryStartedAt = nil,
 		tiltX = 0,
 		tiltZ = 0,
@@ -101,7 +105,6 @@ local function createState(player: Player): TowerState
 		joinedAt = now(),
 		leaderstats = { coins = coins, best = best },
 	}
-	player:SetAttribute("ControlVariant", state.variant)
 	player:SetAttribute("ConeLevel", state.coneLevel)
 	return state
 end
@@ -121,7 +124,7 @@ local function onToppled(player: Player)
 	state.tiltX, state.tiltZ = 0, 0
 	state.carryStartedAt = if keep > 0 then now() else nil
 
-	registry.KillTestLog.topple(player, state.variant, count, "self")
+	registry.KillTestLog.topple(player, state.controls, count, "self")
 	publish(player, state, "topple")
 end
 
@@ -164,7 +167,7 @@ local function onServe(player: Player, steadyClaim: any)
 	state.carryStartedAt = nil
 	state.tiltX, state.tiltZ = 0, 0
 
-	registry.KillTestLog.serve(player, state.variant, count, value, carrySeconds, time - state.joinedAt)
+	registry.KillTestLog.serve(player, state.controls, count, value, carrySeconds, time - state.joinedAt)
 	publish(player, state, "serve")
 	Remotes.Served:FireAllClients(player, count, math.floor(value), steady)
 end
@@ -193,17 +196,20 @@ local function onTilt(player: Player, x: any, z: any)
 	end
 end
 
-local function onVariant(player: Player, variant: any)
+-- The client picks its control scheme by itself and only reports it, so the kill-test log can split serves and
+-- topples by scheme. It changes nothing on the server.
+local function onControlScheme(player: Player, scheme: any)
 	local state = states[player]
-	if not Features.variantSwitcher or not state or type(variant) ~= "string" then
+	if not state or type(scheme) ~= "string" or TowerTuning.controlSchemes[scheme] == nil then
 		return
 	end
-	if not TowerTuning.variants[variant] or variant == state.variant then
+	local time = now()
+	if scheme == state.controls or time - state.lastControlsAt < CONTROLS_INTERVAL then
 		return
 	end
-	state.variant = variant
-	player:SetAttribute("ControlVariant", variant)
-	registry.KillTestLog.variant(player, variant)
+	state.lastControlsAt = time
+	state.controls = scheme
+	registry.KillTestLog.controls(player, scheme)
 end
 
 function TowerService.Init(reg)
@@ -214,7 +220,7 @@ function TowerService.Start()
 	local function onPlayer(player: Player)
 		local state = createState(player)
 		states[player] = state
-		registry.KillTestLog.join(player, state.variant)
+		registry.KillTestLog.join(player)
 		player.CharacterAdded:Connect(function()
 			-- a new character starts with an empty cone
 			table.clear(state.scoops)
@@ -238,7 +244,7 @@ function TowerService.Start()
 	Remotes.TowerToppled.OnServerEvent:Connect(onToppled)
 	Remotes.ServeRequest.OnServerEvent:Connect(onServe)
 	Remotes.TowerTilt.OnServerEvent:Connect(onTilt)
-	Remotes.SetVariant.OnServerEvent:Connect(onVariant)
+	Remotes.ControlScheme.OnServerEvent:Connect(onControlScheme)
 end
 
 function TowerService.count(player: Player): number

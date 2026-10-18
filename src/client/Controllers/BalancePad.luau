@@ -1,10 +1,13 @@
--- The right-thumb balance pad. Press anywhere on it and drag against the lean to push the tower back; the knob
--- follows the drag from where you pressed, so a press never jerks the tower by itself. The dot inside shows where
--- the tower leans, the ring turns green/yellow/red with the tilt. In "display" mode (variant A) the pad only shows
--- the level.
+-- The optional balance pad, switched on in the settings; it never shows otherwise. Press anywhere on it and drag
+-- against the lean to push the tower back; the knob follows the drag from where you pressed, so a press never
+-- jerks the tower by itself. The dot inside shows where the tower leans, the ring turns green/yellow/red with the
+-- tilt.
 --
--- On PC, I/J/K/L work as the pad. They are bound through ContextActionService above the default camera, which
--- otherwise zooms in on I, and they ramp up over Tuning.keyRampTime so a tap is a nudge and holding is a push.
+-- I/J/K/L push like the pad whenever a keyboard is in use, with or without the pad on screen. They are bound
+-- through ContextActionService above the default camera, which otherwise zooms in on I, and they ramp up over
+-- Tuning.keyRampTime so a tap is a nudge and holding is a push.
+--
+-- Modes: "pad" shows the pad and reads pad and keys, "keys" reads only the keys, "off" reads nothing.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -18,7 +21,7 @@ local Tuning = require(Config:WaitForChild("Tower"))
 
 local BalancePad = {}
 
-export type Mode = "interactive" | "display" | "hidden"
+export type Mode = "pad" | "keys" | "off"
 
 local PAD_SIZE = 150
 local KNOB_SIZE = 56
@@ -36,7 +39,7 @@ local pad: Frame
 local knob: Frame
 local dot: Frame
 local ring: UIStroke
-local mode: Mode = "interactive"
+local mode: Mode = "off"
 local activeInput: InputObject? = nil
 local usingMouse = false
 local anchor = Vector2.zero
@@ -108,7 +111,7 @@ local function updateKeys(dt: number)
 			keysDown[keyCode] = nil
 		end
 	end
-	if Tuning.keyboardPad and mode == "interactive" then
+	if Tuning.keyboardPad and mode ~= "off" then
 		for keyCode in keysDown do
 			target += KEY_DIRECTIONS[keyCode]
 		end
@@ -136,8 +139,10 @@ function BalancePad.Init()
 	pad = circle(gui, PAD_SIZE, Palette.vanilla, 0.45)
 	pad.Name = "Pad"
 	pad.AnchorPoint = Vector2.new(1, 1)
-	pad.Position = UDim2.new(1, -36, 1, -36)
-	pad.Active = true -- keeps drags on the pad from turning the camera
+	-- on touch screens the jump button owns the bottom right corner, so the pad sits above it
+	pad.Position = if UserInputService.TouchEnabled then UDim2.new(1, -24, 0.62, 0) else UDim2.new(1, -36, 1, -36)
+	pad.Visible = false
+	pad.Active = false -- while shown, keeps drags on the pad from turning the camera
 	ring = Instance.new("UIStroke")
 	ring.Thickness = 4
 	ring.Color = Color3.fromHex(Palette.mint)
@@ -149,7 +154,7 @@ function BalancePad.Init()
 	knob.Name = "Knob"
 
 	pad.InputBegan:Connect(function(input)
-		if mode ~= "interactive" then
+		if mode ~= "pad" then
 			return
 		end
 		if input.UserInputType == Enum.UserInputType.Touch and not activeInput then
@@ -196,11 +201,11 @@ end
 
 -- Current pad value in screen space: x to the right, y up, length at most 1.
 function BalancePad.get(): (number, number)
-	if mode ~= "interactive" then
+	if mode == "off" then
 		return 0, 0
 	end
 	local x, y
-	if activeInput or usingMouse then
+	if mode == "pad" and (activeInput or usingMouse) then
 		x, y = pointerX, pointerY
 	else
 		x, y = keyX, keyY
@@ -221,9 +226,8 @@ function BalancePad.setMode(newMode: Mode)
 	release()
 	keyX, keyY = 0, 0
 	setKnob(0, 0)
-	pad.Visible = newMode ~= "hidden"
-	pad.Active = newMode == "interactive"
-	knob.Visible = newMode == "interactive"
+	pad.Visible = newMode == "pad"
+	pad.Active = newMode == "pad"
 end
 
 -- tilt is the share of the tip angle; leanX/leanY is the lean direction in screen space.

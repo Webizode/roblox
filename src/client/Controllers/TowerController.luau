@@ -1,5 +1,7 @@
--- Owns the local tower: runs TowerModel at a fixed step, feeds it smoothed movement plus pad/gyro input,
+-- Owns the local tower: runs TowerModel at a fixed step, feeds it smoothed movement plus pad/key/gyro input,
 -- renders it, reports topples, replicates tilt and serves automatically at the player's cart.
+-- The control scheme is picked automatically from the device and the settings (see controlSchemes in
+-- Config/Tower); the HUD never shows or switches it.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -29,6 +31,7 @@ TowerController.RENDER_PRIORITY = Enum.RenderPriority.Character.Value + 1
 local STEP = 1 / Tuning.stepRate
 local MAX_FRAME = 0.1 -- never simulate more than this per frame after a hitch
 local TOPPLE_TIMEOUT = 2
+local SCHEME_REPORT_DELAY = 1 -- a scheme is reported to the kill-test log once it has been stable this long
 
 local player = Players.LocalPlayer
 local registry
@@ -46,12 +49,11 @@ local lastServeRequest = 0
 -- cart does not instantly serve every single scoop
 local serveArmed = false
 local gyroBase: Vector3? = nil
+local gyroSeen = false -- the motion sensor has delivered a real reading, so tilt controls can work here
+local scheme = "walk"
+local schemeSince = 0
+local reportedScheme: string? = nil
 local groundY = 1
-
-local function variantKey(): string
-	local key = player:GetAttribute("ControlVariant")
-	return if type(key) == "string" and Tuning.variants[key] then key else Tuning.defaultVariant
-end
 
 local function coneLevel(): number
 	local value = player:GetAttribute("ConeLevel")
@@ -99,10 +101,49 @@ local function screenGravity(): Vector3?
 	return Vector3.new(x * Tuning.gyroSignX, y * Tuning.gyroSignY, gravity.Z)
 end
 
--- Corrective input in world space, from the pad (screen space) or the device tilt.
-local function correctiveInput(variant): (number, number)
+local function gyroAvailable(): boolean
+	if not UserInputService.AccelerometerEnabled then
+		return false
+	end
+	if not gyroSeen then
+		gyroSeen = screenGravity() ~= nil
+	end
+	return gyroSeen
+end
+
+-- First match wins: the pad when it is switched on, keys when a keyboard is connected, tilt when the device has a
+-- working motion sensor and tilt controls are on, otherwise balancing by walking.
+local function pickScheme(): string
+	if registry.Settings.get("balancePad") then
+		return "pad"
+	elseif Tuning.keyboardPad and UserInputService.KeyboardEnabled then
+		return "keys"
+	elseif registry.Settings.get("tiltControls") and gyroAvailable() then
+		return "gyro"
+	end
+	return "walk"
+end
+
+local function updateScheme()
+	local picked = pickScheme()
+	if picked ~= scheme then
+		scheme = picked
+		schemeSince = os.clock()
+		gyroBase = nil -- recalibrate the neutral phone angle on every change
+		registry.BalancePad.setMode(if picked == "pad" then "pad" elseif picked == "keys" then "keys" else "off")
+		registry.Hud.setControls(picked)
+	end
+	-- only for the kill-test log; waiting until it settles keeps a quick back-and-forth in the settings quiet
+	if scheme ~= reportedScheme and os.clock() - schemeSince >= SCHEME_REPORT_DELAY then
+		reportedScheme = scheme
+		Remotes.ControlScheme:FireServer(scheme)
+	end
+end
+
+-- Corrective input in world space, from the pad or keys (screen space) or the device tilt.
+local function correctiveInput(): (number, number)
 	local screenX, screenY = 0, 0
-	if variant.usesGyro and UserInputService.AccelerometerEnabled then
+	if scheme == "gyro" then
 		if #scoops == 0 then
 			-- the neutral angle is taken when the next tower starts, not while the phone is still tilted from
 			-- the tower just served
@@ -118,8 +159,7 @@ local function correctiveInput(variant): (number, number)
 			screenX = math.clamp(delta.X * Tuning.gyroGain, -1, 1)
 			screenY = math.clamp(delta.Y * Tuning.gyroGain, -1, 1)
 		end
-	elseif variant.usesPad or variant.usesGyro then
-		-- gyro without an accelerometer (PC) falls back to the pad
+	elseif scheme == "pad" or scheme == "keys" then
 		screenX, screenY = registry.BalancePad.get()
 	else
 		return 0, 0
@@ -130,13 +170,6 @@ local function correctiveInput(variant): (number, number)
 	local forward = flatten(camera.CFrame.LookVector)
 	local world = right * screenX + forward * screenY
 	return world.X, world.Z
-end
-
-local function padMode(variant): "interactive" | "display"
-	if variant.usesPad or (variant.usesGyro and not UserInputService.AccelerometerEnabled) then
-		return "interactive"
-	end
-	return "display"
 end
 
 local function onEvent(event: string)
@@ -182,7 +215,7 @@ local function onTowerChanged(newScoops: { string }, reason: string)
 end
 
 local function simulate(dt: number, humanoid: Humanoid)
-	local variant = Tuning.variants[variantKey()]
+	local variant = Tuning.variants[Tuning.controlSchemes[scheme]]
 	local smoothing = variant.accelSmoothing or Tuning.accelSmoothing
 	accumulator = math.min(accumulator + dt, MAX_FRAME)
 	while accumulator >= STEP do
@@ -192,7 +225,7 @@ local function simulate(dt: number, humanoid: Humanoid)
 		baseVelocityX, baseVelocityZ, ax, az =
 			TowerModel.baseVelocityStep(baseVelocityX, baseVelocityZ, target.X, target.Z, smoothing, STEP)
 
-		local padX, padZ = correctiveInput(variant)
+		local padX, padZ = correctiveInput()
 		local event = TowerModel.step(state, params, {
 			ax = ax,
 			az = az,
@@ -212,15 +245,18 @@ local function updateHud(root: BasePart)
 	local leanX = lean:Dot(flatten(camera.CFrame.RightVector))
 	local leanY = lean:Dot(flatten(camera.CFrame.LookVector))
 	registry.BalancePad.setLevel(tilt, state.groan > 0, leanX, leanY)
+	-- with the pad on screen its ring already shows the level
+	registry.Hud.setBalance(tilt, state.groan > 0, #scoops > 0 and scheme ~= "pad")
+
+	local target = servePoint()
+	local distance = if target then (root.Position - target.Position).Magnitude else math.huge
+	registry.Hud.setCartTarget(target, distance <= EconomyConfig.serveRadius + 1)
 
 	local steady = TowerModel.steadyBonus(state, Tuning)
 	local value = Economy.serveValue(scoops, Flavors.byId, EconomyConfig, { steadyBonus = steady })
 	registry.Hud.setTower(#scoops, value, steady)
 
-	local target = servePoint()
-	registry.Hud.setCartTarget(target)
 	if target and #scoops > 0 and not state.toppled then
-		local distance = (root.Position - target.Position).Magnitude
 		if distance > EconomyConfig.serveRadius + 1 then
 			serveArmed = true
 		elseif serveArmed and distance <= EconomyConfig.serveRadius and os.clock() - lastServeRequest > 1 then
@@ -253,7 +289,7 @@ local function onRenderStep(dt: number)
 		return
 	end
 
-	registry.BalancePad.setMode(padMode(Tuning.variants[variantKey()]))
+	updateScheme()
 
 	if toppledAt and os.clock() - toppledAt > TOPPLE_TIMEOUT then
 		-- the server never answered the topple: fall back to the last list it sent
@@ -296,9 +332,7 @@ function TowerController.Start()
 			registry.Hud.toast(string.format("%s served %d scoops!", who.DisplayName, count), Palette.strawberry)
 		end
 	end)
-	player:GetAttributeChangedSignal("ControlVariant"):Connect(function()
-		gyroBase = nil -- recalibrate the neutral phone angle on every switch
-	end)
+	schemeSince = os.clock()
 
 	RunService:BindToRenderStep("WobbleTower", TowerController.RENDER_PRIORITY, onRenderStep)
 end

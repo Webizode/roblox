@@ -47,10 +47,10 @@ end
 for _, name in { "GrayboxService", "KillTestLog", "CartService", "TowerService", "LauncherService" } do
 	expectInstance({ "ServerScriptService", "Server", "Services", name }, "ModuleScript")
 end
-for _, name in { "TowerVisual", "Sfx" } do
+for _, name in { "TowerVisual", "Sfx", "Ui" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", name }, "ModuleScript")
 end
-for _, name in { "Hud", "BalancePad", "TowerController", "ShotRenderer", "RemoteTowers", "VariantSwitcher" } do
+for _, name in { "Hud", "Settings", "BalancePad", "TowerController", "ShotRenderer", "RemoteTowers" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", "Controllers", name }, "ModuleScript")
 end
 

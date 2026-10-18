@@ -14,7 +14,7 @@ local DEFINITIONS = {
 	TowerTilt = "UnreliableRemoteEvent", -- client -> server: x, z (10 Hz); server -> other players: player, x, z
 	ServeRequest = "RemoteEvent", -- client -> server: steadyBonus
 	Served = "RemoteEvent", -- server -> all: player, count, value
-	SetVariant = "RemoteEvent", -- client -> server: "A" | "B" | "C" (kill test only)
+	ControlScheme = "RemoteEvent", -- client -> server: scheme from Config/Tower controlSchemes (kill-test log only)
 }
 
 local remotes = {}

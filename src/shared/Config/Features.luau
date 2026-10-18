@@ -1,8 +1,7 @@
 --!strict
--- Feature flags that follow the roadmap. Week 1 only needs the core loop and the control variant switcher.
+-- Feature flags that follow the roadmap. Week 1 only needs the core loop.
 
 return {
-	variantSwitcher = true, -- week 1 kill test: switch control variant A/B/C in game
 	secretStacks = false, -- week 3
 	goldenScoops = false, -- week 3
 	bump = false, -- week 2

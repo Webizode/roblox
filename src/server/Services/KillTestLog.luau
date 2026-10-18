@@ -1,4 +1,5 @@
--- Records what the week-1 kill test needs: serve heights, topples and session length per control variant.
+-- Records what the week-1 kill test needs: serve heights, topples and session length per control scheme
+-- (pad, keys, gyro, walk; "unknown" until the client has reported one).
 -- Prints a summary every two minutes and on shutdown, and mirrors it as JSON in ServerStorage.KillTestLog
 -- so it can be read through the Studio MCP during a playtest.
 
@@ -7,9 +8,12 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local KillTestLog = {}
 
-type Serve = { userId: number, variant: string, count: number, value: number, carry: number, minute: number }
-type Topple = { userId: number, variant: string, count: number, cause: string }
-type Session = { userId: number, name: string, joinedAt: number, leftAt: number?, variants: { string } }
+type Serve = { userId: number, controls: string, count: number, value: number, carry: number, minute: number }
+type Topple = { userId: number, controls: string, count: number, cause: string }
+type Session = { userId: number, name: string, joinedAt: number, leftAt: number?, controls: { string } }
+
+-- a player who keeps switching settings cannot grow the log without bound
+local MAX_CONTROL_CHANGES = 20
 
 local serves: { Serve } = {}
 local topples: { Topple } = {}
@@ -40,43 +44,45 @@ end
 
 function KillTestLog.summary(): string
 	local lines = { "[KillTest] summary" }
-	local variants = {}
-	for _, serve in serves do
-		variants[serve.variant] = true
+	local seen, schemes = {}, {}
+	for _, entry in serves do
+		seen[entry.controls] = true
 	end
-	for _, topple in topples do
-		variants[topple.variant] = true
+	for _, entry in topples do
+		seen[entry.controls] = true
 	end
+	for scheme in seen do
+		table.insert(schemes, scheme)
+	end
+	table.sort(schemes)
 
-	for _, variant in { "A", "B", "C" } do
-		if variants[variant] then
-			local heights, lateHeights, toppleHeights = {}, {}, {}
-			for _, serve in serves do
-				if serve.variant == variant then
-					table.insert(heights, serve.count)
-					if serve.minute >= 5 then
-						table.insert(lateHeights, serve.count)
-					end
+	for _, scheme in schemes do
+		local heights, lateHeights, toppleHeights = {}, {}, {}
+		for _, serve in serves do
+			if serve.controls == scheme then
+				table.insert(heights, serve.count)
+				if serve.minute >= 5 then
+					table.insert(lateHeights, serve.count)
 				end
 			end
-			for _, topple in topples do
-				if topple.variant == variant then
-					table.insert(toppleHeights, topple.count)
-				end
-			end
-			table.insert(
-				lines,
-				string.format(
-					"  variant %s: %d serves, median height %s (after minute 5: %s), %d topples at median %s",
-					variant,
-					#heights,
-					format(median(heights)),
-					format(median(lateHeights)),
-					#toppleHeights,
-					format(median(toppleHeights))
-				)
-			)
 		end
+		for _, topple in topples do
+			if topple.controls == scheme then
+				table.insert(toppleHeights, topple.count)
+			end
+		end
+		table.insert(
+			lines,
+			string.format(
+				"  controls %s: %d serves, median height %s (after minute 5: %s), %d topples at median %s",
+				scheme,
+				#heights,
+				format(median(heights)),
+				format(median(lateHeights)),
+				#toppleHeights,
+				format(median(toppleHeights))
+			)
+		)
 	end
 
 	for _, session in sessions do
@@ -84,10 +90,10 @@ function KillTestLog.summary(): string
 		table.insert(
 			lines,
 			string.format(
-				"  %s: %.1f min, variants %s%s",
+				"  %s: %.1f min, controls %s%s",
 				session.name,
 				minutes,
-				table.concat(session.variants, ">"),
+				if #session.controls > 0 then table.concat(session.controls, ">") else "unknown",
 				if session.leftAt then "" else " (still playing)"
 			)
 		)
@@ -113,13 +119,13 @@ local function changed()
 	task.defer(flush)
 end
 
-function KillTestLog.join(player: Player, variant: string)
+function KillTestLog.join(player: Player)
 	sessions[player.UserId] = {
 		userId = player.UserId,
 		name = player.Name,
 		joinedAt = now(),
 		leftAt = nil,
-		variants = { variant },
+		controls = {},
 	}
 	changed()
 end
@@ -133,17 +139,17 @@ function KillTestLog.leave(player: Player)
 	end
 end
 
-function KillTestLog.variant(player: Player, variant: string)
+function KillTestLog.controls(player: Player, scheme: string)
 	local session = sessions[player.UserId]
-	if session then
-		table.insert(session.variants, variant)
+	if session and #session.controls < MAX_CONTROL_CHANGES then
+		table.insert(session.controls, scheme)
 		changed()
 	end
 end
 
 function KillTestLog.serve(
 	player: Player,
-	variant: string,
+	controls: string,
 	count: number,
 	value: number,
 	carry: number,
@@ -151,7 +157,7 @@ function KillTestLog.serve(
 )
 	table.insert(serves, {
 		userId = player.UserId,
-		variant = variant,
+		controls = controls,
 		count = count,
 		value = math.floor(value),
 		carry = math.floor(carry * 10) / 10,
@@ -160,8 +166,8 @@ function KillTestLog.serve(
 	changed()
 end
 
-function KillTestLog.topple(player: Player, variant: string, count: number, cause: string)
-	table.insert(topples, { userId = player.UserId, variant = variant, count = count, cause = cause })
+function KillTestLog.topple(player: Player, controls: string, count: number, cause: string)
+	table.insert(topples, { userId = player.UserId, controls = controls, count = count, cause = cause })
 	changed()
 end
 
