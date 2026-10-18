@@ -16,12 +16,22 @@ return {
 	apexBase = 14, -- studs above the straight line
 	apexPerStud = 0.08,
 
-	catchRadius = 3.5, -- client: horizontal distance from the tower top
-	catchHeight = 2.5, -- client: vertical distance from the tower top
-	serverTolerance = 4, -- server: extra studs on top of catchRadius for latency
-	serverSpeedLead = 0.15, -- server: seconds of root velocity added to the tolerance
-	serverHeightTolerance = 8,
-	catchWindow = { 0.45, 1.15 }, -- share of flight time in which a catch counts
+	-- Catching: a scoop is caught when its centre comes within catchRadius of the tower column (cone tip to the
+	-- free slot on top, see TowerShape.column), checked on the swept path between frames (ShotMath.firstContact).
+	-- 3.5 = scoop radius 1 + stack radius 1.05 + 1.45 of forgiveness.
+	catchRadius = 3.5,
+	contactStep = 0.5, -- studs between path samples, well below the radius so nothing tunnels through
+
+	-- Server check (CatchRules): replays the scoop at the claimed time with the claimed tilt.
+	-- serverTolerance only covers what still differs between client and server: the clock estimate of
+	-- GetServerTimeNow (~30 ms, about 1.2 studs at scoop speed) and jitter of the replicated root.
+	serverTolerance = 1.5,
+	serverSpeedLead = 0.15, -- seconds of root speed (capped at 1.25 x WalkSpeed) added for physics replication jitter
+	maxClaimAge = 0.4, -- seconds; uplink latency plus a frame for pings up to about 300 ms
+	maxClaimLead = 0.05, -- seconds a claim may lie in the future (clock estimate error)
+	claimSweep = 0.03, -- seconds around the claimed time the server re-checks
+	apexSlack = 0.02, -- catches count from just before the highest point of the arc on
+	catchWindowEnd = 1.15, -- share of flight time; a little after landing so a slow claim still counts
 	minCatchGap = 0.2, -- seconds between two catches of one player
 	resolveAfter = 1.2, -- share of flight time after which an uncaught scoop splats
 

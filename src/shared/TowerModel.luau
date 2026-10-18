@@ -5,11 +5,14 @@
 -- plausibility checks, and Lune tests run it headless. Tilt is a 2D vector in world space (x, z) in radians;
 -- a positive x means the top leans towards +X.
 --
---   tilt'' = gravity*sin(tilt) - stiffness*tilt - damping*tilt' - accelGain*accel + padGain*pad + drift
+--   tilt'' = gravity*sin(tilt) - stiffness*tilt - damping*tilt' - accelGain*accel + padAuthority*pad + drift
 --
 -- gravity grows with the centre of mass of the stack, so short towers are self-righting and tall towers
 -- become unstable and must be balanced actively. Accelerating the base towards the lean reduces it, like
 -- balancing a broom on your hand.
+--
+-- padAuthority grows with how unstable the tower is (gravity - stiffness). A fixed pad strength was either too
+-- weak for tall towers or so strong that holding a key toppled a one-scoop tower in under a second.
 
 export type FlavorPhysics = {
 	mass: number,
@@ -20,7 +23,10 @@ export type FlavorPhysics = {
 
 export type Variant = {
 	accelGain: number,
-	padGain: number,
+	-- extra leverage from walking on unstable towers: accelGain * (1 + accelPerInstability * instability)
+	accelPerInstability: number?,
+	padGain: number, -- multiplier on the pad authority, 0 when the variant has no pad
+	driftScale: number?, -- multiplier on the random wandering, 1 when omitted
 }
 
 export type Tuning = {
@@ -31,6 +37,9 @@ export type Tuning = {
 	baseStiffness: number,
 	baseDamping: number,
 	minDamping: number,
+	padBase: number,
+	padPerInstability: number,
+	padMax: number,
 	driftStartScoops: number,
 	driftPerScoop: number,
 	jerkInterval: number,
@@ -190,6 +199,37 @@ function TowerModel.steadyBonus(state: State, tuning: Tuning): number
 	return math.min(tuning.steady.max, state.steadySeconds * tuning.steady.ratePerSecond)
 end
 
+-- Tilt acceleration (rad/s^2) at full pad deflection. Small towers get a gentle nudge, unstable ones enough
+-- leverage to be caught again.
+function TowerModel.padAuthority(params: Params, variant: Variant, tuning: Tuning): number
+	local instability = math.max(0, params.gravity - params.stiffness)
+	return variant.padGain * math.min(tuning.padMax, tuning.padBase + tuning.padPerInstability * instability)
+end
+
+-- How strongly base acceleration tips the tower. Walking speed is capped, so without extra leverage on
+-- unstable towers a walking-only player (variant A) could never hold more than about a dozen scoops.
+function TowerModel.accelAuthority(params: Params, variant: Variant): number
+	local instability = math.max(0, params.gravity - params.stiffness)
+	return variant.accelGain * (1 + (variant.accelPerInstability or 0) * instability)
+end
+
+-- One fixed step of the movement smoothing that feeds the tower: the base velocity eases towards the target
+-- (MoveDirection * WalkSpeed) over `smoothing` seconds, and the change is the acceleration the tower feels.
+-- The client and the tests share this, so the tests see the same input limits as players do.
+function TowerModel.baseVelocityStep(
+	vx: number,
+	vz: number,
+	targetX: number,
+	targetZ: number,
+	smoothing: number,
+	dt: number
+): (number, number, number, number)
+	local alpha = 1 - math.exp(-dt / smoothing)
+	local nextX = vx + (targetX - vx) * alpha
+	local nextZ = vz + (targetZ - vz) * alpha
+	return nextX, nextZ, (nextX - vx) / dt, (nextZ - vz) / dt
+end
+
 function TowerModel.step(
 	state: State,
 	params: Params,
@@ -221,8 +261,11 @@ function TowerModel.step(
 		return nil
 	end
 
-	local driftX = params.drift * wander(state.seed, state.t, 1)
-	local driftZ = params.drift * wander(state.seed, state.t, 2)
+	local drift = params.drift * (variant.driftScale or 1)
+	local driftX = drift * wander(state.seed, state.t, 1)
+	local driftZ = drift * wander(state.seed, state.t, 2)
+	local pad = TowerModel.padAuthority(params, variant, tuning)
+	local walk = TowerModel.accelAuthority(params, variant)
 
 	if params.jerk > 0 then
 		local interval = math.max(1, math.floor(tuning.jerkInterval / dt + 0.5))
@@ -237,14 +280,14 @@ function TowerModel.step(
 	local accelX = params.gravity * math.sin(state.x)
 		- params.stiffness * state.x
 		- params.damping * state.vx
-		- variant.accelGain * input.ax
-		+ variant.padGain * input.padX
+		- walk * input.ax
+		+ pad * input.padX
 		+ driftX
 	local accelZ = params.gravity * math.sin(state.z)
 		- params.stiffness * state.z
 		- params.damping * state.vz
-		- variant.accelGain * input.az
-		+ variant.padGain * input.padZ
+		- walk * input.az
+		+ pad * input.padZ
 		+ driftZ
 
 	-- semi-implicit Euler: stable at 60 Hz for the stiffness range we use

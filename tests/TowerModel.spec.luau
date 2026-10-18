@@ -2,8 +2,10 @@ local harness = require("./harness")
 local describe, it, expect = harness.describe, harness.it, harness.expect
 
 local TowerModel = require("../src/shared/TowerModel")
+local Economy = require("../src/shared/Economy")
 local Flavors = require("../src/shared/Config/Flavors")
 local Tuning = require("../src/shared/Config/Tower")
+local EconomyConfig = require("../src/shared/Config/Economy")
 
 local DT = 1 / Tuning.stepRate
 local PAD = Tuning.variants.B
@@ -50,6 +52,73 @@ local function padPlayer(kp: number, kd: number)
 			padZ = math.clamp(-(kp * observed.z + kd * observed.vz), -1, 1),
 		}
 	end
+end
+
+-- The keyboard ramp from BalancePad: towards the target over keyRampTime, back to 0 over keyReleaseTime.
+local function ramp(current: number, target: number): number
+	if target == 0 then
+		local step = DT / Tuning.keyReleaseTime
+		return if current > 0 then math.max(0, current - step) else math.min(0, current + step)
+	end
+	return math.clamp(current + target * DT / Tuning.keyRampTime, -1, 1)
+end
+
+-- Someone on I/J/K/L: presses the key against the lean once it is clearly visible, through the key ramp.
+local function keyboardPlayer()
+	local x, z = 0, 0
+	local function key(tilt: number, rate: number): number
+		local lean = tilt + 0.35 * rate
+		if lean > 0.05 then
+			return -1
+		elseif lean < -0.05 then
+			return 1
+		end
+		return 0
+	end
+	return function(observed)
+		x = ramp(x, key(observed.x, observed.vx))
+		z = ramp(z, key(observed.z, observed.vz))
+		return { ax = 0, az = 0, padX = x, padZ = z }
+	end
+end
+
+-- Variant A through the real input path: the player steers MoveDirection (length <= 1) towards where the tower
+-- falls, the Humanoid walks at most Economy.walkSpeed, and baseVelocityStep turns that into the acceleration the
+-- tower feels, exactly like TowerController.
+local function walkingPlayer(count: number, variant)
+	local vx, vz = 0, 0
+	local speed = Economy.walkSpeed(count, 0, EconomyConfig)
+	local smoothing = variant.accelSmoothing or Tuning.accelSmoothing
+	return function(observed)
+		local mx, mz = observed.x + 3 * observed.vx, observed.z + 3 * observed.vz
+		local length = math.sqrt(mx * mx + mz * mz)
+		if length > 1 then
+			mx, mz = mx / length, mz / length
+		end
+		local ax, az
+		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, mx * speed, mz * speed, smoothing, DT)
+		return { ax = ax, az = az, padX = 0, padZ = 0 }
+	end
+end
+
+-- Running at full speed and flipping the stick to the opposite direction, through the real input path.
+local function reversalPeak(count: number, variant): (boolean, number)
+	local state = TowerModel.newState(1)
+	local params = paramsFor(stack("vanilla", count))
+	local speed = Economy.walkSpeed(count, 0, EconomyConfig)
+	local smoothing = variant.accelSmoothing or Tuning.accelSmoothing
+	local vx, vz = speed, 0
+	local peak = 0
+	for _ = 1, 300 do
+		local ax, az
+		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, -speed, 0, smoothing, DT)
+		TowerModel.step(state, params, { ax = ax, az = az, padX = 0, padZ = 0 }, variant, Tuning, DT)
+		peak = math.max(peak, TowerModel.tilt(state))
+		if state.toppled then
+			break
+		end
+	end
+	return state.toppled, peak / Tuning.tipAngle
 end
 
 describe("TowerModel", function()
@@ -113,7 +182,7 @@ describe("TowerModel", function()
 		-- guards accessibility: retuning must not push the median tower out of reach for slower players
 		for seed = 1, 4 do
 			local state = TowerModel.newState(seed)
-			simulate(state, paramsFor(stack("vanilla", 20)), PAD, 45, padPlayer(1.2, 0.6), 18)
+			simulate(state, paramsFor(stack("vanilla", 20)), PAD, 45, padPlayer(1.0, 0.4), 18)
 			expect(state.toppled).toBe(false)
 		end
 	end)
@@ -121,30 +190,35 @@ describe("TowerModel", function()
 	it("a player with 0.2 s reaction time can hold 30 scoops with an upgraded cone", function()
 		local state = TowerModel.newState(9)
 		local params = paramsFor(stack("vanilla", 30), 1.3)
-		simulate(state, params, PAD, 30, padPlayer(3, 0.8), 12)
+		simulate(state, params, PAD, 30, padPlayer(1.6, 0.4), 12)
 		expect(state.toppled).toBe(false)
 	end)
 
-	it("40 scoops on a starter cone are beyond a 0.2 s player", function()
-		local state = TowerModel.newState(13)
-		local params = paramsFor(stack("vanilla", 40))
-		simulate(state, params, PAD, 30, padPlayer(3, 0.8), 12)
-		expect(state.toppled).toBe(true)
+	it("40 scoops on a starter cone are beyond a 0.2 s player, whatever their style", function()
+		for _, gains in { { 3, 0.8 }, { 2, 0.6 }, { 1.6, 0.4 }, { 1, 0.4 } } do
+			local state = TowerModel.newState(13)
+			local params = paramsFor(stack("vanilla", 40))
+			simulate(state, params, PAD, 30, padPlayer(gains[1], gains[2]), 12)
+			expect(state.toppled).toBe(true)
+		end
 	end)
 
-	it("variant A can be balanced by walking under the lean", function()
-		local state = TowerModel.newState(21)
-		local params = paramsFor(stack("vanilla", 14))
-		simulate(state, params, JOYSTICK, 30, function(observed)
-			-- accelerate towards the lean, capped at what the smoothed movement can produce
-			return {
-				ax = math.clamp(observed.x * 120 + observed.vx * 30, -72, 72),
-				az = math.clamp(observed.z * 120 + observed.vz * 30, -72, 72),
-				padX = 0,
-				padZ = 0,
-			}
-		end, 12)
-		expect(state.toppled).toBe(false)
+	it("variant A can hold 14 scoops by walking, through the real input path and 0.25 s reaction", function()
+		for seed = 1, 3 do
+			local state = TowerModel.newState(seed)
+			simulate(state, paramsFor(stack("vanilla", 14)), JOYSTICK, 30, walkingPlayer(14, JOYSTICK), 15)
+			expect(state.toppled).toBe(false)
+		end
+	end)
+
+	it("a full-speed reversal does not push towers of up to 8 scoops into the groan, in A and B", function()
+		for _, variant in { JOYSTICK, PAD } do
+			for _, count in { 3, 5, 8 } do
+				local toppled, peak = reversalPeak(count, variant)
+				expect(toppled).toBe(false)
+				expect(peak).toBeLessThan(Tuning.groanFraction)
+			end
+		end
 	end)
 
 	it("groans before toppling and can be saved", function()
@@ -239,5 +313,72 @@ describe("TowerModel", function()
 		expect(TowerModel.tilt(state)).toBe(0)
 		expect(state.steadySeconds).toBe(0)
 		expect(state.t).toBe(clock)
+	end)
+end)
+
+describe("Pad and keyboard input", function()
+	it("gives short towers a gentle pad and tall towers more leverage", function()
+		local short = TowerModel.padAuthority(paramsFor(stack("vanilla", 1)), PAD, Tuning)
+		local tall = TowerModel.padAuthority(paramsFor(stack("vanilla", 20)), PAD, Tuning)
+		expect(short).toBeCloseTo(Tuning.padBase)
+		expect(tall).toBeGreaterThan(9)
+		expect(TowerModel.padAuthority(paramsFor(stack("vanilla", 20)), JOYSTICK, Tuning)).toBe(0)
+	end)
+
+	it("holding a key does not topple a tower of up to 5 scoops", function()
+		-- regression: with a fixed pad strength a held key toppled even a one-scoop tower in 0.85 s
+		for _, count in { 1, 3, 5 } do
+			local state = TowerModel.newState(1)
+			simulate(state, paramsFor(stack("vanilla", count)), PAD, 10, function()
+				return { ax = 0, az = 0, padX = 1, padZ = 0 }
+			end)
+			expect(state.toppled).toBe(false)
+			expect(TowerModel.tilt(state)).toBeLessThan(Tuning.groanFraction * Tuning.tipAngle)
+		end
+	end)
+
+	it("a short key tap only nudges a tower of up to 8 scoops", function()
+		for _, count in { 1, 5, 8 } do
+			local state = TowerModel.newState(1)
+			local u, step, peak = 0, 0, 0
+			simulate(state, paramsFor(stack("vanilla", count)), PAD, 3, function()
+				step += 1
+				u = ramp(u, if step <= 9 then 1 else 0) -- 0.15 s tap
+				peak = math.max(peak, TowerModel.tilt(state))
+				return { ax = 0, az = 0, padX = u, padZ = 0 }
+			end)
+			expect(state.toppled).toBe(false)
+			expect(peak / Tuning.tipAngle).toBeLessThan(0.3)
+		end
+	end)
+
+	it("a keyboard player with 0.25 s reaction can hold 12 scoops", function()
+		for seed = 1, 4 do
+			local state = TowerModel.newState(seed)
+			simulate(state, paramsFor(stack("vanilla", 12)), PAD, 30, keyboardPlayer(), 15)
+			expect(state.toppled).toBe(false)
+		end
+	end)
+
+	it("pad input actually moves the tower in the pushed direction", function()
+		local state = TowerModel.newState(1)
+		simulate(state, paramsFor(stack("vanilla", 6)), PAD, 1, function()
+			return { ax = 0, az = 0, padX = 0.5, padZ = -0.5 }
+		end)
+		expect(state.x).toBeGreaterThan(0.02)
+		expect(state.z).toBeLessThan(-0.02)
+	end)
+
+	it("smooths movement into a bounded acceleration that settles on the target velocity", function()
+		local vx, vz = 0, 0
+		local peak = 0
+		for _ = 1, 120 do
+			local ax
+			vx, vz, ax = TowerModel.baseVelocityStep(vx, vz, 18, 0, Tuning.accelSmoothing, DT)
+			peak = math.max(peak, ax)
+		end
+		expect(vx).toBeCloseTo(18, 0.01)
+		expect(vz).toBe(0)
+		expect(peak).toBeLessThan(18 / Tuning.accelSmoothing + 1e-6)
 	end)
 end)

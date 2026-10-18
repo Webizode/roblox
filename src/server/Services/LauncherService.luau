@@ -1,6 +1,6 @@
 -- The Big Swirl. Fires scoops on a parabola, announces where they land, and validates catch claims.
--- The server knows every scoop it fired, so a client can only catch scoops that exist, inside their flight
--- window, near its own tower top.
+-- The server knows every scoop it fired, so a client can only catch scoops that exist, after their highest
+-- point, at a recent time, close to its own tower (CatchRules).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,8 +9,12 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local ShotMath = require(Shared:WaitForChild("ShotMath"))
+local TowerShape = require(Shared:WaitForChild("TowerShape"))
+local CatchRules = require(Shared:WaitForChild("CatchRules"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local Tuning = require(Config:WaitForChild("Launcher"))
+local TowerTuning = require(Config:WaitForChild("Tower"))
+local Features = require(Config:WaitForChild("Features"))
 
 local LauncherService = {}
 
@@ -23,6 +27,13 @@ type Shot = {
 	t0: number,
 	flight: number,
 	resolved: boolean,
+	-- the same path as plain numbers, for ShotMath/CatchRules
+	fx: number,
+	fy: number,
+	fz: number,
+	tx: number,
+	ty: number,
+	tz: number,
 }
 
 local registry
@@ -31,6 +42,7 @@ local shots: { [number]: Shot } = {}
 local nextId = 0
 local tutorialLeft: { [Player]: number } = {}
 local lastCatchAt: { [Player]: number } = {}
+local lastRejectLog: { [Player]: number } = {}
 local rng = Random.new()
 
 local totalWeight = 0
@@ -118,6 +130,12 @@ local function fire()
 		t0 = workspace:GetServerTimeNow(),
 		flight = ShotMath.flightTime(distance, Tuning),
 		resolved = false,
+		fx = from.X,
+		fy = from.Y,
+		fz = from.Z,
+		tx = to.X,
+		ty = to.Y,
+		tz = to.Z,
 	}
 	shots[shot.id] = shot
 	Remotes.ShotFired:FireAllClients(shot.id, shot.flavorId, shot.from, shot.to, shot.apex, shot.t0, shot.flight)
@@ -125,13 +143,35 @@ local function fire()
 	task.delay(shot.flight * Tuning.resolveAfter, resolve, shot, nil)
 end
 
-local function shotPosition(shot: Shot, alpha: number): Vector3
-	local x, y, z =
-		ShotMath.position(shot.from.X, shot.from.Y, shot.from.Z, shot.to.X, shot.to.Y, shot.to.Z, shot.apex, alpha)
-	return Vector3.new(x, y, z)
+local function logRejection(player: Player, id: number, reason: string, distance: number?)
+	if not Features.debugCatch then
+		return
+	end
+	local time = os.clock()
+	if time - (lastRejectLog[player] or 0) < 1 then
+		return
+	end
+	lastRejectLog[player] = time
+	local detail = if distance then string.format(" (%.1f studs from the tower)", distance) else ""
+	print(string.format("[Catch] rejected shot %d for %s: %s%s", id, player.Name, reason, detail))
 end
 
-local function onCatchClaim(player: Player, id: any)
+-- Horizontal root speed, capped by what the Humanoid may actually walk. A spoofed velocity must not widen
+-- the catch tolerance.
+local function cappedSpeed(root: BasePart): number
+	local velocity = root.AssemblyLinearVelocity
+	local flat = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+	if flat ~= flat then
+		return 0
+	end
+	local humanoid = root.Parent and root.Parent:FindFirstChildOfClass("Humanoid")
+	local walkSpeed = if humanoid then humanoid.WalkSpeed else 18
+	return math.min(flat, walkSpeed * 1.25)
+end
+
+-- claimTime: server time (GetServerTimeNow on the client) at which the scoop touched the tower.
+-- tiltX/tiltZ: the client's tower tilt at that moment.
+local function onCatchClaim(player: Player, id: any, claimTime: any, tiltX: any, tiltZ: any)
 	if type(id) ~= "number" then
 		return
 	end
@@ -142,31 +182,33 @@ local function onCatchClaim(player: Player, id: any)
 
 	local time = workspace:GetServerTimeNow()
 	if time - (lastCatchAt[player] or 0) < Tuning.minCatchGap then
-		return
-	end
-	local alpha = (time - shot.t0) / shot.flight
-	if alpha < Tuning.catchWindow[1] or alpha > Tuning.catchWindow[2] then
+		logRejection(player, id, "caught another scoop just before")
 		return
 	end
 
 	local root = rootOf(player)
-	local top = registry.TowerService.topPosition(player)
-	if not root or not top then
+	local base = registry.TowerService.towerBase(player)
+	if not root or not base then
 		return
 	end
 
-	local scoop = shotPosition(shot, alpha)
-	local horizontal = Vector3.new(scoop.X - top.X, 0, scoop.Z - top.Z).Magnitude
-	local tolerance = Tuning.catchRadius
-		+ Tuning.serverTolerance
-		+ root.AssemblyLinearVelocity.Magnitude * Tuning.serverSpeedLead
-	if horizontal > tolerance or math.abs(scoop.Y - top.Y) > Tuning.serverHeightTolerance then
+	local result = CatchRules.check({ claimTime = claimTime, tiltX = tiltX, tiltZ = tiltZ }, shot, {
+		baseX = base.X,
+		baseY = base.Y,
+		baseZ = base.Z,
+		count = registry.TowerService.count(player),
+		speed = cappedSpeed(root),
+	}, time, Tuning, TowerTuning, ShotMath, TowerShape)
+	if not result.ok then
+		logRejection(player, id, result.reason, result.distance)
 		return
 	end
 
 	if registry.TowerService.addScoop(player, shot.flavorId) then
 		lastCatchAt[player] = time
 		resolve(shot, player)
+	else
+		logRejection(player, id, "cone is full")
 	end
 end
 
@@ -190,6 +232,7 @@ function LauncherService.Start()
 	Players.PlayerRemoving:Connect(function(player)
 		tutorialLeft[player] = nil
 		lastCatchAt[player] = nil
+		lastRejectLog[player] = nil
 	end)
 
 	Remotes.CatchClaim.OnServerEvent:Connect(onCatchClaim)

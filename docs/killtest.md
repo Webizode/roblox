@@ -5,7 +5,7 @@ Eine Frage entscheidet, ob wir Wobble Scoops weiterbauen: **Fühlt sich das Bala
 ## Vorbereitung
 
 - Place mit `rojo serve` + Studio, ein Testlauf allein: Fangen, Wackeln, Servieren, alle 3 Varianten schalten.
-- In Studio die Latenz auf 0,2 s stellen und einmal selbst spielen.
+- In Studio die Latenz auf 0,2 s stellen und einmal selbst spielen. In der Ausgabe dürfen dabei kaum `[Catch] rejected`-Zeilen auftauchen. Vor dem Test mit Spielern `debugCatch` in `Config/Features.luau` ausschalten.
 - Für Handys: Place veröffentlichen (File → Publish to Roblox), privat lassen und den Testern Zugriff geben. Mindestens ein schwaches Android dabei.
 - 5 Tester, davon mindestens 2 zwischen 10 und 15 (Geschwister, Kinder von Freunden, **nur mit Einverständnis der Eltern**).
 
@@ -57,5 +57,7 @@ Alle Werte liegen in `src/shared/Config/Tower.luau`. Nach jeder Änderung `lune 
 | zu leicht, Türme werden riesig | `baseStiffness` runter oder `driftStartScoops` runter |
 | zu schwer, Median unter 8 | `baseStiffness` hoch, `padGain` der Variante hoch |
 | Anlaufen wirft den Turm um | `accelSmoothing` hoch oder `accelGain` der Variante runter |
-| Pad fühlt sich träge an | `padGain` hoch, `baseDamping` runter |
+| Pad fühlt sich träge an | `padPerInstability` hoch (hohe Türme) bzw. `padBase` hoch (kleine Türme), `baseDamping` runter |
+| Kleine Türme kippen beim Gegensteuern | `padBase` runter, `keyRampTime` hoch (Tasten weicher) |
+| Variante A zu schwer/zu leicht | bei A `accelPerInstability` bzw. `driftScale` anpassen |
 | Turm „klebt“, kein Wackeln | `baseDamping` runter, `landingKick` hoch |

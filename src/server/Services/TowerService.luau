@@ -1,5 +1,5 @@
 -- The server's truth about every tower: which scoops are on it, coins, and what a serve pays.
--- Tilt is simulated by the owning client; the server only relays it and uses it to locate the tower top.
+-- Tilt is simulated by the owning client; the server only relays it to the other players.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,7 +9,6 @@ local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
-local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local RecipeConfig = require(Config:WaitForChild("Recipes"))
@@ -29,6 +28,7 @@ type TowerState = {
 	carryStartedAt: number?,
 	tiltX: number,
 	tiltZ: number,
+	lastTiltAt: number,
 	lastServeAt: number,
 	lastToppleAt: number,
 	joinedAt: number,
@@ -38,7 +38,8 @@ type TowerState = {
 local registry
 local states: { [Player]: TowerState } = {}
 
-local MAX_TILT_MESSAGE = TowerTuning.tipAngle * 1.1
+-- honest clients send tilt at Tuning.tiltSendRate (10 Hz); anything faster than twice that is dropped
+local MIN_TILT_INTERVAL = 0.5 / TowerTuning.tiltSendRate
 
 local function now(): number
 	return workspace:GetServerTimeNow()
@@ -94,6 +95,7 @@ local function createState(player: Player): TowerState
 		carryStartedAt = nil,
 		tiltX = 0,
 		tiltZ = 0,
+		lastTiltAt = 0,
 		lastServeAt = 0,
 		lastToppleAt = 0,
 		joinedAt = now(),
@@ -172,10 +174,23 @@ local function onTilt(player: Player, x: any, z: any)
 	if not state or not isFiniteNumber(x) or not isFiniteNumber(z) then
 		return
 	end
-	state.tiltX = math.clamp(x, -MAX_TILT_MESSAGE, MAX_TILT_MESSAGE)
-	state.tiltZ = math.clamp(z, -MAX_TILT_MESSAGE, MAX_TILT_MESSAGE)
-	-- clients ignore their own tilt
-	Remotes.TowerTilt:FireAllClients(player, state.tiltX, state.tiltZ)
+	local time = now()
+	if time - state.lastTiltAt < MIN_TILT_INTERVAL then
+		return
+	end
+	state.lastTiltAt = time
+
+	-- clamp the tilt vector, not each axis: per axis a diagonal tilt could reach 1.4x the tip angle
+	local tilt = math.sqrt(x * x + z * z)
+	if tilt > TowerTuning.tipAngle then
+		x, z = x / tilt * TowerTuning.tipAngle, z / tilt * TowerTuning.tipAngle
+	end
+	state.tiltX, state.tiltZ = x, z
+	for _, other in Players:GetPlayers() do
+		if other ~= player then
+			Remotes.TowerTilt:FireClient(other, player, x, z)
+		end
+	end
 end
 
 local function onVariant(player: Player, variant: any)
@@ -245,16 +260,13 @@ function TowerService.addScoop(player: Player, flavorId: string): boolean
 	return true
 end
 
--- World position of the free slot on top of the player's tower, from the last tilt the client reported.
-function TowerService.topPosition(player: Player): Vector3?
-	local state = states[player]
+-- World position of the tower base (where the cone sits), the same point the client renders from.
+function TowerService.towerBase(player: Player): Vector3?
 	local root = rootOf(player)
-	if not state or not root then
+	if not states[player] or not root then
 		return nil
 	end
-	local base = root.CFrame:PointToWorldSpace(Vector3.new(0, TowerTuning.holdUp, -TowerTuning.holdForward))
-	local ox, oy, oz = TowerShape.top(#state.scoops, state.tiltX, state.tiltZ, TowerTuning)
-	return base + Vector3.new(ox, oy, oz)
+	return root.CFrame:PointToWorldSpace(Vector3.new(0, TowerTuning.holdUp, -TowerTuning.holdForward))
 end
 
 return TowerService

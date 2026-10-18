@@ -10,6 +10,7 @@ local harness = require("./harness")
 require("./TowerModel.spec")
 require("./Economy.spec")
 require("./Geometry.spec")
+require("./Catch.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

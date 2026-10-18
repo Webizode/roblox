@@ -2,8 +2,13 @@
 -- exactly where the balance pad goes).
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local EconomyConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Economy"))
 
 local CartService = {}
+
+local SPAWN_DISTANCE = EconomyConfig.serveRadius + 4
 
 local graybox
 local owners: { [Instance]: Player } = {}
@@ -57,8 +62,13 @@ local function onCharacter(player: Player, character: Model)
 		character:WaitForChild("HumanoidRootPart")
 		-- wait a frame: the default spawn positions the character after CharacterAdded fires
 		task.wait()
+		-- spawn a few studs in front of the cart, outside the serve radius, so the first (tutorial) catches are
+		-- not served away as one-scoop towers the moment they land
 		local lookAt = Vector3.new(graybox.center.X, servePoint.Position.Y, graybox.center.Z)
-		character:PivotTo(CFrame.lookAt(servePoint.Position + Vector3.new(0, 1, 0), lookAt + Vector3.new(0, 1, 0)))
+		local inward = lookAt - servePoint.Position
+		inward = if inward.Magnitude > 1e-3 then inward.Unit else Vector3.zero
+		local spawnAt = servePoint.Position + inward * SPAWN_DISTANCE + Vector3.new(0, 1, 0)
+		character:PivotTo(CFrame.lookAt(spawnAt, lookAt + Vector3.new(0, 1, 0)))
 	end
 end
 

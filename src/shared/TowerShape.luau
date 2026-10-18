@@ -37,4 +37,25 @@ function TowerShape.top(count: number, tiltX: number, tiltZ: number, tuning: Sha
 	return TowerShape.offset(count + 1, count, tiltX, tiltZ, tuning)
 end
 
+-- The tower as a polyline (flat x, y, z list, bottom to top): the cone tip, the middle scoop, the top scoop and
+-- the free slot. A scoop that comes within the catch radius of this line touches the tower, wherever it hits
+-- it, and is stacked on top. Checking only the free slot let scoops fly straight through taller towers.
+function TowerShape.column(count: number, tiltX: number, tiltZ: number, tuning: ShapeTuning): { number }
+	local points = { 0, tuning.coneHeight, 0 }
+	local function add(index: number)
+		local x, y, z = TowerShape.offset(index, count, tiltX, tiltZ, tuning)
+		table.insert(points, x)
+		table.insert(points, y)
+		table.insert(points, z)
+	end
+	if count >= 3 then
+		add(math.ceil(count / 2))
+	end
+	if count >= 1 then
+		add(count)
+	end
+	add(count + 1)
+	return points
+end
+
 return TowerShape

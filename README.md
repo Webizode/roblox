@@ -32,8 +32,10 @@ In Studio eine neue *Baseplate* öffnen → Plugins → Rojo → *Connect*. Dann
 - **Mehrspieler:** Test → *Clients and Servers* → 2–3 Spieler → Start.
 - **Handy:** Test → *Device* (Emulator) und echtes Handy über eine privat veröffentlichte Version (File → Publish to Roblox).
 - **Latenz:** Studio-Einstellungen → Network → *Incoming Replication Lag* auf 0,2 s, so fühlt sich ein typisches Handy an.
-- **Steuerung am PC:** WASD laufen, Pad mit der Maus ziehen oder mit I/J/K/L.
+- **Steuerung am PC:** WASD laufen. Balancieren: auf das Pad unten rechts klicken und von dort gegen die Neigung ziehen, oder I/J/K/L. Tippen = kleiner Schubs, Halten = voller Schub. Der Punkt im Pad zeigt, wohin der Turm kippt.
+- **Fangen:** Eine Kugel zählt, sobald sie den Turm irgendwo berührt, nicht nur die Spitze. Servieren passiert automatisch, wenn du mit dem Turm von draußen auf die gelbe Matte am eigenen Wagen läufst.
 - **Kill-Test-Daten:** Die Ausgabe zeigt alle 2 Minuten `[KillTest] summary`, die Rohdaten liegen als JSON in `ServerStorage.KillTestLog`.
+- **Fang-Diagnose:** Solange `debugCatch` in `src/shared/Config/Features.luau` an ist, schreibt der Server jeden abgelehnten Fang mit Grund in die Ausgabe (`[Catch] rejected …`).
 
 ## Checks (vor jedem Push)
 
