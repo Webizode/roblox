@@ -7,6 +7,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -252,11 +253,13 @@ local function buildBottom()
 end
 
 -- Right edge: how much balance is left. Full and green is steady; below the red line the tower groans.
+-- It sits where the balance pad would be (the two never show together): bottom right on PC, below the player
+-- list; above the jump button on touch screens.
 local function buildMeter()
 	meter, meterStroke = Ui.card({
 		Name = "Balance",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -14, 0.45, 0),
+		AnchorPoint = Vector2.new(1, 1),
+		Position = if UserInputService.TouchEnabled then UDim2.new(1, -24, 0.62, 0) else UDim2.new(1, -16, 1, -16),
 		Size = UDim2.fromOffset(30, METER_HEIGHT),
 		Visible = false,
 	}, UDim.new(0.5, 0))
@@ -292,8 +295,8 @@ local function buildMeter()
 		Name = "Label",
 		Text = "Balance",
 		TextSize = 14,
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 1, 6),
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 0, -6),
 	}).Parent =
 		meter
 	meter.Parent = gui

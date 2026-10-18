@@ -3,11 +3,12 @@
 -- jerks the tower by itself. The dot inside shows where the tower leans, the ring turns green/yellow/red with the
 -- tilt.
 --
--- I/J/K/L push like the pad whenever a keyboard is in use, with or without the pad on screen. They are bound
--- through ContextActionService above the default camera, which otherwise zooms in on I, and they ramp up over
--- Tuning.keyRampTime so a tap is a nudge and holding is a push.
+-- Without the pad, I/J/K/L push the same way on a keyboard. They are bound through ContextActionService above
+-- the default camera, which otherwise zooms in on I, and they ramp up over Tuning.keyRampTime so a tap is a nudge
+-- and holding is a push.
 --
--- Modes: "pad" shows the pad and reads pad and keys, "keys" reads only the keys, "off" reads nothing.
+-- Modes: "pad" shows and reads only the pad, "keys" reads only I/J/K/L, "off" reads nothing. One input per
+-- scheme, so the kill-test log knows what was actually used.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -111,7 +112,7 @@ local function updateKeys(dt: number)
 			keysDown[keyCode] = nil
 		end
 	end
-	if Tuning.keyboardPad and mode ~= "off" then
+	if Tuning.keyboardPad and mode == "keys" then
 		for keyCode in keysDown do
 			target += KEY_DIRECTIONS[keyCode]
 		end
@@ -205,7 +206,7 @@ function BalancePad.get(): (number, number)
 		return 0, 0
 	end
 	local x, y
-	if mode == "pad" and (activeInput or usingMouse) then
+	if mode == "pad" then
 		x, y = pointerX, pointerY
 	else
 		x, y = keyX, keyY
