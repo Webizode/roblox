@@ -39,7 +39,18 @@ expectInstance({ "ReplicatedStorage", "Shared" }, "Folder")
 expectInstance({ "ReplicatedStorage", "Shared", "Config" }, "Folder")
 
 for _, name in
-	{ "Remotes", "TowerModel", "TowerShape", "Economy", "Recipes", "ShotMath", "CatchRules", "Combat", "Dash" }
+	{
+		"Remotes",
+		"TowerModel",
+		"TowerShape",
+		"Economy",
+		"Recipes",
+		"ShotMath",
+		"CatchRules",
+		"Combat",
+		"Dash",
+		"ThrowPose",
+	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")
 end
@@ -75,6 +86,7 @@ for _, name in
 		"CombatController",
 		"Backpacks",
 		"HeldBalls",
+		"ThrowAnimator",
 		"ShotRenderer",
 		"RemoteTowers",
 	}

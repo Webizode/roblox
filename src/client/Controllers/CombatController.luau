@@ -101,8 +101,10 @@ end
 
 local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: Vector3, t0: number)
 	local part = effectPart("IceBall", CombatConfig.ballRadius * 2, Color3.fromHex(Palette.skyTop), origin)
+	part.Transparency = 1 -- still in the hand until t0, the throw animation's release
 	addTrail(part)
 	balls[id] = { part = part, origin = origin, velocity = velocity, t0 = t0 }
+	registry.ThrowAnimator.thrown(thrower, t0)
 	if thrower == player then
 		debugLog(
 			string.format(
@@ -260,6 +262,12 @@ local function onRenderStep()
 			ball.part:Destroy()
 			continue
 		end
+		if t < 0 then
+			continue -- the throw animation has not released it yet
+		end
+		if ball.part.Transparency > 0 then
+			ball.part.Transparency = 0
+		end
 		local o, v = ball.origin, ball.velocity
 		local x, y, z = Combat.position(
 			o.X,
@@ -290,6 +298,9 @@ end
 
 -- Drops a running charge without throwing; with the button still down it starts again once a throw is possible.
 local function cancelCharge(releaseButton: boolean)
+	if charging then
+		registry.ThrowAnimator.charge(false)
+	end
 	charging = false
 	if releaseButton then
 		wantCharge = false
@@ -304,6 +315,7 @@ local function tryStartCharge()
 			charging = true
 			chargeStartedAt = os.clock()
 			Remotes.ChargeIceBall:FireServer()
+			registry.ThrowAnimator.charge(true)
 		end
 	end
 end
@@ -350,6 +362,7 @@ local function requestThrow(_: string, inputState: Enum.UserInputState): Enum.Co
 			local aim = aimPoint()
 			lastRequestAt = os.clock()
 			Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z, charge)
+			registry.ThrowAnimator.release() -- the throw animation starts with the button-up, like the server's clock
 			local character = player.Character
 			local hand = character and character:FindFirstChild("RightHand") :: BasePart?
 			debugLog(

@@ -105,3 +105,19 @@ Der Dash nutzt Logik und Effekte aus `DashSystem;p.rbxm` (Swavi), aber nicht des
 
 Animationen: Die des Modells sind R6 und gehören dem Autor; eigene (für das Rig des Spiels) veröffentlichen und die IDs in `Config/Movement.luau` unter `dashAnimations` eintragen.
 
+## Wurfanimation
+
+Im Kampfmodus hält die Figur die Kugel in einer Kampfhaltung. Beim Halten der Wurftaste zieht sie den Arm zurück und dreht den Oberkörper ein, beim Loslassen kommt der Wurf mit Ausschwingen und Rückkehr in die Haltung. Der Ball verlässt die Hand **0,08 s nach dem Loslassen** (`releaseDelay` in `Config/Combat.luau`). Der Server prüft den Wurf beim Loslassen und startet den Ball genau dann, die Animation lässt im selben Moment los.
+
+Ohne Animations-IDs läuft eine **prozedurale Pose** (rechte Schulter, Ellbogen, Taille, nur R15), die jeder Client für alle Spieler zeichnet (`ThrowAnimator`, Posen in `throwAnimation.poses`). Für echte Animationen:
+
+1. `lune run scripts/throw-animation` erzeugt `assets/WobbleThrowAnimations.rbxm` aus denselben Posen (liegt schon im Repo).
+2. In Studio: *Avatar → Rig Builder → R15 Block Rig*. Im Rig ein `ObjectValue` namens `AnimSaves` anlegen (falls nicht vorhanden).
+3. *Insert from File…* → `assets/WobbleThrowAnimations.rbxm`, die drei `KeyframeSequence`s aus dem Ordner in `AnimSaves` ziehen.
+4. Animation Editor öffnen, Rig auswählen, über *⋯ → Load* nacheinander `WobbleCombatStance`, `WobbleThrowCharge`, `WobbleThrow` laden, nach Geschmack verfeinern (z. B. linker Arm, Beine, Kopf).
+   - `WobbleThrowCharge`: Marker `Held` muss auf dem letzten Frame bleiben.
+   - `WobbleThrow`: Marker `Release` muss bei **0,08 s** bleiben (entspricht `releaseDelay`); wenn du ihn verschiebst, `releaseDelay` gleich setzen.
+   - Priorität *Action*, Haltung als Loop.
+5. Jede über *⋯ → Publish to Roblox* veröffentlichen, unter demselben Besitzer wie das Spiel.
+6. Die IDs in `Config/Combat.luau` unter `throwAnimation` eintragen: `stance`, `charge`, `throw` (`"rbxassetid://<id>"`). Sind alle drei gesetzt, spielt der eigene Client die Animationen und die prozedurale Pose ist aus. Mit `debugThrow` meldet die Ausgabe, wenn der `Release`-Marker mehr als 30 ms neben `releaseDelay` liegt.
+

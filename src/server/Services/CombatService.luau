@@ -115,11 +115,17 @@ local function scheduleRefill(player: Player, state: PlayerState)
 	end)
 end
 
+-- Whether the player is charging a throw, published as the Charging attribute so every client can draw the wind-up.
+local function setCharging(player: Player, state: PlayerState, startedAt: number?)
+	state.chargeStartedAt = startedAt
+	player:SetAttribute("Charging", startedAt ~= nil)
+end
+
 -- Combat mode is published as the CombatMode attribute, so every client can draw the ball in the hand.
 local function setCombatMode(player: Player, state: PlayerState, on: boolean)
 	state.combatMode = on
 	if not on then
-		state.chargeStartedAt = nil
+		setCharging(player, state, nil)
 	end
 	player:SetAttribute("CombatMode", on)
 end
@@ -147,7 +153,7 @@ local function onCharge(player: Player)
 		return
 	end
 	state.lastChargeAt = time
-	state.chargeStartedAt = time
+	setCharging(player, state, time)
 end
 
 -- Where the ball leaves: the right hand, if the character has one near its root, and not through a wall.
@@ -170,7 +176,7 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 		return
 	end
 	local startedAt = state.chargeStartedAt
-	state.chargeStartedAt = nil
+	setCharging(player, state, nil)
 	if not state.combatMode then
 		debugReject(player, "not in combat mode")
 		return
@@ -237,12 +243,14 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 		vx = vx,
 		vy = vy,
 		vz = vz,
-		t0 = time,
+		-- the throw is decided now; the ball leaves the hand releaseDelay later, with the throw animation's release
+		t0 = time + Config.releaseDelay,
 		lastT = 0,
 		speed = speed,
 		charge = charge,
 	})
-	Remotes.IceBallThrown:FireAllClients(nextId, player, origin, Vector3.new(vx, vy, vz), time)
+	-- told right away, so every client starts the throw animation now and the ball with its t0
+	Remotes.IceBallThrown:FireAllClients(nextId, player, origin, Vector3.new(vx, vy, vz), time + Config.releaseDelay)
 end
 
 local function resolve(ball: Ball, victim: Player?, position: Vector3, power: number, knockdown: boolean)
@@ -284,6 +292,9 @@ local function step()
 
 	for index = #balls, 1, -1 do
 		local ball = balls[index]
+		if time < ball.t0 then
+			continue -- still in the hand
+		end
 		local t = math.min(time - ball.t0, Config.maxFlight)
 		local ax, ay, az =
 			Combat.position(ball.ox, ball.oy, ball.oz, ball.vx, ball.vy, ball.vz, Config.gravity, ball.lastT)

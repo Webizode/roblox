@@ -46,6 +46,30 @@ return {
 		drawDistance = 200, -- studs from the camera
 	},
 
+	-- the throw animation. The ball leaves the hand releaseDelay after the button-up: the server checks the throw when
+	-- the button-up arrives and starts the ball that much later, and the throw animation releases at the same moment
+	-- (its "Release" marker). With animation ids (published by the experience owner for the R15 rig) the local player
+	-- plays them and they replicate; while they are empty a procedural pose of the right arm and the waist stands in,
+	-- drawn by every client for every player. Angles in degrees: shoulder swing (forward +, 180 is straight up),
+	-- elbow bend, waist turn (left +). scripts/throw-animation.luau turns these poses into a KeyframeSequence file for
+	-- the Animation Editor.
+	releaseDelay = 0.08, -- seconds
+	throwAnimation = {
+		stance = "", -- "rbxassetid://<id>", looped combat stance
+		charge = "", -- wind-up, with a "Held" marker at the end where it stops and holds
+		throw = "", -- throw, with a "Release" marker at releaseDelay
+		windupTime = 0.15, -- seconds from the stance to the full wind-up
+		followTime = 0.14, -- after the release: the arm swings through
+		recoverTime = 0.22, -- and back to the stance
+		blendTime = 0.15, -- in and out of combat mode
+		poses = {
+			stance = { shoulder = 55, elbow = 75, waist = 0 },
+			windup = { shoulder = 205, elbow = 95, waist = -20 },
+			release = { shoulder = 100, elbow = 10, waist = 15 },
+			follow = { shoulder = 35, elbow = 20, waist = 22 },
+		},
+	},
+
 	-- flight, simulated by the server; clients draw the same curve
 	lift = 0.12, -- a target out of reach gets a straight aim plus this much upward, so it arcs a little
 	gravity = 60, -- studs/s^2

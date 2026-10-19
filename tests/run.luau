@@ -13,6 +13,7 @@ require("./Geometry.spec")
 require("./Catch.spec")
 require("./Combat.spec")
 require("./Dash.spec")
+require("./ThrowPose.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0
