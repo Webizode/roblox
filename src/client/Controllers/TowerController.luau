@@ -251,8 +251,10 @@ local function burstRing(root: BasePart, colorHex: string)
 	end)
 end
 
--- The burst itself: a horizontal velocity for a moment, gravity untouched, then the humanoid takes over again.
-local function dashBurst(root: BasePart, dirX: number, dirZ: number)
+-- The burst itself: a horizontal velocity for a moment, gravity untouched. At its end the horizontal speed drops
+-- straight back to the humanoid's own (walking or sprinting), so the dash stops crisply instead of sliding on; a
+-- knockback that is running then keeps its own velocity.
+local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ: number)
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "DashAttachment"
 	attachment.Parent = root
@@ -269,6 +271,16 @@ local function dashBurst(root: BasePart, dirX: number, dirZ: number)
 	task.delay(Tuning.dash.duration, function()
 		velocity:Destroy()
 		attachment:Destroy()
+		if not root.Parent or root:FindFirstChild("KnockbackVelocity") then
+			return
+		end
+		local current = root.AssemblyLinearVelocity
+		local flat = Vector3.new(current.X, 0, current.Z)
+		local cap = humanoid.WalkSpeed
+		if flat.Magnitude > cap then
+			flat = flat.Unit * cap
+			root.AssemblyLinearVelocity = Vector3.new(flat.X, current.Y, flat.Z)
+		end
 	end)
 end
 
@@ -284,7 +296,10 @@ local function onDash(who: Player, dirX: number, dirZ: number)
 		return
 	end
 	dashReadyAt = os.clock() + Tuning.dash.cooldown
-	dashBurst(root, dirX, dirZ)
+	local humanoid = (character :: Model):FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		dashBurst(root, humanoid, dirX, dirZ)
+	end
 	Sfx.play("dash")
 	if #scoops > 0 and not state.toppled and not toppledAt then
 		TowerModel.dashKick(state, Tuning.dash, #scoops, dirX, dirZ)

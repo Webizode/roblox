@@ -123,7 +123,7 @@ describe("Charging a throw", function()
 		-- a tap claiming a full bar
 		local tap = Combat.validateCharge(1, 0.05, Config)
 		expect(tap).toBeCloseTo(Combat.charge(0.05 + tolerance, Config), 1e-9)
-		expect(tap).toBeLessThan(0.25)
+		expect(tap).toBeLessThan(0.5)
 		-- no hold at all (the start message never came): the weakest throw plus the jitter allowance
 		expect(Combat.validateCharge(1, 0, Config)).toBeCloseTo(tolerance / rise, 1e-9)
 		-- held to the bottom of the second swing, claiming the top

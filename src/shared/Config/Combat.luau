@@ -13,8 +13,10 @@ return {
 	-- throw strength: holding the throw button charges a bar that runs from 0 up to 1 in chargeRise seconds, back
 	-- down in the same time, and so on while held. Releasing throws with the bar's value: 0 is the weakest throw,
 	-- 1 the strongest. The server measures the hold itself and only accepts a bar value that fits it.
-	chargeRise = 0.9, -- seconds
-	chargeTolerance = 0.1, -- seconds of network jitter between the server's measured hold and the client's bar
+	chargeRise = 0.45, -- seconds
+	-- seconds of network jitter between the server's measured hold and the client's bar; with a faster bar every
+	-- second of slack is worth more charge, so it stays a little tighter than typical jitter allows for comfort
+	chargeTolerance = 0.08,
 	minSpeed = 55, -- studs/s at release with the bar at 0
 	maxSpeed = 90, -- and at 1
 	powerAtMinCharge = 0.6, -- hit power factor of an uncharged throw; a full charge hits with factor 1

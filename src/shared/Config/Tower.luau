@@ -77,13 +77,14 @@ return {
 
 	tiltSendRate = 10, -- Hz, tilt replication for other players
 
-	-- Dash (Shift on PC, a dash button on touch): a short burst in the move direction. The server checks the
+	-- Dash (Q on PC, a dash button on touch): a short burst in the move direction that ends with a hard stop back to
+	-- walking (or sprinting) speed, so nothing slides on after it. Distance = speed x duration. The server checks the
 	-- cooldown. The cone is yanked forward, so the tower gets a tilt-rate kick against the dash direction that grows
 	-- with its height: a tower leaning into the dash is pushed upright, one already leaning back can go over.
 	dash = {
 		cooldown = 4, -- seconds
-		speed = 55, -- studs/s during the burst
-		duration = 0.18, -- seconds
+		speed = 62, -- studs/s during the burst
+		duration = 0.16, -- seconds; about 10 studs, the same distance as before the hard stop
 		kickBase = 0.2, -- rad/s
 		kickPerScoop = 0.03, -- rad/s per scoop
 		kickMax = 0.9, -- rad/s
