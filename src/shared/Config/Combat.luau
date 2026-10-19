@@ -2,6 +2,9 @@
 -- Ice-ball throw: the only normal attack. Tuning for ammo, flight, hits and the knockdown threshold.
 
 return {
+	-- combat mode (R): only in it can a player charge and throw. Switching on is rate-limited, off always works.
+	combatModeInterval = 0.2, -- seconds
+
 	-- ammo: three throws per load; once all three are gone the load refills after reloadTime. The server owns it.
 	ammo = 3,
 	reloadTime = 7, -- seconds

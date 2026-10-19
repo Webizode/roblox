@@ -1,6 +1,8 @@
--- Ice-ball throws on the client. Holding the throw button (left mouse button, the Throw button on touch screens,
--- R2 on a gamepad) charges the bar under the crosshair (AimHud), releasing asks the server to throw at the point
--- under the crosshair with that charge. It draws every ball on the curve the server simulates and plays the
+-- Ice-ball throws on the client. R (Y on a gamepad, the Combat button on touch screens) switches combat mode on and
+-- off; only in it are the crosshair and the throw button there, and the mouse is caught in the middle of the screen
+-- so it aims. Holding the throw button (left mouse button, the Throw button on touch screens, R2 on a gamepad)
+-- charges the bar under the crosshair (AimHud), releasing asks the server to throw at the point under the crosshair
+-- with that charge. It draws every ball on the curve the server simulates and plays the
 -- reaction the server announces. The server decides everything: the charge it accepts, ammo, flight, hits, power
 -- and knockdowns. The victim's own client
 -- applies the knockback and the tower shove, like every other force on the local character and tower.
@@ -26,6 +28,9 @@ local Sfx = require(client:WaitForChild("Sfx"))
 local CombatController = {}
 
 local THROW_ACTION = "WobbleThrow"
+local MODE_ACTION = "WobbleCombatMode"
+local BLOCK_SHIFT_LOCK_ACTION = "WobbleCombatBlockShiftLock"
+local MOUSE_STEP = "WobbleCombatMouse"
 local ACTION_PRIORITY = Enum.ContextActionPriority.High.Value + 100
 
 type Ball = {
@@ -45,6 +50,12 @@ local INTERVAL_MARGIN = 0.05
 local wantCharge = false -- the throw button is down
 local charging = false -- the bar runs; the server got the matching ChargeIceBall
 local chargeStartedAt = 0 -- os.clock()
+local combatMode = false
+local modeChangedAt = -math.huge
+-- the mouse state from before combat mode, put back when it ends (shift lock cannot change in between)
+local savedMouseBehavior: Enum.MouseBehavior? = nil
+local savedMouseIcon = true
+local forceExit: () -> () -- defined with the combat mode functions below; the knockdown needs it earlier
 
 local function effectPart(name: string, size: number, color: Color3, position: Vector3): Part
 	local part = Instance.new("Part")
@@ -125,6 +136,7 @@ end
 -- root stays upright, so the tower, catching and serving keep working from the same spot.
 local function knockDown()
 	downUntil = os.clock() + CombatConfig.knockdownTime
+	forceExit() -- the server ends combat mode with the knockdown too
 	local playerModule = player:WaitForChild("PlayerScripts"):FindFirstChild("PlayerModule")
 	local ok, controls = pcall(function()
 		return (require(playerModule :: ModuleScript) :: any):GetControls()
@@ -219,7 +231,12 @@ local function canThrow(): boolean
 	local count = player:GetAttribute("IceBalls")
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	return type(count) == "number" and count > 0 and os.clock() >= downUntil and humanoid ~= nil and humanoid.Health > 0
+	return combatMode
+		and type(count) == "number"
+		and count > 0
+		and os.clock() >= downUntil
+		and humanoid ~= nil
+		and humanoid.Health > 0
 end
 
 -- Drops a running charge without throwing; with the button still down it starts again once a throw is possible.
@@ -279,7 +296,102 @@ local function onAimStep()
 		cancelCharge(false) -- knocked down or died mid-charge
 	end
 	tryStartCharge()
-	registry.AimHud.set(canThrow(), if charging then Combat.charge(os.clock() - chargeStartedAt, CombatConfig) else nil)
+	registry.AimHud.set(
+		combatMode,
+		canThrow(),
+		if charging then Combat.charge(os.clock() - chargeStartedAt, CombatConfig) else nil
+	)
+end
+
+-- Holds the mouse in the middle of the screen while combat mode is on. Runs after the camera scripts every frame,
+-- because they set the mouse behaviour themselves (for example after a right-click camera pan).
+local function onMouseStep()
+	if UserInputService.MouseEnabled and UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
+		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+	end
+end
+
+-- Shift lock (Ctrl) stays blocked while combat mode holds the mouse, so the mouse state saved on entry is still
+-- the right one to restore.
+local function blockShiftLock(): Enum.ContextActionResult
+	return Enum.ContextActionResult.Sink
+end
+
+local function enterCombatMode()
+	combatMode = true
+	savedMouseBehavior = UserInputService.MouseBehavior
+	savedMouseIcon = UserInputService.MouseIconEnabled
+	UserInputService.MouseIconEnabled = false -- the crosshair is the cursor now
+	RunService:BindToRenderStep(MOUSE_STEP, Enum.RenderPriority.Camera.Value + 1, onMouseStep)
+	ContextActionService:BindActionAtPriority(
+		BLOCK_SHIFT_LOCK_ACTION,
+		blockShiftLock,
+		false,
+		ACTION_PRIORITY,
+		Enum.KeyCode.LeftControl,
+		Enum.KeyCode.RightControl
+	)
+	ContextActionService:BindActionAtPriority(
+		THROW_ACTION,
+		requestThrow,
+		true, -- creates the Throw button on touch screens
+		ACTION_PRIORITY,
+		Enum.UserInputType.MouseButton1,
+		Enum.KeyCode.ButtonR2
+	)
+	ContextActionService:SetTitle(THROW_ACTION, "Throw")
+end
+
+-- Ends combat mode locally and puts the mouse back exactly as it was. Safe to call when it is already off.
+local function exitCombatMode()
+	cancelCharge(true)
+	if not combatMode then
+		return
+	end
+	combatMode = false
+	ContextActionService:UnbindAction(THROW_ACTION)
+	ContextActionService:UnbindAction(BLOCK_SHIFT_LOCK_ACTION)
+	RunService:UnbindFromRenderStep(MOUSE_STEP)
+	UserInputService.MouseBehavior = savedMouseBehavior or Enum.MouseBehavior.Default
+	UserInputService.MouseIconEnabled = savedMouseIcon
+	savedMouseBehavior = nil
+end
+
+local function setCombatMode(on: boolean)
+	if on == combatMode then
+		return
+	end
+	if on then
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not humanoid or humanoid.Health <= 0 or os.clock() < downUntil then
+			return
+		end
+		enterCombatMode()
+	else
+		exitCombatMode()
+	end
+	Remotes.SetCombatMode:FireServer(on)
+end
+
+-- R toggles; a little slower than the server's limit, so the server never drops a switch the client made.
+local function onModeInput(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
+	if
+		inputState == Enum.UserInputState.Begin
+		and os.clock() - modeChangedAt >= CombatConfig.combatModeInterval + 0.05
+	then
+		modeChangedAt = os.clock()
+		setCombatMode(not combatMode)
+	end
+	return Enum.ContextActionResult.Sink
+end
+
+-- Everything that ends combat mode without the player asking: knockdown, death, respawn, or the server saying so.
+function forceExit()
+	if combatMode then
+		exitCombatMode()
+		Remotes.SetCombatMode:FireServer(false)
+	end
 end
 
 function CombatController.Init(reg)
@@ -290,20 +402,37 @@ function CombatController.Start()
 	Remotes.IceBallThrown.OnClientEvent:Connect(onThrown)
 	Remotes.IceBallResolved.OnClientEvent:Connect(onResolved)
 	ContextActionService:BindActionAtPriority(
-		THROW_ACTION,
-		requestThrow,
-		true, -- creates the Throw button on touch screens
+		MODE_ACTION,
+		onModeInput,
+		true, -- creates the Combat button on touch screens
 		ACTION_PRIORITY,
-		Enum.UserInputType.MouseButton1,
-		Enum.KeyCode.ButtonR2
+		Enum.KeyCode.R,
+		Enum.KeyCode.ButtonY
 	)
-	ContextActionService:SetTitle(THROW_ACTION, "Throw")
+	ContextActionService:SetTitle(MODE_ACTION, "Combat")
 	RunService.RenderStepped:Connect(onRenderStep)
 	RunService.RenderStepped:Connect(onAimStep)
-	-- no charge survives a respawn or the window losing focus (the button-up would never arrive)
-	player.CharacterAdded:Connect(function()
-		cancelCharge(true)
+
+	-- combat mode and its mouse never outlive the character: death, respawn, or the server ending it (knockdown)
+	local function watchCharacter(character: Model)
+		local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
+		if humanoid then
+			humanoid.Died:Connect(forceExit)
+		end
+	end
+	player.CharacterAdded:Connect(function(character)
+		forceExit()
+		watchCharacter(character)
 	end)
+	if player.Character then
+		task.spawn(watchCharacter, player.Character)
+	end
+	player:GetAttributeChangedSignal("CombatMode"):Connect(function()
+		if player:GetAttribute("CombatMode") == false then
+			forceExit()
+		end
+	end)
+	-- no charge survives the window losing focus (the button-up would never arrive)
 	UserInputService.WindowFocusReleased:Connect(function()
 		cancelCharge(true)
 	end)

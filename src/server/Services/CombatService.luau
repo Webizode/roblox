@@ -22,6 +22,8 @@ type PlayerState = {
 	reloadToken: number,
 	chargeStartedAt: number?, -- server time the throw button went down; cleared by a throw, knockdown or respawn
 	lastChargeAt: number,
+	combatMode: boolean, -- only in combat mode can the player charge and throw; off after every respawn
+	lastModeAt: number,
 }
 
 type Ball = {
@@ -81,12 +83,35 @@ local function scheduleRefill(player: Player, state: PlayerState)
 	end)
 end
 
+-- Combat mode is published as the CombatMode attribute, so every client can draw the ball in the hand.
+local function setCombatMode(player: Player, state: PlayerState, on: boolean)
+	state.combatMode = on
+	if not on then
+		state.chargeStartedAt = nil
+	end
+	player:SetAttribute("CombatMode", on)
+end
+
+-- Combat mode on or off (R). Off always goes through, so a client can never get stuck in it; on is rate-limited.
+local function onSetCombatMode(player: Player, on: any)
+	local state = states[player]
+	if not state or type(on) ~= "boolean" or on == state.combatMode then
+		return
+	end
+	local time = now()
+	if on and time - state.lastModeAt < Config.combatModeInterval then
+		return
+	end
+	state.lastModeAt = time
+	setCombatMode(player, state, on)
+end
+
 -- The throw button went down: the server starts its own clock for the charge. Ammo and the rest are checked on
 -- the throw itself; a start without a throw just gets replaced by the next one.
 local function onCharge(player: Player)
 	local state = states[player]
 	local time = now()
-	if not state or time - state.lastChargeAt < CHARGE_INTERVAL or time < state.downUntil then
+	if not state or not state.combatMode or time - state.lastChargeAt < CHARGE_INTERVAL or time < state.downUntil then
 		return
 	end
 	state.lastChargeAt = time
@@ -117,7 +142,7 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 	end
 	local startedAt = state.chargeStartedAt
 	state.chargeStartedAt = nil
-	if type(aimX) ~= "number" or type(aimY) ~= "number" or type(aimZ) ~= "number" then
+	if not state.combatMode or type(aimX) ~= "number" or type(aimY) ~= "number" or type(aimZ) ~= "number" then
 		return
 	end
 	local root = rootOf(player)
@@ -179,7 +204,8 @@ local function hitPlayer(ball: Ball, victim: Player, position: Vector3, distance
 		state.lastHitAt = time
 		if knockdown then
 			state.downUntil = time + Config.knockdownTime
-			state.chargeStartedAt = nil -- a knockdown drops the charge; a new press starts a new one
+			-- a knockdown drops the charge and ends combat mode; the player switches it on again after getting up
+			setCombatMode(victim, state, false)
 		end
 	end
 	resolve(ball, victim, position, power, knockdown)
@@ -254,12 +280,15 @@ function CombatService.Start()
 			reloadToken = 0,
 			chargeStartedAt = nil,
 			lastChargeAt = -math.huge,
+			combatMode = false,
+			lastModeAt = -math.huge,
 		}
 		states[player] = state
 		publishAmmo(player, state)
-		-- a respawn keeps the ammo but never a charge from the old character
+		setCombatMode(player, state, false)
+		-- a respawn keeps the ammo but never a charge or combat mode from the old character
 		player.CharacterAdded:Connect(function()
-			state.chargeStartedAt = nil
+			setCombatMode(player, state, false)
 		end)
 	end
 	Players.PlayerAdded:Connect(onPlayer)
@@ -270,6 +299,7 @@ function CombatService.Start()
 		states[player] = nil
 	end)
 
+	Remotes.SetCombatMode.OnServerEvent:Connect(onSetCombatMode)
 	Remotes.ChargeIceBall.OnServerEvent:Connect(onCharge)
 	Remotes.ThrowIceBall.OnServerEvent:Connect(onThrow)
 	RunService.Heartbeat:Connect(step)

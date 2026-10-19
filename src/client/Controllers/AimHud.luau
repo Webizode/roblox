@@ -1,4 +1,5 @@
--- The crosshair in the middle of the screen and, while the throw button is held, the charge bar under it. The
+-- The crosshair in the middle of the screen, only in combat mode, and, while the throw button is held, the charge
+-- bar under it. The
 -- crosshair marks where a throw goes (CombatController aims through the screen centre); the bar shows how strong
 -- the next throw will be, weak to strong from left to right, with the maximum marked at its right end. Both stay
 -- small and below the aim point, so they never cover what the player aims at.
@@ -21,6 +22,7 @@ local COLORS = {
 	lemon = Ui.color("lemon"),
 }
 
+local crosshair: Frame
 local ring: UIStroke
 local dot: Frame
 local bar: Frame
@@ -46,12 +48,12 @@ function AimHud.Init()
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 	-- a thin ring around a dot: easy to see on any background, too small to hide a target
-	local circle = Ui.circle(22, "ink", centred({ Name = "Crosshair", BackgroundTransparency = 1 }))
-	ring = Ui.stroke(circle, "vanilla", 2, 0.25)
-	circle.Parent = gui
+	crosshair = Ui.circle(22, "ink", centred({ Name = "Crosshair", BackgroundTransparency = 1, Visible = false }))
+	ring = Ui.stroke(crosshair, "vanilla", 2, 0.25)
+	crosshair.Parent = gui
 	dot = Ui.circle(6, "vanilla", centred({ Name = "Dot" }))
 	Ui.stroke(dot, "ink", 1.5, 0.2)
-	dot.Parent = gui
+	dot.Parent = crosshair
 
 	bar = Instance.new("Frame")
 	bar.Name = "Charge"
@@ -99,9 +101,14 @@ function AimHud.Init()
 	maxPoint.Parent = bar
 end
 
--- Called every frame: `ready` dims the crosshair while no throw is possible (empty load, knocked down); `charge`
--- is the bar value while the throw button is held, nil hides the bar.
-function AimHud.set(ready: boolean, charge: number?)
+-- Called every frame: `active` shows the crosshair (combat mode), `ready` dims it while no throw is possible
+-- (empty load); `charge` is the bar value while the throw button is held, nil hides the bar.
+function AimHud.set(active: boolean, ready: boolean, charge: number?)
+	crosshair.Visible = active
+	if not active then
+		bar.Visible = false
+		return
+	end
 	if shownReady ~= ready then
 		shownReady = ready
 		ring.Transparency = if ready then 0.25 else 0.7
