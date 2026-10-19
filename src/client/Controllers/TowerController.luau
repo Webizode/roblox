@@ -251,9 +251,10 @@ local function burstRing(root: BasePart, colorHex: string)
 	end)
 end
 
--- The burst itself: a horizontal velocity for a moment, gravity untouched. At its end the horizontal speed drops
--- straight back to the humanoid's own (walking or sprinting), so the dash stops crisply instead of sliding on; a
--- knockback that is running then keeps its own velocity.
+-- The burst itself: a horizontal velocity for a moment, gravity untouched, moved by physics, so walls stop it like
+-- any other movement. It ends on the frame closest to the configured duration (not always a frame late), and the
+-- horizontal speed then drops straight back to the humanoid's own (walking or sprinting), so the dash stops crisply
+-- instead of sliding on; a knockback that is running then keeps its own velocity.
 local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ: number)
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "DashAttachment"
@@ -266,9 +267,16 @@ local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ:
 	velocity.PrimaryTangentAxis = Vector3.xAxis
 	velocity.SecondaryTangentAxis = Vector3.zAxis
 	velocity.PlaneVelocity = Vector2.new(dirX, dirZ) * Tuning.dash.speed
-	velocity.MaxForce = root.AssemblyMass * 2000
+	velocity.MaxForce = root.AssemblyMass * Tuning.dash.acceleration
 	velocity.Parent = root
-	task.delay(Tuning.dash.duration, function()
+	local elapsed = 0
+	local connection: RBXScriptConnection
+	connection = RunService.Heartbeat:Connect(function(dt)
+		elapsed += dt
+		if elapsed < Tuning.dash.duration - dt / 2 and root.Parent then
+			return
+		end
+		connection:Disconnect()
 		velocity:Destroy()
 		attachment:Destroy()
 		if not root.Parent or root:FindFirstChild("KnockbackVelocity") then

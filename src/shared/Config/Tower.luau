@@ -83,8 +83,9 @@ return {
 	-- with its height: a tower leaning into the dash is pushed upright, one already leaning back can go over.
 	dash = {
 		cooldown = 4, -- seconds
-		speed = 62, -- studs/s during the burst
-		duration = 0.16, -- seconds; about 10 studs, the same distance as before the hard stop
+		speed = 80, -- studs/s during the burst
+		duration = 0.125, -- seconds; 10 studs, the same distance as before
+		acceleration = 6000, -- studs/s^2 the burst may push with, so it is at full speed within a frame or two
 		kickBase = 0.2, -- rad/s
 		kickPerScoop = 0.03, -- rad/s per scoop
 		kickMax = 0.9, -- rad/s
