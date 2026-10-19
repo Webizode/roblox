@@ -73,6 +73,14 @@ describe("Economy", function()
 		expect(Economy.walkSpeed(20, 5, Config)).toBeGreaterThan(Economy.walkSpeed(20, 0, Config))
 	end)
 
+	it("speeds sprinting players up by the sprint multiplier, at every height", function()
+		for _, count in { 0, 10, 500 } do
+			local walk = Economy.walkSpeed(count, 0, Config)
+			expect(Economy.walkSpeed(count, 0, Config, true)).toBeCloseTo(walk * Config.sprintMultiplier)
+			expect(Economy.walkSpeed(count, 0, Config, false)).toBe(walk)
+		end
+	end)
+
 	it("has strictly rising upgrade costs and effects", function()
 		for _, track in { "cone", "sneakers", "cart" } do
 			local costs = Config.upgrades[track].costs

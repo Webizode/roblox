@@ -19,6 +19,9 @@ return {
 	leanForward = math.rad(10), -- at full walk speed
 	leanTurn = math.rad(9), -- into a turn at full speed
 	leanResponse = 10, -- 1/s, how fast the lean follows; higher feels snappier
+	sprintLean = 1.4, -- lean grows with speed up to this share of leanForward (sprinting is 1.3x walking)
+	sprintFov = 6, -- degrees wider while the local player sprints
+	sprintFovTime = 0.3,
 
 	-- hit stumble and knockdown pose (procedural until stumble/knockdown/get-up animations exist)
 	stumbleAngle = math.rad(28), -- back-tilt of a full hit

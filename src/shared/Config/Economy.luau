@@ -10,6 +10,7 @@ return {
 	baseWalkSpeed = 18,
 	walkSpeedPenaltyPerScoop = 0.012,
 	minWalkSpeed = 9,
+	sprintMultiplier = 1.3, -- Shift (hold), L3 or the Sprint button; also scales what the tower feels and the catch speed cap
 	jumpPower = 40, -- Roblox default is 50; a bit lower so a jump with a tower stays a hop
 
 	serveRadius = 8, -- studs around the cart's ServePoint

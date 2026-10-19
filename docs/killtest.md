@@ -4,7 +4,7 @@ Eine Frage entscheidet, ob wir Wobble Scoops weiterbauen: **Fühlt sich das Bala
 
 ## Vorbereitung
 
-- Place mit `rojo serve` + Studio, ein Testlauf allein: Fangen, Wackeln, Servieren, einmal Rettung (F) und Dash (Shift).
+- Place mit `rojo serve` + Studio, ein Testlauf allein: Fangen, Wackeln, Servieren, einmal Rettung (F) und Dash (Q), Sprint (Shift).
 - In Studio die Latenz auf 0,2 s stellen und einmal selbst spielen. In der Ausgabe dürfen dabei kaum `[Catch] rejected`-Zeilen auftauchen. Vor dem Test mit Spielern `debugCatch` in `Config/Features.luau` ausschalten.
 - Für Handys: Place veröffentlichen (File → Publish to Roblox), privat lassen und den Testern Zugriff geben. Mindestens ein schwaches Android dabei.
 - 5 Tester, davon mindestens 2 zwischen 10 und 15 (Geschwister, Kinder von Freunden, **nur mit Einverständnis der Eltern**).
@@ -12,7 +12,7 @@ Eine Frage entscheidet, ob wir Wobble Scoops weiterbauen: **Fühlt sich das Bala
 ## Ablauf pro Tester (ca. 12 Minuten)
 
 1. Nichts erklären außer: „Fang Kugeln und bring sie zu deinem Wagen.“
-2. **9 Minuten spielen.** Es gibt nur noch eine Steuerung: WASD, automatische Grundstabilisierung, Rettung mit F bzw. *Steady*, Dash mit Shift bzw. *Dash*. Nichts davon erklären; beobachten, ob der Hinweis „Press F to steady it“ verstanden wird.
+2. **9 Minuten spielen.** Es gibt nur noch eine Steuerung: WASD, automatische Grundstabilisierung, Rettung mit F bzw. *Steady*, Sprint mit Shift bzw. *Sprint*, Dash mit Q bzw. *Dash*. Nichts davon erklären; beobachten, ob der Hinweis „Press F to steady it“ verstanden wird.
 3. **Nach jedem Sturz** fragen: „War das deine Schuld oder Pech?“ Strichliste unten.
 4. Nach 9 Minuten: „Du kannst aufhören oder weiterspielen.“ Notieren, ob freiwillig weitergespielt wird.
 5. Danach 3 Fragen:

@@ -15,6 +15,7 @@ local DEFINITIONS = {
 	ServeRequest = "RemoteEvent", -- client -> server: steadyBonus
 	Served = "RemoteEvent", -- server -> all: player, count, value
 	Dash = "RemoteEvent", -- client -> server: dirX, dirZ (request); server -> all: player, dirX, dirZ (granted)
+	SetSprint = "RemoteEvent", -- client -> server: sprinting (boolean)
 	Rescue = "RemoteEvent", -- client -> server: request; server -> all: player (granted)
 	ThrowIceBall = "RemoteEvent", -- client -> server: aimX, aimY, aimZ (camera look vector)
 	IceBallThrown = "RemoteEvent", -- server -> all: id, thrower, origin, velocity, t0 (server time)

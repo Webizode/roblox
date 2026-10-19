@@ -33,6 +33,9 @@ local STEP = 1 / Tuning.stepRate
 local MAX_FRAME = 0.1 -- never simulate more than this per frame after a hitch
 local TOPPLE_TIMEOUT = 2
 local DASH_ACTION = "WobbleDash"
+local SPRINT_ACTION = "WobbleSprint"
+-- Roblox puts shift lock on Shift, which is the sprint here; it moves to Ctrl
+local SHIFT_LOCK_KEYS = "LeftControl,RightControl"
 local RESCUE_ACTION = "WobbleSteady"
 -- above the default camera and player scripts, so no core binding can take these keys first
 local ACTION_PRIORITY = Enum.ContextActionPriority.High.Value + 100
@@ -55,6 +58,7 @@ local serveArmed = false
 local groundY = 1
 local dashReadyAt = 0 -- local cooldown so the key cannot spam requests; the server has the final say
 local rescueReadyAt = 0 -- same for the rescue
+local sprinting = false
 
 local function coneLevel(): number
 	local value = player:GetAttribute("ConeLevel")
@@ -287,7 +291,7 @@ local function onDash(who: Player, dirX: number, dirZ: number)
 	end
 end
 
--- Shift on PC, the dash button on touch screens. Asks the server; the burst happens when it agrees.
+-- Q on PC, the dash button on touch screens. Asks the server; the burst happens when it agrees.
 local function requestDash(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
 	if inputState ~= Enum.UserInputState.Begin then
 		return Enum.ContextActionResult.Sink
@@ -307,7 +311,6 @@ local function requestDash(_: string, inputState: Enum.UserInputState): Enum.Con
 	end
 	dashReadyAt = os.clock() + Tuning.dash.cooldown
 	Remotes.Dash:FireServer(direction.X, direction.Z)
-	-- Sink: Shift would otherwise also toggle shift lock
 	return Enum.ContextActionResult.Sink
 end
 
@@ -340,6 +343,46 @@ local function requestRescue(_: string, inputState: Enum.UserInputState): Enum.C
 	return Enum.ContextActionResult.Sink
 end
 
+local function setSprinting(on: boolean)
+	if on == sprinting then
+		return
+	end
+	sprinting = on
+	Remotes.SetSprint:FireServer(on)
+	registry.MovementController.setSprinting(on)
+end
+
+-- Shift sprints while held; L3 and the Sprint button on touch screens toggle it. The server sets the speed.
+local function onSprintInput(_: string, inputState: Enum.UserInputState, input: InputObject): Enum.ContextActionResult
+	local toggles = input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.ButtonL3
+	if toggles then
+		if inputState == Enum.UserInputState.Begin then
+			setSprinting(not sprinting)
+		end
+	elseif inputState == Enum.UserInputState.Begin then
+		setSprinting(true)
+	elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+		setSprinting(false)
+	end
+	-- Sink: Shift must not reach anything else
+	return Enum.ContextActionResult.Sink
+end
+
+-- Uses the PlayerModule's own setting for the shift-lock keys, so shift lock keeps working, just on Ctrl.
+local function moveShiftLockToCtrl()
+	local ok, boundKeys = pcall(function()
+		return player
+			:WaitForChild("PlayerScripts")
+			:WaitForChild("PlayerModule", 10)
+			:WaitForChild("CameraModule", 10)
+			:WaitForChild("MouseLockController", 10)
+			:WaitForChild("BoundKeys", 10)
+	end)
+	if ok and boundKeys and boundKeys:IsA("StringValue") then
+		boundKeys.Value = SHIFT_LOCK_KEYS
+	end
+end
+
 function TowerController.Init(reg)
 	registry = reg
 	visual = TowerVisual.new("MyTower")
@@ -367,10 +410,26 @@ function TowerController.Start()
 		requestDash,
 		true, -- creates the dash button on touch screens
 		ACTION_PRIORITY,
-		Enum.KeyCode.LeftShift,
-		Enum.KeyCode.RightShift
+		Enum.KeyCode.Q
 	)
 	ContextActionService:SetTitle(DASH_ACTION, "Dash")
+
+	ContextActionService:BindActionAtPriority(
+		SPRINT_ACTION,
+		onSprintInput,
+		true, -- creates the Sprint button on touch screens
+		ACTION_PRIORITY,
+		Enum.KeyCode.LeftShift,
+		Enum.KeyCode.RightShift,
+		Enum.KeyCode.ButtonL3
+	)
+	ContextActionService:SetTitle(SPRINT_ACTION, "Sprint")
+	-- the server resets sprint on respawn, so the client does too
+	player.CharacterAdded:Connect(function()
+		sprinting = false
+		registry.MovementController.setSprinting(false)
+	end)
+	task.spawn(moveShiftLockToCtrl)
 
 	Remotes.Rescue.OnClientEvent:Connect(onRescue)
 	ContextActionService:BindActionAtPriority(

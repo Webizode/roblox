@@ -1,5 +1,5 @@
 -- How moving looks and feels. One controller for all of it; it changes no speed, jump power, dash distance or
--- other gameplay value, and adds no second animation system:
+-- other gameplay value (the sprint speed is set by the server), and adds no second animation system:
 --   * animation ids from Config/Movement go into Roblox's own Animate script (empty ids keep the defaults),
 --   * a procedural layer on the R15 root joint leans every character into runs and turns, plays a stumble on a
 --     hit and a fall/get-up pose for a knockdown (every client draws it for every character from replicated
@@ -16,6 +16,7 @@ local TweenService = game:GetService("TweenService")
 local Config = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
 local Movement = require(Config:WaitForChild("Movement"))
 local Palette = require(Config:WaitForChild("Palette"))
+local EconomyConfig = require(Config:WaitForChild("Economy"))
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
@@ -42,6 +43,7 @@ local shakeUntil = 0
 local shakeStrength = 0
 local baseFov: number? = nil
 local fovTween: Tween? = nil
+local sprintFov = 0 -- extra field of view while the local player sprints
 
 local function rootJoint(character: Model): Motor6D?
 	local lowerTorso = character:FindFirstChild("LowerTorso")
@@ -196,11 +198,14 @@ local function onRenderStep(dt: number)
 			local velocity = root.AssemblyLinearVelocity
 			local flat = Vector3.new(velocity.X, 0, velocity.Z)
 			local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
-			local speedShare = math.clamp(flat.Magnitude / math.max(humanoid.WalkSpeed, 1), 0, 1.5)
+			-- measured against the normal walking speed, so a sprint leans further than a walk
+			local speedShare = math.clamp(flat.Magnitude / EconomyConfig.baseWalkSpeed, 0, 1.5)
 			local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
 
 			-- forward lean with speed, roll into turns from how fast the facing rotates
-			local targetPitch = if grounded then -Movement.leanForward * math.min(speedShare, 1) else 0
+			local targetPitch = if grounded
+				then -Movement.leanForward * math.min(speedShare, Movement.sprintLean)
+				else 0
 			local turnRate = 0
 			if look.Magnitude > 1e-3 and pose.lastLook.Magnitude > 1e-3 and dt > 0 then
 				local a, b = pose.lastLook.Unit, look.Unit
@@ -307,14 +312,30 @@ function MovementController.dash(character: Model, duration: number)
 		if fovTween then
 			fovTween:Cancel()
 		end
-		camera.FieldOfView = (baseFov :: number) + Movement.dashFovKick
+		camera.FieldOfView = (baseFov :: number) + sprintFov + Movement.dashFovKick
 		fovTween = TweenService:Create(
 			camera,
 			TweenInfo.new(Movement.dashFovTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ FieldOfView = baseFov }
+			{ FieldOfView = (baseFov :: number) + sprintFov }
 		)
 		fovTween:Play()
 	end
+end
+
+-- Local player only: a slightly wider view while sprinting. The speed itself is the server's (TowerService).
+function MovementController.setSprinting(on: boolean)
+	local camera = workspace.CurrentCamera
+	baseFov = baseFov or camera.FieldOfView
+	sprintFov = if on then Movement.sprintFov else 0
+	if fovTween then
+		fovTween:Cancel()
+	end
+	fovTween = TweenService:Create(
+		camera,
+		TweenInfo.new(Movement.sprintFovTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ FieldOfView = (baseFov :: number) + sprintFov }
+	)
+	fovTween:Play()
 end
 
 function MovementController.Start()

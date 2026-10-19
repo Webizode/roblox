@@ -27,6 +27,7 @@ export type Config = {
 	baseWalkSpeed: number,
 	walkSpeedPenaltyPerScoop: number,
 	minWalkSpeed: number,
+	sprintMultiplier: number,
 	upgrades: {
 		cone: { costs: { number }, capacity: { number }, stiffness: { number } },
 		sneakers: { costs: { number }, speed: { number }, penaltyScale: { number } },
@@ -91,11 +92,13 @@ function Economy.keepOnTopple(count: number, config: Config): number
 	return math.min(count, keep)
 end
 
-function Economy.walkSpeed(count: number, sneakersLevel: number, config: Config): number
+-- Walking speed for a tower of `count` scoops; sprinting multiplies it by sprintMultiplier.
+function Economy.walkSpeed(count: number, sneakersLevel: number, config: Config, sprinting: boolean?): number
 	local sneakers = config.upgrades.sneakers
 	local speed = config.baseWalkSpeed * level(sneakers.speed, sneakersLevel)
 	local penalty = config.walkSpeedPenaltyPerScoop * level(sneakers.penaltyScale, sneakersLevel)
-	return math.max(config.minWalkSpeed, speed / (1 + penalty * count))
+	local walk = math.max(config.minWalkSpeed, speed / (1 + penalty * count))
+	return if sprinting then walk * config.sprintMultiplier else walk
 end
 
 function Economy.capacity(coneLevel: number, config: Config): number

@@ -28,6 +28,8 @@ type TowerState = {
 	controls: string, -- kill-test log bucket; one control scheme since the automatic stabiliser
 	lastDashAt: number,
 	lastRescueAt: number,
+	sprinting: boolean,
+	lastSprintAt: number,
 	carryStartedAt: number?,
 	tiltX: number,
 	tiltZ: number,
@@ -46,6 +48,8 @@ local MIN_TILT_INTERVAL = 0.5 / TowerTuning.tiltSendRate
 -- the client starts its own cooldown when it asks, so the server allows a little network jitter on top
 local DASH_SLACK = 0.25
 local RESCUE_SLACK = 0.25
+-- no human taps Shift faster than this; a quicker "on" is dropped
+local SPRINT_INTERVAL = 0.08
 
 local function now(): number
 	return workspace:GetServerTimeNow()
@@ -65,12 +69,17 @@ local function rootOf(player: Player): BasePart?
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
-local function publish(player: Player, state: TowerState, reason: string)
-	local count = #state.scoops
+-- The server owns WalkSpeed: tower height, sneakers and sprint. The catch check reads it, so a sprinting
+-- player's catches are judged at their real speed.
+local function applyWalkSpeed(player: Player, state: TowerState)
 	local humanoid = humanoidOf(player)
 	if humanoid then
-		humanoid.WalkSpeed = Economy.walkSpeed(count, state.sneakersLevel, EconomyConfig)
+		humanoid.WalkSpeed = Economy.walkSpeed(#state.scoops, state.sneakersLevel, EconomyConfig, state.sprinting)
 	end
+end
+
+local function publish(player: Player, state: TowerState, reason: string)
+	applyWalkSpeed(player, state)
 	if player.Character then
 		player.Character:SetAttribute("TowerFlavors", table.concat(state.scoops, ","))
 	end
@@ -100,6 +109,8 @@ local function createState(player: Player): TowerState
 		controls = "auto",
 		lastDashAt = 0,
 		lastRescueAt = 0,
+		sprinting = false,
+		lastSprintAt = 0,
 		carryStartedAt = nil,
 		tiltX = 0,
 		tiltZ = 0,
@@ -223,6 +234,22 @@ local function onDash(player: Player, dirX: any, dirZ: any)
 	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length)
 end
 
+-- Sprint on or off. Only changes the player's own speed, within sprintMultiplier. Switching on is rate-limited;
+-- switching off always goes through, so a dropped release can never leave a player stuck sprinting.
+local function onSprint(player: Player, sprinting: any)
+	local state = states[player]
+	if not state or type(sprinting) ~= "boolean" or sprinting == state.sprinting then
+		return
+	end
+	local now = os.clock()
+	if sprinting and now - state.lastSprintAt < SPRINT_INTERVAL then
+		return
+	end
+	state.lastSprintAt = now
+	state.sprinting = sprinting
+	applyWalkSpeed(player, state)
+end
+
 -- The rescue (F / Steady button) only strengthens the asker's own stabiliser for a moment and pays nothing. The
 -- server owns its timing: a new one only after the last one plus its cooldown, and only while carrying a tower.
 local function onRescue(player: Player)
@@ -254,6 +281,7 @@ function TowerService.Start()
 		player.CharacterAdded:Connect(function()
 			-- a new character starts with an empty cone
 			table.clear(state.scoops)
+			state.sprinting = false
 			state.carryStartedAt = nil
 			state.tiltX, state.tiltZ = 0, 0
 			task.defer(publish, player, state, "spawn")
@@ -275,6 +303,7 @@ function TowerService.Start()
 	Remotes.ServeRequest.OnServerEvent:Connect(onServe)
 	Remotes.TowerTilt.OnServerEvent:Connect(onTilt)
 	Remotes.Rescue.OnServerEvent:Connect(onRescue)
+	Remotes.SetSprint.OnServerEvent:Connect(onSprint)
 	Remotes.Dash.OnServerEvent:Connect(onDash)
 end
 
