@@ -15,4 +15,8 @@ return {
 	-- Temporary diagnostics for the throw: client and server print each step of a throw (release, accept or the
 	-- reason for a reject, start point and speed, and what the ball hit). Turn off once throwing works in Studio.
 	debugThrow = true,
+
+	-- Temporary diagnostics for the dash: client and server print each step (request or why none was sent, the
+	-- server's grant or reason for a reject, the burst and why it ended). Turn off once the dash works in Studio.
+	debugDash = true,
 }

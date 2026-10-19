@@ -16,6 +16,7 @@ local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local Combat = require(Shared:WaitForChild("Combat"))
 local Dash = require(Shared:WaitForChild("Dash"))
+local Features = require(Config:WaitForChild("Features"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local Palette = require(Config:WaitForChild("Palette"))
@@ -38,7 +39,10 @@ local MAX_FRAME = 0.1 -- never simulate more than this per frame after a hitch
 local TOPPLE_TIMEOUT = 2
 local SCOOP_RADIUS = 1.05
 local FADE_RAY = 60 -- studs along the middle of the screen that the own tower must not cover
-local FADE_RESPONSE = 12 -- 1/s
+local FADE_RESPONSE = 8 -- 1/s
+-- the tower turns see-through when the middle of the screen comes closer than FADE_IN to it and solid again only
+-- beyond FADE_OUT; one threshold made a wobbling tower flicker on and off (studs beyond the scoop radius)
+local FADE_IN, FADE_OUT = 0.4, 1.2
 local DASH_ACTION = "WobbleDash"
 local SPRINT_ACTION = "WobbleSprint"
 -- Roblox puts shift lock on Shift, which is the sprint here; it moves to Ctrl
@@ -67,6 +71,7 @@ local dashReadyAt = 0 -- local cooldown so the key cannot spam requests; the ser
 local rescueReadyAt = 0 -- same for the rescue
 local sprinting = false
 local towerFade = 0
+local covering = false -- the tower covers the middle of the screen (with the hysteresis above)
 
 local function coneLevel(): number
 	local value = player:GetAttribute("ConeLevel")
@@ -245,9 +250,12 @@ local function updateFade(dt: number)
 			middle.Z,
 			math.max(0, (top.Y - base.Y) / 2)
 		)
-		if distance < SCOOP_RADIUS + 0.4 then
+		covering = distance < SCOOP_RADIUS + (if covering then FADE_OUT else FADE_IN)
+		if covering then
 			target = Tuning.ownTowerFade
 		end
+	else
+		covering = false
 	end
 	towerFade += (target - towerFade) * (1 - math.exp(-FADE_RESPONSE * dt))
 	visual:setFade(towerFade)
@@ -322,6 +330,12 @@ end
 -- the wall. At the end the horizontal speed drops straight back to the humanoid's own (walking or sprinting), or to
 -- zero at a wall, so the dash stops crisply instead of sliding on; a knockback that is running keeps its velocity.
 -- Like in the model, the humanoid cannot ragdoll or fall over during the burst.
+local function debugDash(message: string)
+	if Features.debugDash then
+		print("[Dash] " .. message)
+	end
+end
+
 local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ: number)
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "DashAttachment"
@@ -350,19 +364,38 @@ local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ:
 	local ahead = Vector3.new(dirX, 0, dirZ)
 
 	local elapsed = 0
+	local start = root.Position
+	debugDash(
+		string.format(
+			"burst: %.0f studs/s for %.3f s towards (%.2f, %.2f)",
+			Tuning.dash.speed,
+			Tuning.dash.duration,
+			dirX,
+			dirZ
+		)
+	)
 	local connection: RBXScriptConnection
 	connection = RunService.Heartbeat:Connect(function(dt)
 		elapsed += dt
 		local wall = false
+		local hit
 		if root.Parent then
 			local reach = math.min(Tuning.dash.speed * dt + 0.4, 6)
-			local hit = workspace:Blockcast(root.CFrame, castSize, ahead * reach, params)
+			hit = workspace:Blockcast(root.CFrame, castSize, ahead * reach, params)
 			wall = hit ~= nil and Dash.blocks(hit.Normal.X, hit.Normal.Y, hit.Normal.Z, dirX, dirZ)
 		end
 		if not wall and elapsed < Tuning.dash.duration - dt / 2 and root.Parent then
 			return
 		end
 		connection:Disconnect()
+		debugDash(
+			string.format(
+				"burst ended after %.3f s, %.1f studs: %s",
+				elapsed,
+				if root.Parent then (root.Position - start).Magnitude else -1,
+				if wall and hit then "stopped at " .. hit.Instance:GetFullName() else "time is up"
+			)
+		)
 		velocity:Destroy()
 		attachment:Destroy()
 		if humanoid.Parent then
@@ -388,18 +421,24 @@ local function onDash(who: Player, dirX: number, dirZ: number)
 	if not root then
 		return
 	end
-	burstRing(root, Palette.lemon)
-	registry.MovementController.dash(character :: Model, Tuning.dash.duration, dirX, dirZ)
-	if who ~= player then
-		return
+	-- the movement and the tower kick first: an error in the effects below must never cost the dash itself
+	if who == player then
+		debugDash("granted by the server")
+		dashReadyAt = os.clock() + Tuning.dash.cooldown
+		local humanoid = (character :: Model):FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			dashBurst(root, humanoid, dirX, dirZ)
+		end
+		if #scoops > 0 and not state.toppled and not toppledAt then
+			TowerModel.dashKick(state, Tuning.dash, #scoops, dirX, dirZ)
+		end
 	end
-	dashReadyAt = os.clock() + Tuning.dash.cooldown
-	local humanoid = (character :: Model):FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		dashBurst(root, humanoid, dirX, dirZ)
-	end
-	if #scoops > 0 and not state.toppled and not toppledAt then
-		TowerModel.dashKick(state, Tuning.dash, #scoops, dirX, dirZ)
+	local ok, problem = pcall(function()
+		burstRing(root, Palette.lemon)
+		registry.MovementController.dash(character :: Model, Tuning.dash.duration, dirX, dirZ)
+	end)
+	if not ok then
+		warn("[Dash] effects failed, the dash itself still ran: " .. tostring(problem))
 	end
 end
 
@@ -411,7 +450,12 @@ local function requestDash(_: string, inputState: Enum.UserInputState): Enum.Con
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = rootPart()
-	if not humanoid or not root or humanoid.Health <= 0 or os.clock() < dashReadyAt then
+	if not humanoid or not root or humanoid.Health <= 0 then
+		debugDash("no request: no living character")
+		return Enum.ContextActionResult.Sink
+	end
+	if os.clock() < dashReadyAt then
+		debugDash(string.format("no request: cooling down for %.1f s", dashReadyAt - os.clock()))
 		return Enum.ContextActionResult.Sink
 	end
 	local direction = flatten(humanoid.MoveDirection)
@@ -419,10 +463,12 @@ local function requestDash(_: string, inputState: Enum.UserInputState): Enum.Con
 		direction = flatten(root.CFrame.LookVector)
 	end
 	if direction == Vector3.zero then
+		debugDash("no request: no direction")
 		return Enum.ContextActionResult.Sink
 	end
 	dashReadyAt = os.clock() + Tuning.dash.cooldown
 	Remotes.Dash:FireServer(direction.X, direction.Z)
+	debugDash(string.format("request sent towards (%.2f, %.2f)", direction.X, direction.Z))
 	return Enum.ContextActionResult.Sink
 end
 

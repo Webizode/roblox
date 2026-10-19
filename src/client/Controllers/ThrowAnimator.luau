@@ -41,6 +41,7 @@ local USE_TRACKS = Animation.stance ~= "" and Animation.charge ~= "" and Animati
 
 local localPlayer = Players.LocalPlayer
 local entries: { [Player]: Entry } = {}
+local reported: { [Model]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local localReleaseAt = -math.huge
 
 local function entryFor(player: Player): Entry
@@ -68,7 +69,18 @@ local function rigFor(entry: Entry, character: Model): Rig?
 	local elbow = joint(character, "RightLowerArm", "RightElbow")
 	if not waist or not shoulder or not elbow then
 		entry.rig = nil
+		if Features.debugThrow and not reported[character] then
+			reported[character] = true
+			print(
+				`[Throw] {character.Name}: no throw pose, the rig has no R15 Waist/RightShoulder/RightElbow (R6?). `
+					.. "Set the avatar type to R15 or use published animations for this rig."
+			)
+		end
 		return nil
+	end
+	if Features.debugThrow and not reported[character] then
+		reported[character] = true
+		print(`[Throw] {character.Name}: procedural throw pose on the R15 rig (no animation ids set)`)
 	end
 	local rig = {
 		character = character,
@@ -268,6 +280,13 @@ function ThrowAnimator.Start()
 	end)
 	for _, player in Players:GetPlayers() do
 		watch(player)
+	end
+	if Features.debugThrow then
+		print(
+			if USE_TRACKS
+				then "[Throw] throw animation: playing the three animation ids from Config/Combat"
+				else "[Throw] throw animation: no animation ids in Config/Combat, procedural pose"
+		)
 	end
 	if not USE_TRACKS then
 		-- with MovementController's pose (Character + 2), before the held ball and backpack read the posed parts

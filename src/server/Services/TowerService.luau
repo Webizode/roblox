@@ -214,21 +214,26 @@ end
 -- A dash only moves the asker's own character and shakes their own tower; it pays nothing. The server decides
 -- whether it may happen (cooldown, alive, not seated) and tells every client, which plays the burst and effect.
 local function onDash(player: Player, dirX: any, dirZ: any)
+	local function reject(reason: string)
+		if Features.debugDash then
+			print(`[Dash] rejected {player.Name}: {reason}`)
+		end
+	end
 	local state = states[player]
 	if not state or not isFiniteNumber(dirX) or not isFiniteNumber(dirZ) then
-		return
+		return reject("no state or the direction is not two numbers")
 	end
 	local length = math.sqrt(dirX * dirX + dirZ * dirZ)
 	if length < 0.5 or length > 1.5 then
-		return
+		return reject("direction length " .. length)
 	end
 	local time = now()
 	if time - state.lastDashAt < TowerTuning.dash.cooldown - DASH_SLACK then
-		return
+		return reject(string.format("cooldown, %.1f s since the last dash", time - state.lastDashAt))
 	end
 	local humanoid = humanoidOf(player)
 	if not humanoid or humanoid.Health <= 0 or humanoid.Sit then
-		return
+		return reject("no living, standing humanoid")
 	end
 	state.lastDashAt = time
 	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length)

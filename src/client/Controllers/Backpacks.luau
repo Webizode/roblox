@@ -33,6 +33,7 @@ type Pack = {
 local STEP = "WobbleBackpacks"
 local CYLINDER_UP = CFrame.Angles(0, 0, math.rad(90)) -- cylinders run along X
 local RIM_RADIUS = Look.coneTopDiameter / 2 + 0.06
+local RIM_LIFT = 0.03 -- studs (before scaling)
 -- the cone axis sits this far behind the back (before scaling), so the rim's lower near edge, the point closest
 -- to the back, keeps coneBack from it
 local AXIS_BACK = Look.coneBack
@@ -167,7 +168,8 @@ local function place(pack: Pack, torso: BasePart): (Vector3, number)
 		count += 1
 		cframes[count] = cone * CFrame.new(0, length / 2 - (index - 0.5) * segment, 0) * CYLINDER_UP
 	end
-	cframes[count + 1] = cone * CFrame.new(0, length / 2 - Look.rimHeight * s / 2, 0) * CYLINDER_UP
+	-- the rim stands RIM_LIFT above the top segment: with both top faces in one plane they flickered (z-fighting)
+	cframes[count + 1] = cone * CFrame.new(0, length / 2 - Look.rimHeight * s / 2 + RIM_LIFT * s, 0) * CYLINDER_UP
 	cframes[count + 2] = cone * CFrame.new(0, -length / 2, 0)
 	count += 2
 
