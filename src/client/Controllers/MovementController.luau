@@ -13,13 +13,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
-local Config = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = Shared:WaitForChild("Config")
+local Dash = require(Shared:WaitForChild("Dash"))
 local Movement = require(Config:WaitForChild("Movement"))
 local Palette = require(Config:WaitForChild("Palette"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
+local Sfx = require(client:WaitForChild("Sfx"))
 
 local MovementController = {}
 
@@ -279,11 +282,196 @@ function MovementController.knockDown(character: Model, seconds: number)
 	end)
 end
 
--- A granted dash: a trail on any character, the FOV kick only for the local player.
-function MovementController.dash(character: Model, duration: number)
+-- Streaks behind both hands and feet for the length of the dash (from the DashSystem model).
+local function limbTrails(character: Model, duration: number)
+	for _, names in
+		{
+			{ "LeftHand", "Left Arm" },
+			{ "RightHand", "Right Arm" },
+			{ "LeftFoot", "Left Leg" },
+			{
+				"RightFoot",
+				"Right Leg",
+			},
+		}
+	do
+		local limb = character:FindFirstChild(names[1]) or character:FindFirstChild(names[2])
+		if limb and limb:IsA("BasePart") then
+			local half = limb.Size.Y * 0.4
+			local top, bottom = Instance.new("Attachment"), Instance.new("Attachment")
+			top.Position, bottom.Position = Vector3.new(0, half, 0), Vector3.new(0, -half, 0)
+			top.Parent, bottom.Parent = limb, limb
+			local trail = Instance.new("Trail")
+			trail.Name = "DashLimbTrail"
+			trail.Attachment0, trail.Attachment1 = top, bottom
+			trail.Lifetime = Movement.dashLimbTrailLifetime
+			trail.FaceCamera = true
+			trail.WidthScale = NumberSequence.new(0.12, 0.02)
+			trail.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.55),
+				NumberSequenceKeypoint.new(0.5, 0.75),
+				NumberSequenceKeypoint.new(1, 1),
+			})
+			trail.Parent = limb
+			task.delay(duration, function()
+				trail.Enabled = false
+			end)
+			task.delay(duration + trail.Lifetime + 0.05, function()
+				trail:Destroy()
+				top:Destroy()
+				bottom:Destroy()
+			end)
+		end
+	end
+end
+
+-- A white, fading copy of the body where it is right now (from the DashSystem model). Only parts and decals are
+-- kept: no scripts, humanoid, sounds, effects or constraints, all anchored and out of every query.
+local function afterimage(character: Model)
+	if not character.Parent then
+		return
+	end
+	local archivable = character.Archivable
+	character.Archivable = true
+	local ok, ghost = pcall(function()
+		return character:Clone()
+	end)
+	character.Archivable = archivable
+	if not ok or not ghost then
+		return
+	end
+	ghost.Name = "DashAfterimage"
+	local fade = TweenInfo.new(Movement.dashAfterimageFade, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	for _, item in ghost:GetDescendants() do
+		if item:IsA("BasePart") then
+			item.Anchored = true
+			item.CanCollide = false
+			item.CanQuery = false
+			item.CanTouch = false
+			item.CastShadow = false
+			item.Color = Color3.new(1, 1, 1)
+			item.Transparency = 1 - (1 - item.Transparency) * (1 - Movement.dashAfterimageTransparency)
+			TweenService:Create(item, fade, { Transparency = 1 }):Play()
+		elseif item:IsA("Decal") then
+			TweenService:Create(item, fade, { Transparency = 1 }):Play()
+		elseif not item:IsA("DataModelMesh") and not item:IsA("Accessory") and not item:IsA("JointInstance") then
+			item:Destroy()
+		end
+	end
+	ghost.Parent = TowerVisual.root()
+	task.delay(Movement.dashAfterimageFade + 0.05, function()
+		ghost:Destroy()
+	end)
+end
+
+local function dashAssets(): Instance?
+	return ReplicatedStorage:FindFirstChild("DashAssets")
+end
+
+-- The model's particle burst, turned towards the dash, if its assets were imported. Returns nothing either way.
+local function dashParticles(root: BasePart, kind: Dash.Kind)
+	local assets = dashAssets()
+	local template = assets and assets:FindFirstChild("DashVfx")
+	if not template or not template:IsA("BasePart") then
+		return
+	end
+	local yaw = if kind == "back" then 180 elseif kind == "right" then 90 elseif kind == "left" then 270 else 0
+	local effect = template:Clone()
+	effect.Anchored = true
+	effect.CanCollide = false
+	effect.CanTouch = false
+	effect.CanQuery = false
+	effect.CFrame = root.CFrame * CFrame.Angles(0, math.rad(yaw), 0)
+	effect.Parent = TowerVisual.root()
+	for _, item in effect:GetDescendants() do
+		if item:IsA("ParticleEmitter") then
+			item.Enabled = false
+			item:Emit(math.clamp(math.floor(item.Rate * 0.12), 4, 22))
+		end
+	end
+	task.delay(2, function()
+		effect:Destroy()
+	end)
+end
+
+-- The model's dash sound at the character, heard by everyone nearby; false when its assets are not imported.
+local function dashSound(root: BasePart, kind: Dash.Kind): boolean
+	local assets = dashAssets()
+	local sounds = assets and assets:FindFirstChild("Sounds")
+	local source = sounds and sounds:FindFirstChild(if kind == "back" then "BackDash" else "FrontDash")
+	if not source or not source:IsA("Sound") then
+		return false
+	end
+	local sound = source:Clone()
+	sound.Parent = root
+	sound:Play()
+	task.delay(4, function()
+		sound:Destroy()
+	end)
+	return true
+end
+
+-- The local character's dash animation from Config/Movement, if one is set for this direction. Animations played
+-- by the owner replicate to everyone, so other characters are left alone here.
+local dashTracks: { [string]: AnimationTrack } = {}
+local dashTracksOf: Humanoid? = nil
+local nextForward = 1
+local function playDashAnimation(character: Model, kind: Dash.Kind)
+	local key: string = kind
+	if kind == "forward" then
+		key = "forward" .. nextForward
+		nextForward = 3 - nextForward
+	end
+	local id = Movement.dashAnimations[key]
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	if not id or id == "" or not humanoid or not animator then
+		return
+	end
+	if dashTracksOf ~= humanoid then
+		dashTracksOf = humanoid
+		table.clear(dashTracks)
+	end
+	local track = dashTracks[key]
+	if not track then
+		local animation = Instance.new("Animation")
+		animation.AnimationId = id
+		local ok, loaded = pcall(function()
+			return animator:LoadAnimation(animation)
+		end)
+		if not ok then
+			return
+		end
+		track = loaded
+		track.Looped = false
+		track.Priority = Enum.AnimationPriority.Action
+		dashTracks[key] = track
+	end
+	track:Play(0.04)
+end
+
+-- A granted dash on any character, going (dirX, dirZ): trails, afterimages and the model's particles and sound for
+-- everyone; the FOV kick, the animation and (without the model's sound) the game's own dash sound for the local
+-- player.
+function MovementController.dash(character: Model, duration: number, dirX: number, dirZ: number)
 	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then
 		return
+	end
+	local look = root.CFrame.LookVector
+	local kind = Dash.kind(dirX, dirZ, look.X, look.Z)
+	limbTrails(character, duration)
+	dashParticles(root, kind)
+	local count = math.max(1, Movement.dashAfterimages)
+	for index = 0, count - 1 do
+		task.delay(duration * index / count, afterimage, character)
+	end
+	local soundPlayed = dashSound(root, kind)
+	if character == player.Character then
+		playDashAnimation(character, kind)
+		if not soundPlayed then
+			Sfx.play("dash")
+		end
 	end
 	local top, bottom = Instance.new("Attachment"), Instance.new("Attachment")
 	top.Position = Vector3.new(0, 1.2, 0)

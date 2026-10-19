@@ -38,7 +38,9 @@ expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client" }, "LocalScri
 expectInstance({ "ReplicatedStorage", "Shared" }, "Folder")
 expectInstance({ "ReplicatedStorage", "Shared", "Config" }, "Folder")
 
-for _, name in { "Remotes", "TowerModel", "TowerShape", "Economy", "Recipes", "ShotMath", "CatchRules", "Combat" } do
+for _, name in
+	{ "Remotes", "TowerModel", "TowerShape", "Economy", "Recipes", "ShotMath", "CatchRules", "Combat", "Dash" }
+do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")
 end
 for _, name in

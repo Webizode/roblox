@@ -34,6 +34,19 @@ return {
 	-- local camera and effects
 	dashFovKick = 9, -- degrees added to the field of view for a dash
 	dashFovTime = 0.28,
+
+	-- dash effects taken over from the DashSystem model, drawn by every client for every dashing character:
+	-- fading white afterimages of the body and short streaks behind hands and feet. If the model's assets were
+	-- imported in Studio as ReplicatedStorage.DashAssets (the part DashVfx, the sounds Sounds.FrontDash and
+	-- Sounds.BackDash), their particles and sounds play too; without them the game's own dash sound plays.
+	dashAfterimages = 3, -- over the whole dash
+	dashAfterimageFade = 0.25, -- seconds
+	dashAfterimageTransparency = 0.45,
+	dashLimbTrailLifetime = 0.16,
+	-- dash animations by direction (Dash.kind; forward alternates between two), "rbxassetid://<id>" of animations
+	-- published by the experience owner for the game's rig. Empty plays none. The model's own animations are R6
+	-- and published by its author, so they cannot be used as they are.
+	dashAnimations = { forward1 = "", forward2 = "", left = "", right = "", back = "" },
 	landMinAirTime = 0.35, -- shorter hops land without dust or shake
 	landFullAirTime = 1.1, -- landings after this long get the full effect
 	landShake = 0.5, -- degrees

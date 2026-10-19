@@ -15,6 +15,7 @@ local TowerModel = require(Shared:WaitForChild("TowerModel"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local Combat = require(Shared:WaitForChild("Combat"))
+local Dash = require(Shared:WaitForChild("Dash"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local Palette = require(Config:WaitForChild("Palette"))
@@ -315,10 +316,12 @@ local function burstRing(root: BasePart, colorHex: string)
 	end)
 end
 
--- The burst itself: a horizontal velocity for a moment, gravity untouched, moved by physics, so walls stop it like
--- any other movement. It ends on the frame closest to the configured duration (not always a frame late), and the
--- horizontal speed then drops straight back to the humanoid's own (walking or sprinting), so the dash stops crisply
--- instead of sliding on; a knockback that is running then keeps its own velocity.
+-- The burst itself: a horizontal velocity for a moment, gravity untouched, moved by physics, never by teleporting.
+-- It ends on the frame closest to the configured duration (not always a frame late), or earlier at a wall ahead: a
+-- box cast in front of the root every frame (from the DashSystem model) stops it there instead of pressing into
+-- the wall. At the end the horizontal speed drops straight back to the humanoid's own (walking or sprinting), or to
+-- zero at a wall, so the dash stops crisply instead of sliding on; a knockback that is running keeps its velocity.
+-- Like in the model, the humanoid cannot ragdoll or fall over during the burst.
 local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ: number)
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "DashAttachment"
@@ -333,24 +336,47 @@ local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ:
 	velocity.PlaneVelocity = Vector2.new(dirX, dirZ) * Tuning.dash.speed
 	velocity.MaxForce = root.AssemblyMass * Tuning.dash.acceleration
 	velocity.Parent = root
+
+	local ragdollWas = humanoid:GetStateEnabled(Enum.HumanoidStateType.Ragdoll)
+	local fallingDownWas = humanoid:GetStateEnabled(Enum.HumanoidStateType.FallingDown)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { root.Parent :: Instance }
+	params.RespectCanCollide = true
+	local castSize = root.Size + Vector3.new(0.35, 0.1, 0.35)
+	local ahead = Vector3.new(dirX, 0, dirZ)
+
 	local elapsed = 0
 	local connection: RBXScriptConnection
 	connection = RunService.Heartbeat:Connect(function(dt)
 		elapsed += dt
-		if elapsed < Tuning.dash.duration - dt / 2 and root.Parent then
+		local wall = false
+		if root.Parent then
+			local reach = math.min(Tuning.dash.speed * dt + 0.4, 6)
+			local hit = workspace:Blockcast(root.CFrame, castSize, ahead * reach, params)
+			wall = hit ~= nil and Dash.blocks(hit.Normal.X, hit.Normal.Y, hit.Normal.Z, dirX, dirZ)
+		end
+		if not wall and elapsed < Tuning.dash.duration - dt / 2 and root.Parent then
 			return
 		end
 		connection:Disconnect()
 		velocity:Destroy()
 		attachment:Destroy()
+		if humanoid.Parent then
+			humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, ragdollWas)
+			humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, fallingDownWas)
+		end
 		if not root.Parent or root:FindFirstChild("KnockbackVelocity") then
 			return
 		end
 		local current = root.AssemblyLinearVelocity
 		local flat = Vector3.new(current.X, 0, current.Z)
-		local cap = humanoid.WalkSpeed
+		local cap = if wall then 0 else humanoid.WalkSpeed
 		if flat.Magnitude > cap then
-			flat = flat.Unit * cap
+			flat = if cap > 0 then flat.Unit * cap else Vector3.zero
 			root.AssemblyLinearVelocity = Vector3.new(flat.X, current.Y, flat.Z)
 		end
 	end)
@@ -363,7 +389,7 @@ local function onDash(who: Player, dirX: number, dirZ: number)
 		return
 	end
 	burstRing(root, Palette.lemon)
-	registry.MovementController.dash(character :: Model, Tuning.dash.duration)
+	registry.MovementController.dash(character :: Model, Tuning.dash.duration, dirX, dirZ)
 	if who ~= player then
 		return
 	end
@@ -372,7 +398,6 @@ local function onDash(who: Player, dirX: number, dirZ: number)
 	if humanoid then
 		dashBurst(root, humanoid, dirX, dirZ)
 	end
-	Sfx.play("dash")
 	if #scoops > 0 and not state.toppled and not toppledAt then
 		TowerModel.dashKick(state, Tuning.dash, #scoops, dirX, dirZ)
 	end
