@@ -7,8 +7,9 @@ return {
 	-- shape
 	scoopSpacing = 1.5, -- studs between scoop centres
 	coneHeight = 1.6,
-	-- Where the visible tower stands, relative to the HumanoidRootPart; a negative holdForward is behind the back. It
-	-- stands in the waffle backpack (Config/Backpack): the first scoop rests in the opening, a little behind the head.
+	-- The visible tower stands in the waffle backpack: its bottom scoop rests in the opening, computed every frame from
+	-- the same frame the waffle is drawn with (Backpacks.opening, TowerShape.restingBase). Only while no waffle shows
+	-- (knocked down) does it stand at this fixed offset from the HumanoidRootPart; negative holdForward is behind.
 	holdUp = -0.1,
 	holdForward = -1.75,
 	-- Where the catch column stands, for the client's contact check and the server's catch check alike: straight

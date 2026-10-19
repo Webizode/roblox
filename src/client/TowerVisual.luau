@@ -16,6 +16,7 @@ local TowerVisual = {}
 TowerVisual.__index = TowerVisual
 
 local SCOOP_SIZE = 2.1
+TowerVisual.SCOOP_SIZE = SCOOP_SIZE
 local CONE_ROTATION = CFrame.Angles(0, 0, math.rad(90)) -- cylinders run along X
 
 local visualsRoot: Folder?

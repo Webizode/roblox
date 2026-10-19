@@ -8,11 +8,13 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Tuning = require(Shared:WaitForChild("Config"):WaitForChild("Tower"))
+local TowerShape = require(Shared:WaitForChild("TowerShape"))
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 
 local RemoteTowers = {}
+local registry
 
 type Remote = {
 	visual: any,
@@ -93,13 +95,27 @@ local function onRenderStep(dt: number)
 		if root then
 			remote.tiltX += (remote.targetX - remote.tiltX) * alpha
 			remote.tiltZ += (remote.targetZ - remote.tiltZ) * alpha
-			remote.visual:update(
-				root.CFrame * CFrame.new(0, Tuning.holdUp, -Tuning.holdForward),
-				remote.tiltX,
-				remote.tiltZ
-			)
+			-- standing in the waffle on their back, like the own tower (TowerController.towerBase)
+			local opening, ringRadius = registry.Backpacks.opening(character :: Model)
+			local base = root.CFrame * CFrame.new(0, Tuning.holdUp, -Tuning.holdForward)
+			if opening then
+				local x, y, z = TowerShape.restingBase(
+					opening.X,
+					opening.Y,
+					opening.Z,
+					TowerVisual.SCOOP_SIZE / 2,
+					ringRadius,
+					Tuning
+				)
+				base = CFrame.new(x, y, z)
+			end
+			remote.visual:update(base, remote.tiltX, remote.tiltZ)
 		end
 	end
+end
+
+function RemoteTowers.Init(reg)
+	registry = reg
 end
 
 function RemoteTowers.Start()
@@ -116,7 +132,7 @@ function RemoteTowers.Start()
 		end
 	end)
 
-	RunService.RenderStepped:Connect(onRenderStep)
+	RunService:BindToRenderStep("WobbleRemoteTowers", registry.TowerController.VISUAL_PRIORITY, onRenderStep)
 end
 
 return RemoteTowers

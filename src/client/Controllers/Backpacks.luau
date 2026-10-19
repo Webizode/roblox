@@ -132,18 +132,31 @@ local function setFade(pack: Pack, fade: number)
 	end
 end
 
+local function torsoOf(character: Model): BasePart?
+	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+	return if torso and torso:IsA("BasePart") then torso else nil
+end
+
+-- The waffle's frame on a torso (centre on the cone axis, +Y towards the opening) and its scale. The one place the
+-- waffle's position comes from: the backpack parts and the scoop tower standing in it (Backpacks.opening) both use
+-- it, so the two can never drift apart.
+local function coneFrame(torso: BasePart): (CFrame, number)
+	local torsoSize = torso.Size
+	local s = torsoSize.Y / Look.referenceTorsoHeight
+	-- back is +Z in the torso's frame
+	local back = torsoSize.Z / 2 + AXIS_BACK * s
+	return torso.CFrame * CFrame.new(0, Look.coneUp * s, back) * CFrame.Angles(Look.coneTilt, 0, 0), s
+end
+
 -- Moves every part and returns the opening's position and the scale, for the local camera fade.
 local function place(pack: Pack, torso: BasePart): (Vector3, number)
 	local torsoSize = torso.Size
 	if pack.torsoSize ~= torsoSize then
 		resize(pack, torsoSize)
 	end
-	local s = torsoSize.Y / Look.referenceTorsoHeight
+	local cone, s = coneFrame(torso)
 	local length = Look.coneLength * s
 	local torsoCFrame = torso.CFrame
-	-- back is +Z in the torso's frame; the cone's frame has its centre on the cone axis, +Y towards the opening
-	local back = torsoSize.Z / 2 + AXIS_BACK * s
-	local cone = torsoCFrame * CFrame.new(0, Look.coneUp * s, back) * CFrame.Angles(Look.coneTilt, 0, 0)
 
 	-- the part order never changes, so moveParts is filled once in newPack and only the CFrames are written
 	local cframes = pack.moveCFrames
@@ -171,11 +184,6 @@ local function place(pack: Pack, torso: BasePart): (Vector3, number)
 
 	workspace:BulkMoveTo(pack.moveParts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
 	return (cone * CFrame.new(0, length / 2, 0)).Position, s
-end
-
-local function torsoOf(character: Model): BasePart?
-	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
-	return if torso and torso:IsA("BasePart") then torso else nil
 end
 
 local function onRenderStep()
@@ -221,6 +229,19 @@ local function untrack(player: Player)
 		packs[player] = nil
 		pack.model:Destroy()
 	end
+end
+
+-- The centre and radius of a character's waffle opening this frame, for the scoop tower that stands in it; nil while
+-- the backpack is not shown on that character (no torso, dead, knocked down). Call it after the movement pose
+-- (RenderPriority.Character + 2) so it matches the drawn waffle.
+function Backpacks.opening(character: Model): (Vector3?, number)
+	local torso = torsoOf(character)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not torso or not humanoid or humanoid.Health <= 0 or torso.CFrame.UpVector.Y < Look.minUpright then
+		return nil, 0
+	end
+	local cone, s = coneFrame(torso)
+	return (cone * CFrame.new(0, Look.coneLength * s / 2, 0)).Position, Look.coneTopDiameter / 2 * s
 end
 
 function Backpacks.Start()

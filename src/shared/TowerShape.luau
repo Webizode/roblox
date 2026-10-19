@@ -37,6 +37,22 @@ function TowerShape.top(count: number, tiltX: number, tiltZ: number, tuning: Sha
 	return TowerShape.offset(count + 1, count, tiltX, tiltZ, tuning)
 end
 
+-- The base for a tower whose bottom scoop rests in a round opening centred at (x, y, z), like the waffle backpack:
+-- a ball of scoopRadius on a ring of ringRadius sits sqrt(scoopRadius^2 - ringRadius^2) above the ring's centre, or
+-- right in its middle when the ring is wider than the ball. The rest of the tower grows up from that scoop.
+function TowerShape.restingBase(
+	x: number,
+	y: number,
+	z: number,
+	scoopRadius: number,
+	ringRadius: number,
+	tuning: ShapeTuning
+): (number, number, number)
+	local seat = if ringRadius < scoopRadius then math.sqrt(scoopRadius * scoopRadius - ringRadius * ringRadius) else 0
+	local _, bottom = TowerShape.offset(1, 1, 0, 0, tuning)
+	return x, y + seat - bottom, z
+end
+
 -- The tower as a polyline (flat x, y, z list, bottom to top): the cone tip, the middle scoop, the top scoop and
 -- the free slot. A scoop that comes within the catch radius of this line touches the tower, wherever it hits
 -- it, and is stacked on top. Checking only the free slot let scoops fly straight through taller towers.

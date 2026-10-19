@@ -29,6 +29,8 @@ local TowerController = {}
 
 -- runs right after the character moved, and before ShotRenderer (RENDER_PRIORITY + 1) checks for catches
 TowerController.RENDER_PRIORITY = Enum.RenderPriority.Character.Value + 1
+-- the visible towers are drawn after the movement pose (Character + 2) and the backpacks (Character + 3)
+TowerController.VISUAL_PRIORITY = Enum.RenderPriority.Character.Value + 4
 
 local STEP = 1 / Tuning.stepRate
 local MAX_FRAME = 0.1 -- never simulate more than this per frame after a hitch
@@ -75,8 +77,19 @@ local function rootPart(): BasePart?
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
--- The visible tower on the back.
+-- The visible tower on the back: its bottom scoop rests in the waffle opening (Backpacks.opening, the same frame the
+-- waffle is drawn from). While no waffle shows (knocked down), it falls back to the fixed offset from the root.
 local function towerBase(root: BasePart): Vector3
+	local character = root.Parent :: Model?
+	local opening, ringRadius
+	if character then
+		opening, ringRadius = registry.Backpacks.opening(character)
+	end
+	if opening then
+		local x, y, z =
+			TowerShape.restingBase(opening.X, opening.Y, opening.Z, TowerVisual.SCOOP_SIZE / 2, ringRadius, Tuning)
+		return Vector3.new(x, y, z)
+	end
 	return (root.CFrame * CFrame.new(0, Tuning.holdUp, -Tuning.holdForward)).Position
 end
 
@@ -255,10 +268,19 @@ local function onRenderStep(dt: number)
 	end
 
 	simulate(dt, humanoid)
-	visual:update(CFrame.new(towerBase(root)), state.x, state.z)
-	updateFade(dt)
 	updateHud(root)
 	replicateTilt(dt)
+end
+
+-- Draws the tower after the movement pose (Character + 2), so it stands in the waffle as it is drawn this frame,
+-- leaning and all. The simulation and the catch column above do not depend on it.
+local function onVisualStep(dt: number)
+	local root = rootPart()
+	if not root then
+		return
+	end
+	visual:update(CFrame.new(towerBase(root)), state.x, state.z)
+	updateFade(dt)
 end
 
 local function canCatch(): boolean
@@ -507,6 +529,7 @@ function TowerController.Start()
 	ContextActionService:SetTitle(RESCUE_ACTION, "Steady")
 
 	RunService:BindToRenderStep("WobbleTower", TowerController.RENDER_PRIORITY, onRenderStep)
+	RunService:BindToRenderStep("WobbleTowerVisual", TowerController.VISUAL_PRIORITY, onVisualStep)
 end
 
 -- The tower column in world space (flat x, y, z list, see TowerShape.column) plus the current tilt, or nil when
@@ -540,8 +563,7 @@ function TowerController.topPosition(): Vector3?
 	if not root or toppledAt or state.toppled then
 		return nil
 	end
-	local ox, oy, oz = TowerShape.top(#scoops, state.x, state.z, Tuning)
-	return towerBase(root) + Vector3.new(ox, oy, oz)
+	return visual:topPosition() -- where the tower was drawn this frame
 end
 
 return TowerController

@@ -85,6 +85,30 @@ describe("Catch geometry", function()
 		end
 	end)
 
+	it("rests the bottom scoop in a round opening, neither floating nor sinking through", function()
+		local radius = 1.05
+		for _, ring in { 0.5, 0.95, 1.2 } do
+			local x, y, z = TowerShape.restingBase(4, 10, -2, radius, ring, TowerTuning)
+			local ox, oy, oz = TowerShape.offset(1, 1, 0, 0, TowerTuning)
+			expect(x + ox).toBeCloseTo(4)
+			expect(z + oz).toBeCloseTo(-2)
+			-- a ball on a ring touches it: the ring's edge is exactly one radius from the ball's centre
+			local seat = y + oy - 10
+			if ring < radius then
+				expect(math.sqrt(seat * seat + ring * ring)).toBeCloseTo(radius)
+				expect(seat).toBeGreaterThan(0)
+			else
+				expect(seat).toBeCloseTo(0)
+			end
+		end
+		-- the rest of the tower stacks straight up from the bottom scoop
+		local _, y = TowerShape.restingBase(0, 0, 0, radius, 0.95, TowerTuning)
+		local _, first = TowerShape.offset(1, 3, 0, 0, TowerTuning)
+		local _, third = TowerShape.offset(3, 3, 0, 0, TowerTuning)
+		expect(third - first).toBeCloseTo(2 * TowerTuning.scoopSpacing)
+		expect(y + first).toBeCloseTo(math.sqrt(radius * radius - 0.95 * 0.95))
+	end)
+
 	it("builds the column from the cone tip to the free slot", function()
 		for _, count in { 0, 1, 2, 7, 20 } do
 			local points = TowerShape.column(count, 0.2, -0.1, TowerTuning)
