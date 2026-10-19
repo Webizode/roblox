@@ -1,18 +1,13 @@
--- The waffle-cone backpack on every character. It holds the loaded ice balls, so everyone sees at a glance who
--- still has ammo: a thrown ball pops out of the top, and once the load is empty, frost balls grow in the cone until
--- it refills. Every client draws every backpack from the IceBalls / IceBallsReadyAt attributes the server sets on
--- each Player (Combat.backpack turns them into what to show). Client-only, anchored, non-colliding parts like the
--- towers; nothing here touches gameplay. It follows the torso, so it leans and falls with the movement pose.
+-- The waffle-cone backpack on every character. For now it is an empty waffle: it belongs to the collecting and
+-- tower side of the game, and what it will show there is still open. It is not the ice-ball ammo (that shows in the
+-- hand, HeldBalls). Client-only, anchored, non-colliding parts like the towers; nothing here touches gameplay. It
+-- follows the torso, so it leans and falls with the movement pose.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
-local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = Shared:WaitForChild("Config")
-local Combat = require(Shared:WaitForChild("Combat"))
-local CombatConfig = require(Config:WaitForChild("Combat"))
+local Config = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
 local Look = require(Config:WaitForChild("Backpack"))
 local Palette = require(Config:WaitForChild("Palette"))
 
@@ -21,17 +16,6 @@ local TowerVisual = require(client:WaitForChild("TowerVisual"))
 
 local Backpacks = {}
 
-type Slot = {
-	part: Part,
-	loaded: boolean,
-	changedAt: number, -- os.clock() the last pop in or out started; later than now while a refill waits its turn
-	from: number, -- scale and transparency when it changed, so a pop starts from what was on screen
-	fromTransparency: number,
-	scale: number, -- what the last frame drew
-	transparency: number,
-	size: number, -- last size written, so a ball at rest is not resized every frame
-}
-
 type Pack = {
 	model: Model,
 	parts: { BasePart }, -- all of them, for the first-person fade
@@ -39,18 +23,15 @@ type Pack = {
 	rim: Part,
 	tip: Part,
 	straps: { Part }, -- front left, front right, over the left shoulder, over the right shoulder
-	slots: { Slot },
 	moveParts: { BasePart },
 	moveCFrames: { CFrame },
 	torsoSize: Vector3?, -- the torso size the parts are built for
-	synced: boolean, -- false until the first ammo reading, which shows without popping
 	shown: boolean,
 	fade: number,
 }
 
 local STEP = "WobbleBackpacks"
 local CYLINDER_UP = CFrame.Angles(0, 0, math.rad(90)) -- cylinders run along X
-local HIDDEN_SCALE = 0.02
 local RIM_RADIUS = Look.coneTopDiameter / 2 + 0.06
 -- the cone axis sits this far behind the back (before scaling), so the rim's lower near edge, the point closest
 -- to the back, keeps coneBack from it
@@ -70,15 +51,6 @@ local function newPart(model: Model, name: string, shape: Enum.PartType, color: 
 	return part
 end
 
--- Where a slot's ball sits relative to the cone's opening, before scaling. A load bigger than the configured
--- slots stacks straight up from the last one.
-local function slotOffset(index: number): Vector3
-	local slots = Look.slots
-	local entry = slots[math.min(index, #slots)]
-	local above = math.max(0, index - #slots) * Look.ballDiameter
-	return Vector3.new(entry[1], entry[2] + above, entry[3])
-end
-
 local function newPack(player: Player): Pack
 	local model = Instance.new("Model")
 	model.Name = "Backpack_" .. player.UserId
@@ -89,11 +61,9 @@ local function newPack(player: Player): Pack
 		rim = nil :: any,
 		tip = nil :: any,
 		straps = {},
-		slots = {},
 		moveParts = {},
 		moveCFrames = {},
 		torsoSize = nil,
-		synced = false,
 		shown = false,
 		fade = 0,
 	}
@@ -112,19 +82,6 @@ local function newPack(player: Player): Pack
 		strap.CastShadow = false
 		table.insert(pack.straps, strap)
 	end
-	-- the same look as a ball in flight, so the ones on the back read as ammo
-	for _ = 1, CombatConfig.ammo do
-		table.insert(pack.slots, {
-			part = add("IceBall", Enum.PartType.Ball, Palette.skyTop, Enum.Material.Ice),
-			loaded = true,
-			changedAt = -math.huge,
-			from = 0,
-			fromTransparency = 0,
-			scale = 1,
-			transparency = 0,
-			size = -1,
-		})
-	end
 	-- the order place() writes the CFrames in
 	for _, part in pack.cone do
 		table.insert(pack.moveParts, part)
@@ -134,13 +91,10 @@ local function newPack(player: Player): Pack
 	for _, strap in pack.straps do
 		table.insert(pack.moveParts, strap)
 	end
-	for _, slot in pack.slots do
-		table.insert(pack.moveParts, slot.part)
-	end
 	return pack
 end
 
--- Fixed sizes for one torso size: the cone and the straps. Ball sizes change with the pops, every frame.
+-- Sizes for one torso size.
 local function resize(pack: Pack, torsoSize: Vector3)
 	pack.torsoSize = torsoSize
 	local s = torsoSize.Y / Look.referenceTorsoHeight
@@ -164,10 +118,6 @@ local function show(pack: Pack, on: boolean)
 	if pack.shown ~= on then
 		pack.shown = on
 		pack.model.Parent = if on then TowerVisual.root() else nil
-		-- ammo changes while hidden must not replay as pops: the next reading shows as it is, like on join
-		if not on then
-			pack.synced = false
-		end
 	end
 end
 
@@ -182,40 +132,8 @@ local function setFade(pack: Pack, fade: number)
 	end
 end
 
--- Starts a pop wherever the ammo changed. A refill pops in bottom first, one ball after the other.
-local function syncSlots(pack: Pack, loaded: number, clock: number)
-	for index, slot in pack.slots do
-		local want = index <= loaded
-		if not pack.synced then
-			slot.loaded = want
-			slot.changedAt = -math.huge
-		elseif slot.loaded ~= want then
-			slot.loaded = want
-			slot.from, slot.fromTransparency = slot.scale, slot.transparency
-			slot.changedAt = if want then clock + (index - 1) * Look.popStagger else clock
-		end
-	end
-	pack.synced = true
-end
-
--- One ball's scale (share of the full size) and transparency this frame.
-local function slotLook(slot: Slot, clock: number, refill: number): (number, number)
-	if slot.loaded then
-		local alpha = math.clamp((clock - slot.changedAt) / Look.popIn, 0, 1)
-		local eased = TweenService:GetValue(alpha, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-		return slot.from + (1 - slot.from) * eased, slot.fromTransparency * (1 - alpha)
-	end
-	local alpha = math.clamp((clock - slot.changedAt) / Look.popOut, 0, 1)
-	local out = slot.from * (1 - alpha)
-	local frost = Look.frostMax * refill
-	if out >= frost then
-		return out, slot.fromTransparency
-	end
-	return frost, Look.frostTransparency
-end
-
 -- Moves every part and returns the opening's position and the scale, for the local camera fade.
-local function place(pack: Pack, torso: BasePart, clock: number, refill: number): (Vector3, number)
+local function place(pack: Pack, torso: BasePart): (Vector3, number)
 	local torsoSize = torso.Size
 	if pack.torsoSize ~= torsoSize then
 		resize(pack, torsoSize)
@@ -251,30 +169,8 @@ local function place(pack: Pack, torso: BasePart, clock: number, refill: number)
 	cframes[count + 4] = torsoCFrame * CFrame.new(strapX, overY, overZ)
 	count += 4
 
-	local opening = cone * CFrame.new(0, length / 2, 0)
-	for index, slot in pack.slots do
-		local scale, transparency = slotLook(slot, clock, refill)
-		slot.scale, slot.transparency = scale, transparency
-		local part = slot.part
-		if scale < HIDDEN_SCALE then
-			transparency = 1
-		else
-			local diameter = Look.ballDiameter * s * scale
-			if math.abs(slot.size - diameter) > 1e-3 then
-				slot.size = diameter
-				part.Size = Vector3.one * diameter
-			end
-		end
-		-- Transparency is stored as a float32, so an exact compare would rewrite 0.55 every frame
-		if math.abs(part.Transparency - transparency) > 1e-3 then
-			part.Transparency = transparency
-		end
-		count += 1
-		cframes[count] = opening * CFrame.new(slotOffset(index) * s)
-	end
-
 	workspace:BulkMoveTo(pack.moveParts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
-	return opening.Position, s
+	return (cone * CFrame.new(0, length / 2, 0)).Position, s
 end
 
 local function torsoOf(character: Model): BasePart?
@@ -283,8 +179,6 @@ local function torsoOf(character: Model): BasePart?
 end
 
 local function onRenderStep()
-	local clock = os.clock()
-	local serverNow = workspace:GetServerTimeNow()
 	local camera = workspace.CurrentCamera
 	local eye = if camera then camera.CFrame.Position else nil
 	for player, pack in packs do
@@ -302,16 +196,7 @@ local function onRenderStep()
 			continue
 		end
 
-		local count = player:GetAttribute("IceBalls")
-		local readyAt = player:GetAttribute("IceBallsReadyAt")
-		local loaded, refill = Combat.backpack(
-			if type(count) == "number" then count else CombatConfig.ammo,
-			if type(readyAt) == "number" then readyAt else 0,
-			serverNow,
-			CombatConfig
-		)
-		syncSlots(pack, loaded, clock)
-		local opening, s = place(pack, torso, clock, refill)
+		local opening, s = place(pack, torso)
 		if player == localPlayer then
 			local head = character:FindFirstChild("Head")
 			local fade = if head and head:IsA("BasePart") then head.LocalTransparencyModifier else 0

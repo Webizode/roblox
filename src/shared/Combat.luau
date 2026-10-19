@@ -236,9 +236,10 @@ function Combat.tryThrow(ammo: Ammo, now: number, config: Config): boolean
 	return true
 end
 
--- What a backpack shows for the replicated ammo: how many balls are loaded and, while an empty load refills, how
--- far along the reload is (0..1). Inputs come from attributes, so anything out of range is clamped.
-function Combat.backpack(count: number, reloadUntil: number, now: number, config: Config): (number, number)
+-- What the ammo display (the ball in the hand) shows for the replicated ammo: how many balls are loaded and, while
+-- an empty load refills, how far along the reload is (0..1). Inputs come from attributes, so anything out of range
+-- is clamped.
+function Combat.ammoDisplay(count: number, reloadUntil: number, now: number, config: Config): (number, number)
 	local loaded = if count == count then math.clamp(math.floor(count), 0, config.ammo) else 0
 	if loaded > 0 or not isFinite(reloadUntil) or reloadUntil <= 0 then
 		return loaded, 0
