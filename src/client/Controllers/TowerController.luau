@@ -14,6 +14,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local TowerModel = require(Shared:WaitForChild("TowerModel"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local Economy = require(Shared:WaitForChild("Economy"))
+local Combat = require(Shared:WaitForChild("Combat"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local Palette = require(Config:WaitForChild("Palette"))
@@ -32,6 +33,9 @@ TowerController.RENDER_PRIORITY = Enum.RenderPriority.Character.Value + 1
 local STEP = 1 / Tuning.stepRate
 local MAX_FRAME = 0.1 -- never simulate more than this per frame after a hitch
 local TOPPLE_TIMEOUT = 2
+local SCOOP_RADIUS = 1.05
+local FADE_RAY = 60 -- studs along the middle of the screen that the own tower must not cover
+local FADE_RESPONSE = 12 -- 1/s
 local DASH_ACTION = "WobbleDash"
 local SPRINT_ACTION = "WobbleSprint"
 -- Roblox puts shift lock on Shift, which is the sprint here; it moves to Ctrl
@@ -59,6 +63,7 @@ local groundY = 1
 local dashReadyAt = 0 -- local cooldown so the key cannot spam requests; the server has the final say
 local rescueReadyAt = 0 -- same for the rescue
 local sprinting = false
+local towerFade = 0
 
 local function coneLevel(): number
 	local value = player:GetAttribute("ConeLevel")
@@ -70,8 +75,14 @@ local function rootPart(): BasePart?
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
+-- The visible tower on the back.
 local function towerBase(root: BasePart): Vector3
 	return (root.CFrame * CFrame.new(0, Tuning.holdUp, -Tuning.holdForward)).Position
+end
+
+-- The catch column, straight above the character; the server checks catches from the same point.
+local function catchBase(root: BasePart): Vector3
+	return (root.CFrame * CFrame.new(0, Tuning.catchUp, -Tuning.catchForward)).Position
 end
 
 local function servePoint(): BasePart?
@@ -198,6 +209,36 @@ local function replicateTilt(dt: number)
 	end
 end
 
+-- The tower stands on the back, between the camera and the character: while it covers the middle of the screen
+-- (the crosshair in combat mode, the character's head otherwise) it turns see-through for its owner only.
+local function updateFade(dt: number)
+	local camera = workspace.CurrentCamera
+	local target = 0
+	if camera and #scoops > 0 then
+		local base, top = visual.base, visual:topPosition()
+		local middle = (base + top) / 2
+		local from = camera.CFrame.Position
+		local to = from + camera.CFrame.LookVector * FADE_RAY
+		local distance = Combat.closestToCapsule(
+			from.X,
+			from.Y,
+			from.Z,
+			to.X,
+			to.Y,
+			to.Z,
+			middle.X,
+			middle.Y,
+			middle.Z,
+			math.max(0, (top.Y - base.Y) / 2)
+		)
+		if distance < SCOOP_RADIUS + 0.4 then
+			target = Tuning.ownTowerFade
+		end
+	end
+	towerFade += (target - towerFade) * (1 - math.exp(-FADE_RESPONSE * dt))
+	visual:setFade(towerFade)
+end
+
 local function onRenderStep(dt: number)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -215,6 +256,7 @@ local function onRenderStep(dt: number)
 
 	simulate(dt, humanoid)
 	visual:update(CFrame.new(towerBase(root)), state.x, state.z)
+	updateFade(dt)
 	updateHud(root)
 	replicateTilt(dt)
 end
@@ -474,7 +516,7 @@ function TowerController.catchColumn(): ({ number }?, number, number)
 	if not root or not canCatch() then
 		return nil, 0, 0
 	end
-	local base = towerBase(root)
+	local base = catchBase(root)
 	local offsets = TowerShape.column(#scoops, state.x, state.z, Tuning)
 	local points = table.create(#offsets)
 	for index = 1, #offsets, 3 do

@@ -7,8 +7,18 @@ return {
 	-- shape
 	scoopSpacing = 1.5, -- studs between scoop centres
 	coneHeight = 1.6,
-	holdUp = 0.6, -- tower base relative to the HumanoidRootPart
-	holdForward = 2.2,
+	-- Where the visible tower stands, relative to the HumanoidRootPart; a negative holdForward is behind the back. It
+	-- stands in the waffle backpack (Config/Backpack): the first scoop rests in the opening, a little behind the head.
+	holdUp = -0.1,
+	holdForward = -1.75,
+	-- Where the catch column stands, for the client's contact check and the server's catch check alike: straight
+	-- above the character, so a scoop is caught whichever way the player faces. On the back it would only catch with
+	-- the back to the machine, because scoops come in at an angle and land in front of a tower behind the player
+	-- (tests/Catch.spec). A caught scoop then flies onto the visible tower.
+	catchUp = -0.1,
+	catchForward = 0,
+	showCone = false, -- the tower's own cone part; off while the backpack waffle carries the tower
+	ownTowerFade = 0.6, -- how see-through the own tower gets while it covers the middle of the screen
 
 	-- tipping
 	tipAngle = 0.55, -- radians at the top before the tower is clamped

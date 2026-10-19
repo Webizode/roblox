@@ -31,9 +31,9 @@ end
 local function baseFacingMachine(x: number, z: number): (number, number, number)
 	local length = math.sqrt(x * x + z * z)
 	local dirX, dirZ = -x / length, -z / length
-	return x + dirX * TowerTuning.holdForward,
-		GROUND_Y + ROOT_HEIGHT + TowerTuning.holdUp,
-		z + dirZ * TowerTuning.holdForward
+	return x + dirX * TowerTuning.catchForward,
+		GROUND_Y + ROOT_HEIGHT + TowerTuning.catchUp,
+		z + dirZ * TowerTuning.catchForward
 end
 
 local function worldColumn(baseX: number, baseY: number, baseZ: number, count: number, tiltX: number, tiltZ: number)

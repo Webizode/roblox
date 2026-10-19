@@ -326,13 +326,14 @@ function TowerService.addScoop(player: Player, flavorId: string): boolean
 	return true
 end
 
--- World position of the tower base (where the cone sits), the same point the client renders from.
+-- World position of the catch column's base, the same point the client checks catches from (catchUp and
+-- catchForward; the visible tower on the back is only drawn by the clients).
 function TowerService.towerBase(player: Player): Vector3?
 	local root = rootOf(player)
 	if not states[player] or not root then
 		return nil
 	end
-	return root.CFrame:PointToWorldSpace(Vector3.new(0, TowerTuning.holdUp, -TowerTuning.holdForward))
+	return root.CFrame:PointToWorldSpace(Vector3.new(0, TowerTuning.catchUp, -TowerTuning.catchForward))
 end
 
 return TowerService
