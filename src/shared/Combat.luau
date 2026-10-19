@@ -7,7 +7,11 @@ export type Config = {
 	ammo: number,
 	reloadTime: number,
 	throwInterval: number,
-	speed: number,
+	chargeRise: number,
+	chargeTolerance: number,
+	minSpeed: number,
+	maxSpeed: number,
+	powerAtMinCharge: number,
 	lift: number,
 	gravity: number,
 	maxFlight: number,
@@ -45,19 +49,86 @@ function Combat.position(
 	return ox + vx * t, oy + vy * t - 0.5 * gravity * t * t, oz + vz * t
 end
 
--- Launch velocity for an aim direction (the camera's look vector). Returns false for directions a real camera
--- cannot produce (not finite, not about unit length).
-function Combat.launchVelocity(dx: number, dy: number, dz: number, config: Config): (boolean, number, number, number)
-	if not (isFinite(dx) and isFinite(dy) and isFinite(dz)) then
+-- The charge bar after holding the throw button for `held` seconds: up from 0 to 1 in chargeRise, back down to 0
+-- in the same time, and again while held.
+function Combat.charge(held: number, config: Config): number
+	if not isFinite(held) or held <= 0 then
+		return 0
+	end
+	local phase = held % (2 * config.chargeRise)
+	return if phase <= config.chargeRise then phase / config.chargeRise else 2 - phase / config.chargeRise
+end
+
+-- The charge the server accepts for a throw: the client's bar value if some hold within chargeTolerance of the
+-- server's own measured hold gives it, otherwise the nearest value such a hold gives. So a client can never claim
+-- more than the hold it really made allows, and network jitter does not cost an honest player anything.
+function Combat.validateCharge(claimed: number, held: number, config: Config): number
+	if not isFinite(held) or held < 0 then
+		held = 0
+	end
+	local from, to = math.max(0, held - config.chargeTolerance), held + config.chargeTolerance
+	local period = 2 * config.chargeRise
+	local low, high = 0, 1
+	if to - from < period then
+		local a, b = Combat.charge(from, config), Combat.charge(to, config)
+		low, high = math.min(a, b), math.max(a, b)
+		-- a peak (1) lies at chargeRise + k * period, a trough (0) at k * period
+		if math.floor((to - config.chargeRise) / period) > math.floor((from - config.chargeRise) / period) then
+			high = 1
+		end
+		if math.floor(to / period) > math.floor(from / period) then
+			low = 0
+		end
+	end
+	if not isFinite(claimed) then
+		return Combat.charge(held, config)
+	end
+	return math.clamp(claimed, low, high)
+end
+
+-- Release speed for a charge in [0, 1].
+function Combat.throwSpeed(charge: number, config: Config): number
+	return config.minSpeed + (config.maxSpeed - config.minSpeed) * math.clamp(charge, 0, 1)
+end
+
+-- Launch velocity from the release point (ox, oy, oz) through the aim point (tx, ty, tz) at `speed`: the flat arc
+-- that passes through the aim point under gravity. A point out of reach (or not reached within maxFlight) gets a
+-- straight aim with a little lift instead, so the ball falls short of it. Returns false for aims no real client
+-- produces (not finite, or the aim point at the hand).
+function Combat.aimVelocity(
+	ox: number,
+	oy: number,
+	oz: number,
+	tx: number,
+	ty: number,
+	tz: number,
+	speed: number,
+	config: Config
+): (boolean, number, number, number)
+	if not (isFinite(ox) and isFinite(oy) and isFinite(oz) and isFinite(tx) and isFinite(ty) and isFinite(tz)) then
 		return false, 0, 0, 0
 	end
-	local length = math.sqrt(dx * dx + dy * dy + dz * dz)
-	if length < 0.9 or length > 1.1 then
+	local dx, dy, dz = tx - ox, ty - oy, tz - oz
+	local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+	if distance < 0.5 or not isFinite(distance) then
 		return false, 0, 0, 0
 	end
-	dx, dy, dz = dx / length, dy / length + config.lift, dz / length
-	length = math.sqrt(dx * dx + dy * dy + dz * dz)
-	return true, dx / length * config.speed, dy / length * config.speed, dz / length * config.speed
+	local flat = math.sqrt(dx * dx + dz * dz)
+	local g, v2 = config.gravity, speed * speed
+	if flat > 1e-3 then
+		local discriminant = v2 * v2 - g * (g * flat * flat + 2 * dy * v2)
+		if discriminant >= 0 then
+			local tangent = (v2 - math.sqrt(discriminant)) / (g * flat)
+			local cos = 1 / math.sqrt(1 + tangent * tangent)
+			if flat / (speed * cos) <= config.maxFlight then
+				local horizontal = speed * cos / flat
+				return true, dx * horizontal, speed * cos * tangent, dz * horizontal
+			end
+		end
+	end
+	local ux, uy, uz = dx / distance, dy / distance + config.lift, dz / distance
+	local length = math.sqrt(ux * ux + uy * uy + uz * uz)
+	return true, ux / length * speed, uy / length * speed, uz / length * speed
 end
 
 -- Shortest distance between the flight segment a->b and the vertical axis segment of a capsule centred at c,
@@ -105,12 +176,21 @@ function Combat.closestToCapsule(
 	return math.sqrt(dx * dx + dy * dy + dz * dz), s
 end
 
--- Hit power in [minPower, 1]: centred hits (distance 0) at full speed are strongest, grazing ones weaker.
-function Combat.hitPower(distance: number, impactSpeed: number, config: Config): number
+-- Hit power, at most 1: a centred hit (distance 0) of a fully charged ball that has not slowed down yet is
+-- strongest; grazing, slowed-down (impact speed below its release speed) and less charged ones are weaker.
+function Combat.hitPower(
+	distance: number,
+	impactSpeed: number,
+	releaseSpeed: number,
+	charge: number,
+	config: Config
+): number
 	local reach = config.hitRadius + config.ballRadius
 	local centred = math.clamp(1 - distance / reach, 0, 1)
-	local speedFactor = math.clamp(impactSpeed / config.speed, 0.6, 1)
-	return math.clamp(speedFactor * (config.minPower + (1 - config.minPower) * centred), config.minPower * 0.6, 1)
+	local speedFactor = math.clamp(impactSpeed / math.max(releaseSpeed, 1e-6), 0.6, 1)
+	local chargeFactor = config.powerAtMinCharge + (1 - config.powerAtMinCharge) * math.clamp(charge, 0, 1)
+	local floor = config.minPower * 0.6 * config.powerAtMinCharge
+	return math.clamp(speedFactor * chargeFactor * (config.minPower + (1 - config.minPower) * centred), floor, 1)
 end
 
 -- Adds a hit to the victim's stagger. Returns the new stagger and whether this hit knocks them down (which

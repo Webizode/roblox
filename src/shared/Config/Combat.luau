@@ -7,22 +7,34 @@ return {
 	reloadTime = 7, -- seconds
 	throwInterval = 0.4, -- seconds between two throws, so a macro cannot fire a whole load at once
 
+	-- throw strength: holding the throw button charges a bar that runs from 0 up to 1 in chargeRise seconds, back
+	-- down in the same time, and so on while held. Releasing throws with the bar's value: 0 is the weakest throw,
+	-- 1 the strongest. The server measures the hold itself and only accepts a bar value that fits it.
+	chargeRise = 0.9, -- seconds
+	chargeTolerance = 0.1, -- seconds of network jitter between the server's measured hold and the client's bar
+	minSpeed = 55, -- studs/s at release with the bar at 0
+	maxSpeed = 90, -- and at 1
+	powerAtMinCharge = 0.6, -- hit power factor of an uncharged throw; a full charge hits with factor 1
+
+	-- aiming: the ball leaves the right hand and flies on an arc through the point under the crosshair
+	aimDistance = 400, -- studs the client looks for that point along the crosshair ray
+	handReach = 4, -- studs; a hand farther from the HumanoidRootPart is not trusted as the release point
+
 	-- flight, simulated by the server; clients draw the same curve
-	speed = 75, -- studs/s at release
-	lift = 0.12, -- added to the aim's vertical part so a straight aim arcs a little
+	lift = 0.12, -- a target out of reach gets a straight aim plus this much upward, so it arcs a little
 	gravity = 60, -- studs/s^2
-	maxFlight = 1.2, -- seconds, about 85 studs of range
+	maxFlight = 1.2, -- seconds
 	ballRadius = 0.6,
 
 	-- the target: a vertical capsule around the HumanoidRootPart
 	hitRadius = 2.2,
 	hitHalfHeight = 2.6,
 
-	-- hit power in [minPower, 1]: a centred hit at full speed is 1, a grazing one at the end of its range less
+	-- hit power: a centred hit at full charge is 1, a grazing, slowed-down or uncharged one less
 	minPower = 0.5,
 
 	-- player reaction
-	knockbackSpeed = 26, -- studs/s away from the thrower, times the hit power
+	knockbackSpeed = 26, -- studs/s away from the thrower, times the hit power (so a charged throw pushes harder)
 	knockbackUp = 9, -- studs/s
 	knockbackTime = 0.15, -- seconds
 
@@ -34,7 +46,7 @@ return {
 	unsteadyFactor = 0.5,
 
 	-- knockdown: every hit adds its power to a stagger value that drains by staggerDecay per second. A single hit
-	-- (power <= 1) never reaches knockdownAt; two solid hits in quick succession do.
+	-- (power <= 1) never reaches knockdownAt; two solid, well-charged hits in quick succession do.
 	staggerDecay = 0.6,
 	knockdownAt = 1.5,
 	knockdownTime = 1.5, -- seconds on the ground; no further hits land meanwhile

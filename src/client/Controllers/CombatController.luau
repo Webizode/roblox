@@ -1,6 +1,8 @@
--- Ice-ball throws on the client: asks the server to throw (left mouse button, the Throw button on touch screens,
--- R2 on a gamepad), draws every ball on the curve the server simulates, and plays the reaction the server
--- announces. The server decides everything: ammo, flight, hits, power and knockdowns. The victim's own client
+-- Ice-ball throws on the client. Holding the throw button (left mouse button, the Throw button on touch screens,
+-- R2 on a gamepad) charges the bar under the crosshair (AimHud), releasing asks the server to throw at the point
+-- under the crosshair with that charge. It draws every ball on the curve the server simulates and plays the
+-- reaction the server announces. The server decides everything: the charge it accepts, ammo, flight, hits, power
+-- and knockdowns. The victim's own client
 -- applies the knockback and the tower shove, like every other force on the local character and tower.
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -8,6 +10,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -37,6 +40,11 @@ local registry
 local balls: { [number]: Ball } = {}
 local lastRequestAt = -math.huge
 local downUntil = 0 -- os.clock() until the local player stands up again
+-- a margin on the throw interval, so network jitter never makes the server see two throws too close together
+local INTERVAL_MARGIN = 0.05
+local wantCharge = false -- the throw button is down
+local charging = false -- the bar runs; the server got the matching ChargeIceBall
+local chargeStartedAt = 0 -- os.clock()
 
 local function effectPart(name: string, size: number, color: Color3, position: Vector3): Part
 	local part = Instance.new("Part")
@@ -206,23 +214,72 @@ local function onRenderStep()
 	end
 end
 
--- One press, one throw request, aimed where the camera looks. The local checks only save pointless requests; the
--- server decides about ammo, cooldown and whether the throw happens at all.
-local function requestThrow(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
-	if inputState ~= Enum.UserInputState.Begin then
-		return Enum.ContextActionResult.Pass
-	end
+-- Whether a throw could happen now: ammo left, standing, alive. The server checks all of it again.
+local function canThrow(): boolean
 	local count = player:GetAttribute("IceBalls")
-	if type(count) ~= "number" or count <= 0 then
-		return Enum.ContextActionResult.Pass
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return type(count) == "number" and count > 0 and os.clock() >= downUntil and humanoid ~= nil and humanoid.Health > 0
+end
+
+-- Drops a running charge without throwing; with the button still down it starts again once a throw is possible.
+local function cancelCharge(releaseButton: boolean)
+	charging = false
+	if releaseButton then
+		wantCharge = false
 	end
-	if os.clock() - lastRequestAt < CombatConfig.throwInterval or os.clock() < downUntil then
-		return Enum.ContextActionResult.Sink
+end
+
+-- The bar starts once the button is down and a throw is possible: right away, after the throw interval, after a
+-- reload, or after getting up. The server starts its own clock with it.
+local function tryStartCharge()
+	if wantCharge and not charging and canThrow() then
+		if os.clock() - lastRequestAt >= CombatConfig.throwInterval + INTERVAL_MARGIN then
+			charging = true
+			chargeStartedAt = os.clock()
+			Remotes.ChargeIceBall:FireServer()
+		end
 	end
-	lastRequestAt = os.clock()
-	local aim = workspace.CurrentCamera.CFrame.LookVector
-	Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z)
+end
+
+-- The world point under the crosshair (the screen centre), or a point far along that ray.
+local function aimPoint(): Vector3
+	local camera = workspace.CurrentCamera
+	local ray = camera:ViewportPointToRay(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = if player.Character then { player.Character } else {}
+	local direction = ray.Direction * CombatConfig.aimDistance
+	local result = workspace:Raycast(ray.Origin, direction, params)
+	return if result then result.Position else ray.Origin + direction
+end
+
+-- Button down charges, button up throws with the bar's value at that moment. The local checks only save pointless
+-- requests; the server decides about the charge, ammo, cooldown and whether the throw happens at all.
+local function requestThrow(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
+	if inputState == Enum.UserInputState.Begin then
+		wantCharge = true
+		tryStartCharge()
+	elseif inputState == Enum.UserInputState.End then
+		if charging and canThrow() then
+			local charge = Combat.charge(os.clock() - chargeStartedAt, CombatConfig)
+			local aim = aimPoint()
+			lastRequestAt = os.clock()
+			Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z, charge)
+		end
+		cancelCharge(true)
+	elseif inputState == Enum.UserInputState.Cancel then
+		cancelCharge(true)
+	end
 	return Enum.ContextActionResult.Sink
+end
+
+local function onAimStep()
+	if charging and not canThrow() then
+		cancelCharge(false) -- knocked down or died mid-charge
+	end
+	tryStartCharge()
+	registry.AimHud.set(canThrow(), if charging then Combat.charge(os.clock() - chargeStartedAt, CombatConfig) else nil)
 end
 
 function CombatController.Init(reg)
@@ -242,6 +299,14 @@ function CombatController.Start()
 	)
 	ContextActionService:SetTitle(THROW_ACTION, "Throw")
 	RunService.RenderStepped:Connect(onRenderStep)
+	RunService.RenderStepped:Connect(onAimStep)
+	-- no charge survives a respawn or the window losing focus (the button-up would never arrive)
+	player.CharacterAdded:Connect(function()
+		cancelCharge(true)
+	end)
+	UserInputService.WindowFocusReleased:Connect(function()
+		cancelCharge(true)
+	end)
 end
 
 return CombatController

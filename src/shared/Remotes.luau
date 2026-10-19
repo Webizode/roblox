@@ -17,7 +17,8 @@ local DEFINITIONS = {
 	Dash = "RemoteEvent", -- client -> server: dirX, dirZ (request); server -> all: player, dirX, dirZ (granted)
 	SetSprint = "RemoteEvent", -- client -> server: sprinting (boolean)
 	Rescue = "RemoteEvent", -- client -> server: request; server -> all: player (granted)
-	ThrowIceBall = "RemoteEvent", -- client -> server: aimX, aimY, aimZ (camera look vector)
+	ChargeIceBall = "RemoteEvent", -- client -> server: the throw button went down; starts the server's charge clock
+	ThrowIceBall = "RemoteEvent", -- client -> server: aimX, aimY, aimZ (point under the crosshair), charge (bar 0..1)
 	IceBallThrown = "RemoteEvent", -- server -> all: id, thrower, origin, velocity, t0 (server time)
 	IceBallResolved = "RemoteEvent", -- server -> all: id, thrower, victim (nil on a miss), position, dirX, dirZ, power, knockdown
 }
