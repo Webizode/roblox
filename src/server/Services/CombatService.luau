@@ -11,6 +11,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
 local Config = require(Shared:WaitForChild("Config"):WaitForChild("Combat"))
+local Features = require(Shared:WaitForChild("Config"):WaitForChild("Features"))
 
 local CombatService = {}
 
@@ -54,6 +55,37 @@ local nextId = 0
 
 local function now(): number
 	return workspace:GetServerTimeNow()
+end
+
+-- Temporary throw diagnostics (Features.debugThrow). Rejections print at most once a second per player.
+local lastRejectLog: { [Player]: number } = {}
+local function debugLog(message: string)
+	if Features.debugThrow then
+		print("[Throw] " .. message)
+	end
+end
+local function debugReject(player: Player, reason: string)
+	if Features.debugThrow and os.clock() - (lastRejectLog[player] or -math.huge) >= 1 then
+		lastRejectLog[player] = os.clock()
+		print(`[Throw] rejected {player.Name}: {reason}`)
+	end
+end
+
+-- A raycast that only stops at parts a ball cannot fly through: anything without collision (invisible zones,
+-- trigger volumes, decorations) is skipped, the same rule the client's aim ray follows.
+local function solidRaycast(origin: Vector3, direction: Vector3, ignore: { Instance }): RaycastResult?
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local skipped = table.clone(ignore)
+	for _ = 1, 8 do
+		params.FilterDescendantsInstances = skipped
+		local result = workspace:Raycast(origin, direction, params)
+		if not result or result.Instance.CanCollide then
+			return result
+		end
+		table.insert(skipped, result.Instance)
+	end
+	return nil
 end
 
 local function rootOf(player: Player): BasePart?
@@ -126,10 +158,7 @@ local function releasePoint(character: Model, root: BasePart): Vector3
 			and (hand.Position - root.Position).Magnitude <= Config.handReach
 		then hand.Position
 		else root.Position + Vector3.new(0, RELEASE_UP, 0) + root.CFrame.LookVector * RELEASE_FORWARD
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character }
-	local blocked = workspace:Raycast(root.Position, point - root.Position, params)
+	local blocked = solidRaycast(root.Position, point - root.Position, { character })
 	return if blocked then root.Position:Lerp(blocked.Position, 0.8) else point
 end
 
@@ -142,19 +171,29 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 	end
 	local startedAt = state.chargeStartedAt
 	state.chargeStartedAt = nil
-	if not state.combatMode or type(aimX) ~= "number" or type(aimY) ~= "number" or type(aimZ) ~= "number" then
+	if not state.combatMode then
+		debugReject(player, "not in combat mode")
+		return
+	end
+	if type(aimX) ~= "number" or type(aimY) ~= "number" or type(aimZ) ~= "number" then
+		debugReject(player, "aim point is not three numbers")
 		return
 	end
 	local root = rootOf(player)
 	local time = now()
 	-- the cheap checks first, so spammed requests cost no raycast
 	Combat.refresh(state.ammo, time, Config)
-	if
-		not root
-		or time < state.downUntil
-		or state.ammo.count <= 0
-		or time - state.ammo.lastThrowAt < Config.throwInterval
-	then
+	if not root then
+		debugReject(player, "no living character")
+		return
+	elseif time < state.downUntil then
+		debugReject(player, "knocked down")
+		return
+	elseif state.ammo.count <= 0 then
+		debugReject(player, "no ammo (reloading)")
+		return
+	elseif time - state.ammo.lastThrowAt < Config.throwInterval then
+		debugReject(player, "too soon after the last throw")
 		return
 	end
 	local held = if startedAt then time - startedAt else 0
@@ -162,9 +201,27 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 	local speed = Combat.throwSpeed(charge, Config)
 	local origin = releasePoint(root.Parent :: Model, root)
 	local ok, vx, vy, vz = Combat.aimVelocity(origin.X, origin.Y, origin.Z, aimX, aimY, aimZ, speed, Config)
-	if not ok or not Combat.tryThrow(state.ammo, time, Config) then
+	if not ok then
+		debugReject(player, `aim point {Vector3.new(aimX, aimY, aimZ)} unusable from the hand at {origin}`)
 		return
 	end
+	if not Combat.tryThrow(state.ammo, time, Config) then
+		debugReject(player, "ammo check failed")
+		return
+	end
+	debugLog(
+		string.format(
+			"%s throws: charge %.2f (claimed %s, held %.2f s), %.0f studs/s from %s to aim %s (%.1f studs away)",
+			player.Name,
+			charge,
+			tostring(claimedCharge),
+			held,
+			speed,
+			tostring(origin),
+			tostring(Vector3.new(aimX, aimY, aimZ)),
+			(Vector3.new(aimX, aimY, aimZ) - origin).Magnitude
+		)
+	)
 	publishAmmo(player, state)
 	if state.ammo.count == 0 then
 		scheduleRefill(player, state)
@@ -215,15 +272,15 @@ end
 -- or the world. Players knocked down are not targets until they are up again, and nobody hits themselves.
 local function step()
 	local time = now()
-	local raycast = RaycastParams.new()
-	raycast.FilterType = Enum.RaycastFilterType.Exclude
+	if #balls == 0 then
+		return
+	end
 	local characters = {}
 	for _, player in Players:GetPlayers() do
 		if player.Character then
 			table.insert(characters, player.Character)
 		end
 	end
-	raycast.FilterDescendantsInstances = characters
 
 	for index = #balls, 1, -1 do
 		local ball = balls[index]
@@ -246,7 +303,7 @@ local function step()
 			end
 		end
 
-		local worldHit = workspace:Raycast(from, to - from, raycast)
+		local worldHit = solidRaycast(from, to - from, characters)
 		local worldS = if worldHit
 			then (worldHit.Position - from).Magnitude / math.max((to - from).Magnitude, 1e-6)
 			else math.huge
@@ -255,10 +312,21 @@ local function step()
 		if bestVictim and bestS <= worldS then
 			local hitT = ball.lastT + (t - ball.lastT) * bestS
 			local speed = Vector3.new(ball.vx, ball.vy - Config.gravity * hitT, ball.vz).Magnitude
+			debugLog(string.format("#%d hit %s after %.2f s", ball.id, bestVictim.Name, hitT))
 			hitPlayer(ball, bestVictim, from:Lerp(to, bestS), bestDistance, speed)
 		elseif worldHit then
+			debugLog(
+				string.format(
+					"#%d hit the world after %.2f s, %.1f studs from its start: %s",
+					ball.id,
+					t,
+					(worldHit.Position - Vector3.new(ball.ox, ball.oy, ball.oz)).Magnitude,
+					worldHit.Instance:GetFullName()
+				)
+			)
 			resolve(ball, nil, worldHit.Position, 0, false)
 		elseif t >= Config.maxFlight then
+			debugLog(string.format("#%d reached its maximum flight time without a hit", ball.id))
 			resolve(ball, nil, to, 0, false)
 		else
 			resolved = false
@@ -297,6 +365,7 @@ function CombatService.Start()
 	end
 	Players.PlayerRemoving:Connect(function(player)
 		states[player] = nil
+		lastRejectLog[player] = nil
 	end)
 
 	Remotes.SetCombatMode.OnServerEvent:Connect(onSetCombatMode)

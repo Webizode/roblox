@@ -25,6 +25,18 @@ return {
 	aimDistance = 400, -- studs the client looks for that point along the crosshair ray
 	handReach = 4, -- studs; a hand farther from the HumanoidRootPart is not trusted as the release point
 
+	-- the over-the-shoulder camera of combat mode (CombatCamera); the character stands left of the crosshair
+	camera = {
+		distance = 8, -- studs behind the pivot
+		shoulder = 2.2, -- studs to the right
+		up = 0.6, -- studs above
+		pivotUp = 1.6, -- pivot above the HumanoidRootPart, about the neck
+		pitchMin = math.rad(-65),
+		pitchMax = math.rad(55),
+		mouseSpeed = math.rad(0.4), -- per pixel of mouse movement at Roblox's mouse sensitivity 1
+		gamepadSpeed = math.rad(220), -- per second with the right stick fully out
+	},
+
 	-- the ball in the hand (HeldBalls), drawn for every player in combat mode; purely visual
 	held = {
 		popIn = 0.2, -- seconds for the next ball to appear after a throw or a refill

@@ -61,7 +61,7 @@ end
 for _, name in { "GrayboxService", "KillTestLog", "CartService", "TowerService", "LauncherService", "CombatService" } do
 	expectInstance({ "ServerScriptService", "Server", "Services", name }, "ModuleScript")
 end
-for _, name in { "TowerVisual", "Sfx", "Ui" } do
+for _, name in { "TowerVisual", "Sfx", "Ui", "CombatCamera" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", name }, "ModuleScript")
 end
 for _, name in

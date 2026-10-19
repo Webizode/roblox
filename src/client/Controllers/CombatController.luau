@@ -19,10 +19,12 @@ local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
+local Features = require(Config:WaitForChild("Features"))
 local Palette = require(Config:WaitForChild("Palette"))
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
+local CombatCamera = require(client:WaitForChild("CombatCamera"))
 local Sfx = require(client:WaitForChild("Sfx"))
 
 local CombatController = {}
@@ -74,9 +76,42 @@ local function effectPart(name: string, size: number, color: Color3, position: V
 	return part
 end
 
-local function onThrown(id: number, _thrower: Player, origin: Vector3, velocity: Vector3, t0: number)
+local function debugLog(message: string)
+	if Features.debugThrow then
+		print("[Throw] " .. message)
+	end
+end
+
+-- A short white streak behind a flying ball, so a fast throw stays easy to follow.
+local function addTrail(part: Part)
+	local front, back = Instance.new("Attachment"), Instance.new("Attachment")
+	front.Position = Vector3.new(0, CombatConfig.ballRadius * 0.6, 0)
+	back.Position = Vector3.new(0, -CombatConfig.ballRadius * 0.6, 0)
+	front.Parent, back.Parent = part, part
+	local trail = Instance.new("Trail")
+	trail.Attachment0, trail.Attachment1 = front, back
+	trail.Lifetime = 0.15
+	trail.FaceCamera = true
+	trail.Color = ColorSequence.new(Color3.new(1, 1, 1))
+	trail.Transparency = NumberSequence.new(0.3, 1)
+	trail.Parent = part
+end
+
+local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: Vector3, t0: number)
 	local part = effectPart("IceBall", CombatConfig.ballRadius * 2, Color3.fromHex(Palette.skyTop), origin)
+	addTrail(part)
 	balls[id] = { part = part, origin = origin, velocity = velocity, t0 = t0 }
+	if thrower == player then
+		debugLog(
+			string.format(
+				"#%d thrown from %s at %.0f studs/s, %.2f s after the server started it",
+				id,
+				tostring(origin),
+				velocity.Magnitude,
+				workspace:GetServerTimeNow() - t0
+			)
+		)
+	end
 	Sfx.play("throw")
 end
 
@@ -166,6 +201,18 @@ local function onResolved(
 	if ball then
 		balls[id] = nil
 		ball.part:Destroy()
+		if thrower == player then
+			debugLog(
+				string.format(
+					"#%d ended at %s after %.2f s, %.1f studs from its start (%s)",
+					id,
+					tostring(position),
+					workspace:GetServerTimeNow() - ball.t0,
+					(position - ball.origin).Magnitude,
+					if victim then "hit " .. victim.Name else "world or out of range"
+				)
+			)
+		end
 	end
 	puff(position, victim ~= nil)
 	if not victim then
@@ -259,16 +306,34 @@ local function tryStartCharge()
 	end
 end
 
--- The world point under the crosshair (the screen centre), or a point far along that ray.
+-- The world point under the crosshair (the screen centre), or a point far along that ray. The ray ignores the own
+-- character, everything the ball would fly through anyway (parts without collision, like invisible zones), and
+-- everything between the camera and the character, so only what lies ahead of the player can be the target.
 local function aimPoint(): Vector3
 	local camera = workspace.CurrentCamera
 	local ray = camera:ViewportPointToRay(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+	local origin, unit = ray.Origin, ray.Direction.Unit
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if root then
+		origin += unit * math.max(0, (root.Position - origin):Dot(unit))
+	end
+	local ignore: { Instance } = if character then { character } else {}
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = if player.Character then { player.Character } else {}
-	local direction = ray.Direction * CombatConfig.aimDistance
-	local result = workspace:Raycast(ray.Origin, direction, params)
-	return if result then result.Position else ray.Origin + direction
+	local direction = unit * CombatConfig.aimDistance
+	for _ = 1, 8 do
+		params.FilterDescendantsInstances = ignore
+		local result = workspace:Raycast(origin, direction, params)
+		if not result then
+			break
+		end
+		if result.Instance.CanCollide then
+			return result.Position
+		end
+		table.insert(ignore, result.Instance)
+	end
+	return origin + direction
 end
 
 -- Button down charges, button up throws with the bar's value at that moment. The local checks only save pointless
@@ -283,6 +348,18 @@ local function requestThrow(_: string, inputState: Enum.UserInputState): Enum.Co
 			local aim = aimPoint()
 			lastRequestAt = os.clock()
 			Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z, charge)
+			local character = player.Character
+			local hand = character and character:FindFirstChild("RightHand") :: BasePart?
+			debugLog(
+				string.format(
+					"release: charge %.2f, aim %s, %.1f studs from the hand",
+					charge,
+					tostring(aim),
+					if hand then (aim - hand.Position).Magnitude else -1
+				)
+			)
+		elseif charging or wantCharge then
+			debugLog("release without a throw: no ammo, knocked down, dead or out of combat mode")
 		end
 		cancelCharge(true)
 	elseif inputState == Enum.UserInputState.Cancel then
@@ -322,6 +399,7 @@ local function enterCombatMode()
 	savedMouseBehavior = UserInputService.MouseBehavior
 	savedMouseIcon = UserInputService.MouseIconEnabled
 	UserInputService.MouseIconEnabled = false -- the crosshair is the cursor now
+	CombatCamera.start()
 	RunService:BindToRenderStep(MOUSE_STEP, Enum.RenderPriority.Camera.Value + 1, onMouseStep)
 	ContextActionService:BindActionAtPriority(
 		BLOCK_SHIFT_LOCK_ACTION,
@@ -352,6 +430,7 @@ local function exitCombatMode()
 	ContextActionService:UnbindAction(THROW_ACTION)
 	ContextActionService:UnbindAction(BLOCK_SHIFT_LOCK_ACTION)
 	RunService:UnbindFromRenderStep(MOUSE_STEP)
+	CombatCamera.stop()
 	UserInputService.MouseBehavior = savedMouseBehavior or Enum.MouseBehavior.Default
 	UserInputService.MouseIconEnabled = savedMouseIcon
 	savedMouseBehavior = nil
