@@ -72,6 +72,7 @@ for _, name in
 		"AimHud",
 		"CombatController",
 		"Backpacks",
+		"HeldBalls",
 		"ShotRenderer",
 		"RemoteTowers",
 	}

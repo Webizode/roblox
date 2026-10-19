@@ -23,6 +23,15 @@ return {
 	aimDistance = 400, -- studs the client looks for that point along the crosshair ray
 	handReach = 4, -- studs; a hand farther from the HumanoidRootPart is not trusted as the release point
 
+	-- the ball in the hand (HeldBalls), drawn for every player in combat mode; purely visual
+	held = {
+		popIn = 0.2, -- seconds for the next ball to appear after a throw or a refill
+		popOut = 0.08, -- seconds for the last ball to vanish from the hand
+		frostMax = 0.85, -- share of the ball size a refilling frost ball reaches; it grows from zero over the reload
+		frostTransparency = 0.55,
+		drawDistance = 200, -- studs from the camera
+	},
+
 	-- flight, simulated by the server; clients draw the same curve
 	lift = 0.12, -- a target out of reach gets a straight aim plus this much upward, so it arcs a little
 	gravity = 60, -- studs/s^2
