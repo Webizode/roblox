@@ -42,7 +42,19 @@ for _, name in { "Remotes", "TowerModel", "TowerShape", "Economy", "Recipes", "S
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")
 end
 for _, name in
-	{ "Flavors", "Tower", "Economy", "Recipes", "Palette", "Launcher", "Features", "Sounds", "Combat", "Movement" }
+	{
+		"Flavors",
+		"Tower",
+		"Economy",
+		"Recipes",
+		"Palette",
+		"Launcher",
+		"Features",
+		"Sounds",
+		"Combat",
+		"Movement",
+		"Backpack",
+	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", "Config", name }, "ModuleScript")
 end
@@ -52,7 +64,9 @@ end
 for _, name in { "TowerVisual", "Sfx", "Ui" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", name }, "ModuleScript")
 end
-for _, name in { "Hud", "MovementController", "TowerController", "CombatController", "ShotRenderer", "RemoteTowers" } do
+for _, name in
+	{ "Hud", "MovementController", "TowerController", "CombatController", "Backpacks", "ShotRenderer", "RemoteTowers" }
+do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", "Controllers", name }, "ModuleScript")
 end
 

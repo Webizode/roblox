@@ -45,6 +45,7 @@ local function makePart(parent: Instance): Part
 	part.Parent = parent
 	return part
 end
+TowerVisual.makePart = makePart
 
 function TowerVisual.applyFlavor(part: BasePart, flavorId: string)
 	local flavor = Flavors.byId[flavorId]

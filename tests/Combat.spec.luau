@@ -115,6 +115,46 @@ describe("Ammo", function()
 	end)
 end)
 
+describe("Backpack display", function()
+	it("shows the loaded balls and no refill while there is ammo", function()
+		local ammo = Combat.newAmmo(Config)
+		for throws = 0, Config.ammo - 1 do
+			local loaded, refill = Combat.backpack(ammo.count, ammo.reloadUntil, throws, Config)
+			expect(loaded).toBe(Config.ammo - throws)
+			expect(refill).toBe(0)
+			Combat.tryThrow(ammo, throws, Config)
+		end
+	end)
+
+	it("fills up over the reload of an empty load", function()
+		local ammo = Combat.newAmmo(Config)
+		for throws = 1, Config.ammo do
+			Combat.tryThrow(ammo, throws, Config)
+		end
+		local start = ammo.reloadUntil - Config.reloadTime
+		local loaded, refill = Combat.backpack(ammo.count, ammo.reloadUntil, start, Config)
+		expect(loaded).toBe(0)
+		expect(refill).toBeCloseTo(0)
+		_, refill = Combat.backpack(ammo.count, ammo.reloadUntil, start + Config.reloadTime / 2, Config)
+		expect(refill).toBeCloseTo(0.5)
+		-- the refill message arrives a moment after the reload ends: the cone stays full meanwhile
+		_, refill = Combat.backpack(ammo.count, ammo.reloadUntil, ammo.reloadUntil + 0.1, Config)
+		expect(refill).toBe(1)
+	end)
+
+	it("clamps attribute values that make no sense", function()
+		expect(Combat.backpack(99, 0, 0, Config)).toBe(Config.ammo)
+		expect(Combat.backpack(-2, 0, 0, Config)).toBe(0)
+		expect(Combat.backpack(2.7, 0, 0, Config)).toBe(2)
+		expect(Combat.backpack(0 / 0, 0, 0, Config)).toBe(0)
+		local loaded, refill = Combat.backpack(0, math.huge, 0, Config)
+		expect(loaded).toBe(0)
+		expect(refill).toBe(0)
+		_, refill = Combat.backpack(0, 0 / 0, 0, Config)
+		expect(refill).toBe(0)
+	end)
+end)
+
 local function runWithAssist(state, count: number, seconds: number)
 	local params = TowerModel.params(table.create(count, "vanilla"), Flavors.byId, Tuning, 1)
 	for _ = 1, seconds / DT do
