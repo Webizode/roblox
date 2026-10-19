@@ -33,6 +33,10 @@ local THROW_ACTION = "WobbleThrow"
 local MODE_ACTION = "WobbleCombatMode"
 local BLOCK_SHIFT_LOCK_ACTION = "WobbleCombatBlockShiftLock"
 local MOUSE_STEP = "WobbleCombatMouse"
+local RELEASE_STEP = "WobbleCombatMouseRelease"
+-- after leaving combat mode the mouse is kept free this long, against a late lock from anything that still
+-- remembers the combat mouse state
+local RELEASE_GUARD = 1
 local ACTION_PRIORITY = Enum.ContextActionPriority.High.Value + 100
 
 type Ball = {
@@ -54,9 +58,7 @@ local charging = false -- the bar runs; the server got the matching ChargeIceBal
 local chargeStartedAt = 0 -- os.clock()
 local combatMode = false
 local modeChangedAt = -math.huge
--- the mouse state from before combat mode, put back when it ends (shift lock cannot change in between)
-local savedMouseBehavior: Enum.MouseBehavior? = nil
-local savedMouseIcon = true
+local releaseUntil = 0 -- os.clock() until which the release guard keeps the mouse free
 local forceExit: () -> () -- defined with the combat mode functions below; the knockdown needs it earlier
 
 local function effectPart(name: string, size: number, color: Color3, position: Vector3): Part
@@ -394,10 +396,40 @@ local function blockShiftLock(): Enum.ContextActionResult
 	return Enum.ContextActionResult.Sink
 end
 
+-- Whether Roblox's own shift lock (Ctrl) is on, read from the PlayerModule. If that cannot be read, it counts as
+-- off, so leaving combat mode always frees the mouse.
+local function shiftLockOn(): boolean
+	local ok, locked = pcall(function()
+		local playerModule = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule") :: any) :: any
+		return playerModule:GetCameras().activeMouseLockController:GetIsMouseLocked()
+	end)
+	return ok and locked == true
+end
+
+-- For a moment after leaving combat mode: the mouse stays free unless shift lock or the right mouse button (Roblox's
+-- own camera pan) asks for it, or the camera is in first person.
+local function onReleaseStep()
+	if os.clock() > releaseUntil then
+		RunService:UnbindFromRenderStep(RELEASE_STEP)
+		return
+	end
+	if UserInputService.MouseBehavior == Enum.MouseBehavior.Default or shiftLockOn() then
+		return
+	end
+	if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+		return
+	end
+	local camera = workspace.CurrentCamera
+	local head = player.Character and player.Character:FindFirstChild("Head") :: BasePart?
+	if camera and head and (camera.CFrame.Position - head.Position).Magnitude < 1.5 then
+		return
+	end
+	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+end
+
 local function enterCombatMode()
 	combatMode = true
-	savedMouseBehavior = UserInputService.MouseBehavior
-	savedMouseIcon = UserInputService.MouseIconEnabled
+	RunService:UnbindFromRenderStep(RELEASE_STEP)
 	UserInputService.MouseIconEnabled = false -- the crosshair is the cursor now
 	CombatCamera.start()
 	RunService:BindToRenderStep(MOUSE_STEP, Enum.RenderPriority.Camera.Value + 1, onMouseStep)
@@ -420,7 +452,10 @@ local function enterCombatMode()
 	ContextActionService:SetTitle(THROW_ACTION, "Throw")
 end
 
--- Ends combat mode locally and puts the mouse back exactly as it was. Safe to call when it is already off.
+-- Ends combat mode locally and gives the mouse back to Roblox. Safe to call when it is already off.
+-- The order matters: the mouse is freed before Roblox's camera takes over again. Roblox's camera remembers the mouse
+-- state it finds when it locks the mouse itself (shift lock) and restores that one later; finding our combat lock
+-- there would leave the mouse caught for good. If shift lock is on, Roblox's camera locks the mouse again on its own.
 local function exitCombatMode()
 	cancelCharge(true)
 	if not combatMode then
@@ -430,10 +465,11 @@ local function exitCombatMode()
 	ContextActionService:UnbindAction(THROW_ACTION)
 	ContextActionService:UnbindAction(BLOCK_SHIFT_LOCK_ACTION)
 	RunService:UnbindFromRenderStep(MOUSE_STEP)
+	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+	UserInputService.MouseIconEnabled = true
 	CombatCamera.stop()
-	UserInputService.MouseBehavior = savedMouseBehavior or Enum.MouseBehavior.Default
-	UserInputService.MouseIconEnabled = savedMouseIcon
-	savedMouseBehavior = nil
+	releaseUntil = os.clock() + RELEASE_GUARD
+	RunService:BindToRenderStep(RELEASE_STEP, Enum.RenderPriority.Camera.Value + 1, onReleaseStep)
 end
 
 local function setCombatMode(on: boolean)
@@ -511,10 +547,9 @@ function CombatController.Start()
 			forceExit()
 		end
 	end)
-	-- no charge survives the window losing focus (the button-up would never arrive)
-	UserInputService.WindowFocusReleased:Connect(function()
-		cancelCharge(true)
-	end)
+	-- losing the window focus ends combat mode: the button-up would never arrive, and the mouse must not be caught
+	-- when the player comes back
+	UserInputService.WindowFocusReleased:Connect(forceExit)
 end
 
 return CombatController
