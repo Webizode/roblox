@@ -178,14 +178,32 @@ end
 
 function GrayboxService.Init()
 	local pier = workspace:FindFirstChild("Pier")
-	if not pier then
+	if pier then
+		print("[Graybox] using the map in Workspace.Pier")
+	else
 		pier = build()
+		print("[Graybox] no Workspace.Pier in the place, built the graybox pier")
 	end
 
-	local nozzle = pier:FindFirstChild("BigSwirl") and pier.BigSwirl:FindFirstChild("Nozzle")
+	local machine = pier:FindFirstChild("BigSwirl")
+	local nozzle = machine and machine:FindFirstChild("Nozzle")
 	local deck = pier:FindFirstChild("Deck")
 	local carts = pier:FindFirstChild("Carts")
-	assert(nozzle and deck and carts, "Workspace.Pier does not follow the map contract in GrayboxService")
+	if not (nozzle and deck and carts) then
+		local missing = {}
+		for name, found in { ["BigSwirl.Nozzle"] = nozzle, Deck = deck, Carts = carts } do
+			if not found then
+				table.insert(missing, name)
+			end
+		end
+		table.sort(missing)
+		error(
+			`Workspace.Pier does not follow the map contract (top of GrayboxService): missing {table.concat(
+				missing,
+				", "
+			)}. ` .. "Rename or remove that Pier to get the graybox instead."
+		)
+	end
 
 	GrayboxService.pier = pier
 	GrayboxService.nozzle = nozzle

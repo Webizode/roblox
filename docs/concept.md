@@ -8,6 +8,32 @@ Eine riesige Eismaschine schießt Kugeln über einen Pier. Du fängst sie mit de
 
 **Kern-Verb:** Balancieren: Mit dem rechten Daumen gegen die Neigung des Turms ziehen, während der linke ihn durchs Gedränge zur Theke lenkt.
 
+## Richtung: Simulator mit Wettbewerb (Stand 18.10.2026)
+
+Dieses Dokument bleibt die einzige Design-Referenz. Der technische Stand steht in `docs/project-status.md`. Die bestehenden Systeme und Namen bleiben: Kugeln (Scoops), Turm, Big Swirl, Servieren am Wagen, Greg.
+
+- **Persönlicher Stapel:** Jeder Spieler baut seinen eigenen Turm. Der Fortschritt (Coins, Upgrades, gesammelte Kugeln) wird gespeichert.
+- **Stapel-Multiplikator:** Der Wert wächst mit der Höhe (heute: Summe × (1 + 0,04 × Kugeln)², dazu Steady-Bonus und Wagen-Multiplikator).
+- **Gesichert gegen ungesichert:** Was auf dem Turm steht, ist ungesichert und kann kippen oder geklaut werden. Gesichert ist es erst beim Servieren am eigenen Wagen. Beim Kippen bleibt ein kleiner Rest (heute 30 %, mindestens 2 Kugeln).
+- **Sammelbare und aufwertbare Kugeln:** Sorten (Flavors) werden im Flavor-Buch gesammelt und lassen sich aufwerten, zusätzlich zu den Upgrades für Waffel, Sneakers und Wagen.
+- **Bird Bait = Greg die Möwe:** Greg greift hohe Türme an, mit Vorwarnung (Schatten, Kreischen) und Gegenmittel (rechtzeitig servieren, ducken, Köder).
+- **Ball Shot (Eisball-Wurf):** die einzige offensive Grundaktion, Details in der Combat-Regel unten. Rempeln als Angriff entfällt. Kein Pay-to-Grief.
+- **Kurze Events:** Wettbewerbe von wenigen Minuten (z. B. Big Swirl Overload, höchster Turm der Runde).
+
+Reihenfolge der Umsetzung: erst die Kernschleife stabilisieren, dann Wert und Sichern, Fortschritt mit Speichern, Ball Shot, Bird Bait, Events, zuletzt Polish.
+
+### Combat-Regel (verbindlich, Stand 18.10.2026)
+
+- **Einzige normale Angriffsaktion: Eisbälle werfen.** Keine Punch-, Kick- oder Nahkampf-Combos.
+- **Jeder Treffer hat zwei Wirkungen**, abhängig von Wurfstärke, Trefferwinkel und Scoop-Typ:
+  1. *Spieler:* kontrollierter Knockback oder kurze Trefferreaktion.
+  2. *Turm:* Die Balance des getroffenen Turms wird gestört; der Spieler muss gegensteuern (Rettung, Bewegung).
+- **Knockdown nur bei starken Treffern**, nie automatisch bei jedem Treffer. Das Ergebnis muss nachvollziehbar und fair sein.
+- **Defensive:** Dash und Dodge zum Ausweichen. Blocken fängt einen Treffer ab oder schwächt ihn. Ein Perfect Block löst einen defensiven Konter aus, aber keinen Nahkampfangriff.
+- **Server-Autorität:** Treffer, Reichweiten, Cooldowns und Knockdown-Entscheidungen prüft und entscheidet der Server. Effekte und Animationen zeigen die tatsächliche Wirkung.
+- **Bestehendes bleibt:** Scoop-, Turmbalance- und Bewegungssysteme werden nicht ersetzt, sondern schrittweise erweitert. Die Turmwirkung nutzt die vorhandenen Turm-Stöße (wie beim Dash) und die Rettung.
+- Der ältere Abschnitt zum Rempeln (Bump) weiter unten ist dadurch ersetzt, soweit er widerspricht.
+
 ## Warum dieses Konzept
 
 Wobble Scoops hat die höchste Gesamtpunktzahl (146), und zwei von drei Jurys haben es zum Sieger gewählt. Ausschlaggebend sind die beiden Hebel, die ein Solo-Dev ohne Ad-Budget überhaupt hat. Erstens die Thumbnail-Klickrate (CTR) im Mobile-Grid: Ein bunter, gebogener Turm mit Möwe im Sturzflug erklärt das Spiel in einem Bild von 150 px. Zweitens Clips auf TikTok und Shorts: Kippen in Zeitlupe, Greg schnappt kurz vor der Theke zu, Scramble. Das Verb 'Turm fangen und balancierend durchs Gedränge tragen' gibt es auf Roblox nicht. Der nächste Nachbar ist ein Kuchen-Obby mit 35K Visits. Mit der Steal-Formel hat es nichts zu tun, denn verloren wird durch Physik und eigenes Können, nicht durch Basen-Plündern. Entscheidend ist, dass alle fatalen Schwächen technische oder Design-Probleme sind, die sich beheben lassen. Ein aktives Balance-Pad ersetzt das 'langsam geradeaus laufen'. Der Turm wird auf dem Client des Besitzers simuliert, externe Ereignisse entscheidet der Server. Bumps laufen über eine Server-Hitbox statt über Körperphysik. Rempeln kostet Ladungen. NPC-Touristen helfen bei niedriger CCU, und der Scope ist halbiert. Die anderen Konzepte haben strukturelle Probleme. Firefly Hollow steckt im Simulator-Gerüst, das der Nutzer abgelehnt hat. Herd Them Home hat mit HERD auf Steam fast dieselbe Prämisse. Flick Marbles hat Echtzeit-Mehrkörper-Netcode und eine dünne Monetarisierung. Dazu kommen die stärksten Ideen der anderen: sichtbare Gier, die Churn als D1-Hook ohne Zufall, kindgerechter Verlust, selbst aufgenommene Sounds und Kreide. Damit hat Wobble Scoops den eigenständigsten, am wenigsten nach Slop wirkenden Look und das größte Potenzial nach oben. Ehrlich bleibt: 2.000 EUR sind auch damit ein ambitioniertes Ziel und keine sichere Sache.
@@ -60,7 +86,7 @@ Im MVP gibt es 10 Sorten in 4 Familien, alles datengetrieben per Config. Classic
 
 ### Faires Topple & Scramble
 
-Der Bump ist ein kurzer Ausfallschritt. Er kostet 1 Sprinkle-Ladung, die man nur durch Servieren bekommt (1 pro Serve ab 5 Kugeln, höchstens 3). Mit leeren Ladungen gibt es keinen Bump. Ob ein Bump trifft, entscheidet nur der Server, über eine Kapsel-Hitbox (ca. 6 Studs) mit 150-200 ms Rewind. Es gibt keinen physischen Körper-Knockback, nur einen Impuls auf den Turm (als Event mit Server-Zeitstempel) und 0,5 s Stolpern. Der Rempler bekommt 50 % des Impulses auf den eigenen Turm. Türme unter 5 Kugeln sind immun, und 8 Studs um jeden Wagen gilt eine No-Bump-Zone gegen Camping. Kippt ein Turm, bleiben die unteren 30 % (mindestens 2 Kugeln) auf der Waffel. Der Rest rollt als verankerte Tweens los, leuchtet 3 s in der Farbe des Besitzers, und nur er darf sie in dieser Zeit fangen. Danach sind sie frei, nach 12 s oder im Meer verschwinden sie, höchstens 40 freie Kugeln pro Server. In den ersten 2 Sessions trifft dich jeder Impuls nur halb.
+*(Ersetzt durch die Combat-Regel oben: kein Rempeln als Angriff; Ideen wie Immunität kleiner Türme, No-Combat-Zone am Wagen und Besitzer-Vorrang bei verlorenen Kugeln können übernommen werden.)* Der Bump ist ein kurzer Ausfallschritt. Er kostet 1 Sprinkle-Ladung, die man nur durch Servieren bekommt (1 pro Serve ab 5 Kugeln, höchstens 3). Mit leeren Ladungen gibt es keinen Bump. Ob ein Bump trifft, entscheidet nur der Server, über eine Kapsel-Hitbox (ca. 6 Studs) mit 150-200 ms Rewind. Es gibt keinen physischen Körper-Knockback, nur einen Impuls auf den Turm (als Event mit Server-Zeitstempel) und 0,5 s Stolpern. Der Rempler bekommt 50 % des Impulses auf den eigenen Turm. Türme unter 5 Kugeln sind immun, und 8 Studs um jeden Wagen gilt eine No-Bump-Zone gegen Camping. Kippt ein Turm, bleiben die unteren 30 % (mindestens 2 Kugeln) auf der Waffel. Der Rest rollt als verankerte Tweens los, leuchtet 3 s in der Farbe des Besitzers, und nur er darf sie in dieser Zeit fangen. Danach sind sie frei, nach 12 s oder im Meer verschwinden sie, höchstens 40 freie Kugeln pro Server. In den ersten 2 Sessions trifft dich jeder Impuls nur halb.
 
 *Warum es süchtig macht:* Ein Sturz schüttet plötzlich Beute aus, das sind variable Belohnungsschübe mit Schadenfreude und Revanche-Lust. Weil Rempeln selbst etwas kostet und Kinder einen Teil sicher behalten, fühlt es sich nicht wie Klauen an. Die Rollen Carrier und Raider wechseln von selbst, daher ist niemand dauerhaft Opfer.
 
