@@ -19,7 +19,7 @@ return {
 	catchUp = -0.1,
 	catchForward = 0,
 	showCone = false, -- the tower's own cone part; off while the backpack waffle carries the tower
-	ownTowerFade = 0.6, -- how see-through the own tower gets while it covers the middle of the screen
+	ownTowerFade = 0.6, -- how see-through an own scoop gets while it covers the middle of the screen
 
 	-- tipping
 	tipAngle = 0.55, -- radians at the top before the tower is clamped

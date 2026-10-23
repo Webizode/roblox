@@ -89,7 +89,6 @@ function TowerVisual.new(name: string)
 		base = Vector3.zero,
 		tiltX = 0,
 		tiltZ = 0,
-		fade = 0,
 	}, TowerVisual)
 end
 
@@ -101,7 +100,6 @@ function TowerVisual:setFlavors(ids: { string })
 			part.Name = "Scoop"
 			part.Shape = Enum.PartType.Ball
 			part.Size = Vector3.new(SCOOP_SIZE, SCOOP_SIZE, SCOOP_SIZE)
-			part.LocalTransparencyModifier = self.fade
 			self.scoops[index] = part
 			self.flavors[index] = ""
 		end
@@ -140,15 +138,16 @@ function TowerVisual:topPosition(): Vector3
 	return self.base + Vector3.new(ox, oy, oz)
 end
 
--- See-through for this client only (0 solid, 1 invisible), for the own tower when it covers the screen.
-function TowerVisual:setFade(fade: number)
-	if math.abs(self.fade - fade) < 1e-3 then
+-- See-through for this client only (0 solid, 1 invisible), per scoop of the own tower where it covers the screen.
+-- The cone follows the bottom scoop.
+function TowerVisual:setScoopFade(index: number, fade: number)
+	local part = self.scoops[index]
+	if not part or math.abs(part.LocalTransparencyModifier - fade) < 1e-3 then
 		return
 	end
-	self.fade = fade
-	self.cone.LocalTransparencyModifier = fade
-	for _, part in self.scoops do
-		part.LocalTransparencyModifier = fade
+	part.LocalTransparencyModifier = fade
+	if index == 1 then
+		self.cone.LocalTransparencyModifier = fade
 	end
 end
 

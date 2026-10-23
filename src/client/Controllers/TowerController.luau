@@ -14,7 +14,6 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local TowerModel = require(Shared:WaitForChild("TowerModel"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local Economy = require(Shared:WaitForChild("Economy"))
-local Combat = require(Shared:WaitForChild("Combat"))
 local Dash = require(Shared:WaitForChild("Dash"))
 local Features = require(Config:WaitForChild("Features"))
 local Flavors = require(Config:WaitForChild("Flavors"))
@@ -40,7 +39,7 @@ local TOPPLE_TIMEOUT = 2
 local SCOOP_RADIUS = 1.05
 local FADE_RAY = 60 -- studs along the middle of the screen that the own tower must not cover
 local FADE_RESPONSE = 8 -- 1/s
--- the tower turns see-through when the middle of the screen comes closer than FADE_IN to it and solid again only
+-- a scoop turns see-through when the middle of the screen comes closer than FADE_IN to it and solid again only
 -- beyond FADE_OUT; one threshold made a wobbling tower flicker on and off (studs beyond the scoop radius)
 local FADE_IN, FADE_OUT = 0.4, 1.2
 local DASH_ACTION = "WobbleDash"
@@ -70,8 +69,8 @@ local groundY = 1
 local dashReadyAt = 0 -- local cooldown so the key cannot spam requests; the server has the final say
 local rescueReadyAt = 0 -- same for the rescue
 local sprinting = false
-local towerFade = 0
-local covering = false -- the tower covers the middle of the screen (with the hysteresis above)
+local scoopFades: { number } = {} -- per scoop of the own tower
+local covering: { boolean } = {} -- per scoop: it covers the middle of the screen (with the hysteresis above)
 
 local function coneLevel(): number
 	local value = player:GetAttribute("ConeLevel")
@@ -228,37 +227,30 @@ local function replicateTilt(dt: number)
 	end
 end
 
--- The tower stands on the back, between the camera and the character: while it covers the middle of the screen
--- (the crosshair in combat mode, the character's head otherwise) it turns see-through for its owner only.
+-- The tower stands on the back, between the camera and the character. Only the scoops that cover the middle of
+-- the screen (the crosshair in combat mode, the character's head otherwise) turn see-through, for their owner only;
+-- the rest of the tower stays solid. Fading the whole tower left it see-through nearly all the time.
 local function updateFade(dt: number)
 	local camera = workspace.CurrentCamera
-	local target = 0
-	if camera and #scoops > 0 then
-		local base, top = visual.base, visual:topPosition()
-		local middle = (base + top) / 2
-		local from = camera.CFrame.Position
-		local to = from + camera.CFrame.LookVector * FADE_RAY
-		local distance = Combat.closestToCapsule(
-			from.X,
-			from.Y,
-			from.Z,
-			to.X,
-			to.Y,
-			to.Z,
-			middle.X,
-			middle.Y,
-			middle.Z,
-			math.max(0, (top.Y - base.Y) / 2)
-		)
-		covering = distance < SCOOP_RADIUS + (if covering then FADE_OUT else FADE_IN)
-		if covering then
-			target = Tuning.ownTowerFade
+	local blend = 1 - math.exp(-FADE_RESPONSE * dt)
+	for index, part in visual.scoops do
+		local covers = false
+		if camera then
+			local look = camera.CFrame.LookVector
+			local offset = part.Position - camera.CFrame.Position
+			local along = math.clamp(offset:Dot(look), 0, FADE_RAY)
+			local distance = (offset - look * along).Magnitude
+			covers = distance < SCOOP_RADIUS + (if covering[index] then FADE_OUT else FADE_IN)
 		end
-	else
-		covering = false
+		covering[index] = covers
+		local fade = scoopFades[index] or 0
+		fade += ((if covers then Tuning.ownTowerFade else 0) - fade) * blend
+		scoopFades[index] = fade
+		visual:setScoopFade(index, fade)
 	end
-	towerFade += (target - towerFade) * (1 - math.exp(-FADE_RESPONSE * dt))
-	visual:setFade(towerFade)
+	for index = #scoopFades, #visual.scoops + 1, -1 do
+		scoopFades[index], covering[index] = nil, nil
+	end
 end
 
 local function onRenderStep(dt: number)
