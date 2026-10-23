@@ -14,6 +14,7 @@ require("./Catch.spec")
 require("./Combat.spec")
 require("./Dash.spec")
 require("./ThrowPose.spec")
+require("./Stance.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

@@ -40,7 +40,7 @@ return {
 	padPerInstability = 1.7,
 	padMax = 10,
 	-- Share of that authority for input that does not reduce the current lean (pushing an upright tower, pushing
-	-- with the lean, sideways). The stabiliser and the rescue act through this, so they cannot push a tower over.
+	-- with the lean, sideways). The stabiliser and the stance act through this, so they cannot push a tower over.
 	padWrongWay = 0.35,
 	driftStartScoops = 10, -- below this the tower never wanders on its own
 	driftPerScoop = 0.12, -- rad/s^2 of slow wandering per scoop above the start
@@ -57,7 +57,7 @@ return {
 
 	accelSmoothing = 0.25, -- seconds, MoveDirection lerp that feeds the tower instead of raw Humanoid velocity
 
-	-- Physics profile. padGain multiplies the pad authority above (the stabiliser and the rescue act through it),
+	-- Physics profile. padGain multiplies the pad authority above (the stabiliser and the stance act through it),
 	-- driftScale the random wandering.
 	variant = { accelGain = 0.02, padGain = 1, driftScale = 1 },
 
@@ -66,7 +66,7 @@ return {
 	-- of the tip angle, and gets weaker from fullUntil scoops to `floor` of its strength at zeroAt scoops.
 	-- In simulation (no player input at all): standing still, towers of up to 20 scoops stay up for 60 s; walking
 	-- with a full-speed 90 degree turn every 1.5 s peaks at about 30 % of the tip angle up to 9 scoops, 47 % at 11,
-	-- risks a topple from 13 and needs rescues from 15.
+	-- risks a topple from 13 and needs the steady stance from 15.
 	assist = {
 		kp = 2.0,
 		kd = 0.6,
@@ -79,11 +79,22 @@ return {
 		floor = 0.55,
 	},
 
-	-- Rescue (F on PC, Steady button on touch): full pad strength against the real lean, without the stabiliser's
-	-- delay, for `duration` seconds. The next one is allowed `cooldown` seconds after it ends; the server checks it.
-	-- Its push is capped at `authority` rad/s^2 (tall towers otherwise get up to padMax), so it can fail: in
-	-- simulation 60-75 % leans are saved, a tall tower groaning near the tip angle with momentum is not.
-	rescue = { duration = 1.5, cooldown = 6, authority = 4 },
+	-- Steady stance (hold F on PC, hold the Steady button on touch): while held, the stabiliser works on the real
+	-- lean without its delay, with its own gains and up to `authority` rad/s^2 of pad, so even tall towers hardly
+	-- fall; a hard hit can still knock a very tall one over. It costs: walking at walkMultiplier of the normal speed,
+	-- no sprint, dash, charge or throw. It runs on an energy bar (Stance): a full bar lasts holdSeconds, refills in
+	-- refillSeconds once released (after refillDelay), and a new stance needs at least minStart of it. The server
+	-- keeps its own bar and enforces all of it.
+	stance = {
+		authority = 10,
+		kp = 2.5,
+		kd = 1.0,
+		holdSeconds = 4,
+		refillSeconds = 6,
+		refillDelay = 0.5,
+		minStart = 0.25,
+		walkMultiplier = 0.6,
+	},
 	warnFraction = 0.6, -- from this share of the tip angle the HUD warns (the stabiliser has given up by then)
 
 	tiltSendRate = 10, -- Hz, tilt replication for other players

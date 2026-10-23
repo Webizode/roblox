@@ -50,6 +50,7 @@ for _, name in
 		"Combat",
 		"Dash",
 		"ThrowPose",
+		"Stance",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")

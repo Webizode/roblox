@@ -278,22 +278,20 @@ describe("Tower reaction to a hit", function()
 		end
 	end)
 
-	it("a hit on a tall tower forces a reaction: without a rescue it falls, with one it holds", function()
-		local function hit(count: number, lean: number, power: number, rescue: boolean)
+	it("a hit on a tall tower forces a reaction: without the stance it falls, with it it holds", function()
+		local function hit(count: number, lean: number, power: number, stance: boolean)
 			local state = TowerModel.newState(2)
 			state.x = lean * Tuning.tipAngle
 			state.seenX = state.x
 			TowerModel.hitKick(state, Config, count, 1, 0, power)
-			if rescue then
-				TowerModel.rescue(state, Tuning.rescue.duration)
-			end
+			TowerModel.setStance(state, stance)
 			return runWithAssist(state, count, 6)
 		end
 		expect(hit(12, 0.3, 1, false)).toBe(true)
 		expect(hit(12, 0.3, 1, true)).toBe(false)
 		expect(hit(16, 0, 1, false)).toBe(true)
 		expect(hit(16, 0, 1, true)).toBe(false)
-		-- the limit: a knockdown hit on a tall tower already leaning the same way is lost even with a rescue
-		expect(hit(16, 0.5, Config.knockdownBoost, true)).toBe(true)
+		-- the limit: a knockdown hit on a very tall tower already leaning the same way is lost even in the stance
+		expect(hit(25, 0.5, Config.knockdownBoost, true)).toBe(true)
 	end)
 end)

@@ -81,7 +81,7 @@ export type State = {
 	seenZ: number,
 	seenVx: number,
 	seenVz: number,
-	rescueUntil: number,
+	stance: boolean, -- the steady stance is held: the stabiliser works on the real lean at full strength
 }
 
 export type Input = {
@@ -118,7 +118,7 @@ function TowerModel.newState(seed: number): State
 		seenZ = 0,
 		seenVx = 0,
 		seenVz = 0,
-		rescueUntil = 0,
+		stance = false,
 	}
 end
 
@@ -134,7 +134,7 @@ function TowerModel.reset(state: State)
 	state.rigidUntil = 0
 	state.unsteadyUntil = 0
 	state.seenX, state.seenZ, state.seenVx, state.seenVz = 0, 0, 0, 0
-	state.rescueUntil = 0
+	state.stance = false
 end
 
 -- flavorIds are bottom to top. stiffnessMultiplier comes from the cone upgrade.
@@ -215,17 +215,23 @@ export type AssistTuning = {
 	floor: number,
 }
 
+export type StanceTuning = {
+	authority: number, -- rad/s^2 of pad the stance may use at most
+	kp: number,
+	kd: number,
+}
+
 -- The automatic stabiliser, fed into step() as pad input (so the pad authority and the full-strength-only-
 -- against-the-lean rule apply to it). It is deliberately imperfect: it sees the lean late (smoothed over
 -- assist.lag), gives up between fadeFrom and fadeTo of the tip angle, and gets weaker on taller towers. Small
--- wobbles go away by themselves; a big lean, fast turns and tall towers need the rescue. During a rescue it
--- works on the real lean without the delay, with at most rescue.authority rad/s^2, so a late rescue on a tall,
--- groaning tower can fail. Call once per step, before step().
+-- wobbles go away by themselves; a big lean, fast turns and tall towers need the steady stance. While the stance
+-- is held it works on the real lean without the delay, with its own gains and at most stance.authority rad/s^2.
+-- Call once per step, before step().
 function TowerModel.assist(
 	state: State,
 	params: Params,
 	variant: Variant,
-	tuning: Tuning & { assist: AssistTuning, rescue: { authority: number } },
+	tuning: Tuning & { assist: AssistTuning, stance: StanceTuning },
 	dt: number
 ): (number, number)
 	local assist = tuning.assist
@@ -239,10 +245,11 @@ function TowerModel.assist(
 		return 0, 0
 	end
 
-	if state.t < state.rescueUntil then
-		local limit = math.min(1, tuning.rescue.authority / TowerModel.padAuthority(params, variant, tuning))
-		return math.clamp(-(assist.kp * state.x + assist.kd * state.vx), -limit, limit),
-			math.clamp(-(assist.kp * state.z + assist.kd * state.vz), -limit, limit)
+	if state.stance then
+		local stance = tuning.stance
+		local limit = math.min(1, stance.authority / TowerModel.padAuthority(params, variant, tuning))
+		return math.clamp(-(stance.kp * state.x + stance.kd * state.vx), -limit, limit),
+			math.clamp(-(stance.kp * state.z + stance.kd * state.vz), -limit, limit)
 	end
 
 	local seen = math.sqrt(state.seenX * state.seenX + state.seenZ * state.seenZ) / tipAngle
@@ -253,26 +260,9 @@ function TowerModel.assist(
 		math.clamp(-(assist.kp * state.seenZ + assist.kd * state.seenVz), -share, share)
 end
 
--- Starts a rescue window (the server has already checked the cooldown).
-function TowerModel.rescue(state: State, duration: number)
-	if not state.toppled then
-		state.rescueUntil = state.t + duration
-	end
-end
-
--- The rescue cooldown, shared by server and client: a new rescue `cooldown` seconds after the last one ended.
--- `slack` lets the server accept a request that network jitter brought in a little early.
-function TowerModel.rescueReady(
-	lastStart: number,
-	now: number,
-	rescue: { duration: number, cooldown: number },
-	slack: number?
-): boolean
-	return now - lastStart >= rescue.duration + rescue.cooldown - (slack or 0)
-end
-
-function TowerModel.rescueActive(state: State): boolean
-	return state.t < state.rescueUntil
+-- The steady stance on or off (the energy bar that allows it lives in Stance). A toppled tower has none.
+function TowerModel.setStance(state: State, on: boolean)
+	state.stance = on and not state.toppled
 end
 
 -- A dash yanks the cone, so the top lags behind: a tilt-rate kick against the dash direction (a unit vector on the

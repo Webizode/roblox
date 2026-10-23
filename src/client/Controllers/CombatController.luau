@@ -283,7 +283,8 @@ local function onRenderStep()
 	end
 end
 
--- Whether a throw could happen now: ammo left, standing, alive. The server checks all of it again.
+-- Whether a throw could happen now: ammo left, standing, alive, not in the steady stance (taking it drops a running
+-- charge, letting go starts it again while the button is held). The server checks all of it again.
 local function canThrow(): boolean
 	local count = player:GetAttribute("IceBalls")
 	local character = player.Character
@@ -292,6 +293,7 @@ local function canThrow(): boolean
 		and type(count) == "number"
 		and count > 0
 		and os.clock() >= downUntil
+		and not registry.TowerController.inStance()
 		and humanoid ~= nil
 		and humanoid.Health > 0
 end

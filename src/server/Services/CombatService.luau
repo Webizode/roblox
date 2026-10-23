@@ -15,6 +15,8 @@ local Features = require(Shared:WaitForChild("Config"):WaitForChild("Features"))
 
 local CombatService = {}
 
+local registry
+
 type PlayerState = {
 	ammo: Combat.Ammo,
 	stagger: number,
@@ -149,7 +151,13 @@ end
 local function onCharge(player: Player)
 	local state = states[player]
 	local time = now()
-	if not state or not state.combatMode or time - state.lastChargeAt < CHARGE_INTERVAL or time < state.downUntil then
+	if
+		not state
+		or not state.combatMode
+		or time - state.lastChargeAt < CHARGE_INTERVAL
+		or time < state.downUntil
+		or registry.TowerService.inStance(player)
+	then
 		return
 	end
 	state.lastChargeAt = time
@@ -194,6 +202,9 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 		return
 	elseif time < state.downUntil then
 		debugReject(player, "knocked down")
+		return
+	elseif registry.TowerService.inStance(player) then
+		debugReject(player, "holding the steady stance")
 		return
 	elseif state.ammo.count <= 0 then
 		debugReject(player, "no ammo (reloading)")
@@ -269,8 +280,10 @@ local function hitPlayer(ball: Ball, victim: Player, position: Vector3, distance
 		state.lastHitAt = time
 		if knockdown then
 			state.downUntil = time + Config.knockdownTime
-			-- a knockdown drops the charge and ends combat mode; the player switches it on again after getting up
+			-- a knockdown drops the charge, ends combat mode and the steady stance; the player switches them on again
+			-- after getting up
 			setCombatMode(victim, state, false)
+			registry.TowerService.endStance(victim)
 		end
 	end
 	resolve(ball, victim, position, power, knockdown)
@@ -347,6 +360,16 @@ local function step()
 			table.remove(balls, index)
 		end
 	end
+end
+
+function CombatService.Init(reg)
+	registry = reg
+end
+
+-- Whether the player lies knocked down right now.
+function CombatService.isDown(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and now() < state.downUntil
 end
 
 function CombatService.Start()

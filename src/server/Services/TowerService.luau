@@ -3,12 +3,13 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Economy = require(Shared:WaitForChild("Economy"))
-local TowerModel = require(Shared:WaitForChild("TowerModel"))
+local Stance = require(Shared:WaitForChild("Stance"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
@@ -27,7 +28,8 @@ type TowerState = {
 	cartLevel: number,
 	controls: string, -- kill-test log bucket; one control scheme since the automatic stabiliser
 	lastDashAt: number,
-	lastRescueAt: number,
+	stance: Stance.Meter, -- the steady stance's energy bar; the server's is the one that counts
+	lastStanceAt: number,
 	sprinting: boolean,
 	lastSprintAt: number,
 	carryStartedAt: number?,
@@ -47,7 +49,10 @@ local states: { [Player]: TowerState } = {}
 local MIN_TILT_INTERVAL = 0.5 / TowerTuning.tiltSendRate
 -- the client starts its own cooldown when it asks, so the server allows a little network jitter on top
 local DASH_SLACK = 0.25
-local RESCUE_SLACK = 0.25
+-- share of the stance bar the server lets a start fall short by, for a client whose bar ran a little ahead
+local STANCE_SLACK = 0.1
+-- no human presses F faster than this; a quicker "on" is dropped
+local STANCE_INTERVAL = 0.1
 -- no human taps Shift faster than this; a quicker "on" is dropped
 local SPRINT_INTERVAL = 0.08
 
@@ -69,16 +74,34 @@ local function rootOf(player: Player): BasePart?
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
--- The server owns WalkSpeed: tower height, sneakers and sprint. The catch check reads it, so a sprinting
--- player's catches are judged at their real speed.
+-- The server owns WalkSpeed: tower height, sneakers, sprint and the steady stance (slower, and no sprint while
+-- held). The catch check reads it, so a sprinting player's catches are judged at their real speed.
 local function applyWalkSpeed(player: Player, state: TowerState)
 	local humanoid = humanoidOf(player)
 	if humanoid then
-		humanoid.WalkSpeed = Economy.walkSpeed(#state.scoops, state.sneakersLevel, EconomyConfig, state.sprinting)
+		local stance = state.stance.active
+		local speed =
+			Economy.walkSpeed(#state.scoops, state.sneakersLevel, EconomyConfig, state.sprinting and not stance)
+		humanoid.WalkSpeed = if stance then speed * TowerTuning.stance.walkMultiplier else speed
 	end
 end
 
+-- The steady stance on or off, published as the SteadyStance attribute: the own client follows it when the server
+-- ends a stance (empty bar, knockdown, empty tower), every client shows it, CombatService refuses throws in it.
+local function setStance(player: Player, state: TowerState, on: boolean)
+	if on then
+		Stance.start(state.stance, TowerTuning.stance, STANCE_SLACK)
+	else
+		Stance.stop(state.stance)
+	end
+	player:SetAttribute("SteadyStance", state.stance.active)
+	applyWalkSpeed(player, state)
+end
+
 local function publish(player: Player, state: TowerState, reason: string)
+	if #state.scoops == 0 and state.stance.active then
+		setStance(player, state, false) -- nothing left to steady
+	end
 	applyWalkSpeed(player, state)
 	if player.Character then
 		player.Character:SetAttribute("TowerFlavors", table.concat(state.scoops, ","))
@@ -108,7 +131,8 @@ local function createState(player: Player): TowerState
 		cartLevel = 0,
 		controls = "auto",
 		lastDashAt = 0,
-		lastRescueAt = 0,
+		stance = Stance.new(),
+		lastStanceAt = 0,
 		sprinting = false,
 		lastSprintAt = 0,
 		carryStartedAt = nil,
@@ -235,6 +259,9 @@ local function onDash(player: Player, dirX: any, dirZ: any)
 	if not humanoid or humanoid.Health <= 0 or humanoid.Sit then
 		return reject("no living, standing humanoid")
 	end
+	if state.stance.active then
+		return reject("holding the steady stance")
+	end
 	state.lastDashAt = time
 	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length)
 end
@@ -255,23 +282,38 @@ local function onSprint(player: Player, sprinting: any)
 	applyWalkSpeed(player, state)
 end
 
--- The rescue (F / Steady button) only strengthens the asker's own stabiliser for a moment and pays nothing. The
--- server owns its timing: a new one only after the last one plus its cooldown, and only while carrying a tower.
-local function onRescue(player: Player)
+-- The steady stance (hold F / the Steady button) only strengthens the asker's own stabiliser and pays nothing; it
+-- costs speed, sprint, dash and throws. On needs a tower, a living character that is not knocked down and enough
+-- energy in the server's own bar, and is rate-limited; off always goes through, so a client never gets stuck in it.
+local function onSetStance(player: Player, on: any)
 	local state = states[player]
-	if not state or #state.scoops == 0 then
+	if not state or type(on) ~= "boolean" or on == state.stance.active then
 		return
 	end
-	local time = now()
-	if not TowerModel.rescueReady(state.lastRescueAt, time, TowerTuning.rescue, RESCUE_SLACK) then
-		return
+	if on then
+		local time = os.clock()
+		local humanoid = humanoidOf(player)
+		if
+			time - state.lastStanceAt < STANCE_INTERVAL
+			or #state.scoops == 0
+			or not humanoid
+			or humanoid.Health <= 0
+			or registry.CombatService.isDown(player)
+		then
+			return
+		end
+		state.lastStanceAt = time
 	end
-	local humanoid = humanoidOf(player)
-	if not humanoid or humanoid.Health <= 0 then
-		return
+	setStance(player, state, on)
+end
+
+-- The server's bars: drain while held, refill after; a stance that runs dry ends here, for the client too.
+local function advanceStances(dt: number)
+	for player, state in states do
+		if Stance.advance(state.stance, dt, TowerTuning.stance) then
+			setStance(player, state, false)
+		end
 	end
-	state.lastRescueAt = time
-	Remotes.Rescue:FireAllClients(player)
 end
 
 function TowerService.Init(reg)
@@ -287,6 +329,7 @@ function TowerService.Start()
 			-- a new character starts with an empty cone
 			table.clear(state.scoops)
 			state.sprinting = false
+			setStance(player, state, false)
 			state.carryStartedAt = nil
 			state.tiltX, state.tiltZ = 0, 0
 			task.defer(publish, player, state, "spawn")
@@ -307,9 +350,24 @@ function TowerService.Start()
 	Remotes.TowerToppled.OnServerEvent:Connect(onToppled)
 	Remotes.ServeRequest.OnServerEvent:Connect(onServe)
 	Remotes.TowerTilt.OnServerEvent:Connect(onTilt)
-	Remotes.Rescue.OnServerEvent:Connect(onRescue)
+	Remotes.SetStance.OnServerEvent:Connect(onSetStance)
+	RunService.Heartbeat:Connect(advanceStances)
 	Remotes.SetSprint.OnServerEvent:Connect(onSprint)
 	Remotes.Dash.OnServerEvent:Connect(onDash)
+end
+
+-- Whether the player holds the steady stance (no charging or throwing meanwhile).
+function TowerService.inStance(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and state.stance.active
+end
+
+-- Ends the player's stance, for a knockdown.
+function TowerService.endStance(player: Player)
+	local state = states[player]
+	if state and state.stance.active then
+		setStance(player, state, false)
+	end
 end
 
 function TowerService.count(player: Player): number

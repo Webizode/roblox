@@ -2,6 +2,7 @@ local harness = require("./harness")
 local describe, it, expect = harness.describe, harness.it, harness.expect
 
 local TowerModel = require("../src/shared/TowerModel")
+local Stance = require("../src/shared/Stance")
 local Economy = require("../src/shared/Economy")
 local Flavors = require("../src/shared/Config/Flavors")
 local Tuning = require("../src/shared/Config/Tower")
@@ -260,7 +261,7 @@ describe("TowerModel", function()
 	end)
 end)
 
-describe("Pad input (the path the stabiliser and the rescue use)", function()
+describe("Pad input (the path the stabiliser and the stance use)", function()
 	it("gives short towers a gentle pad and tall towers more leverage", function()
 		local short = TowerModel.padAuthority(paramsFor(stack("vanilla", 1)), PAD, Tuning)
 		local tall = TowerModel.padAuthority(paramsFor(stack("vanilla", 20)), PAD, Tuning)
@@ -389,24 +390,31 @@ describe("Pad input (the path the stabiliser and the rescue use)", function()
 end)
 
 -- Runs the game's real per-step input: smoothed walking plus TowerModel.assist, no player input. `walk` turns
--- 90 degrees at full speed every 1.5 s; `rescueAt` triggers a rescue whenever the lean passes that share of the
--- tip angle and the cooldown allows. Returns the survival time and the peak lean as a share of the tip angle.
-local function assistedRun(count: number, seed: number, seconds: number, walk: boolean, rescueAt: number?)
+-- 90 degrees at full speed every 1.5 s; `stanceAt` holds the steady stance whenever the lean passes that share of
+-- the tip angle and the energy bar allows it, and lets go once the tower is calm again (walking slower meanwhile,
+-- like in the game). Returns the survival time and the peak lean as a share of the tip angle.
+local function assistedRun(count: number, seed: number, seconds: number, walk: boolean, stanceAt: number?)
 	local state = TowerModel.newState(seed)
 	local params = paramsFor(stack("vanilla", count))
-	local vx, vz, peak, lastRescue = 0, 0, 0, -math.huge
+	local meter = Stance.new()
+	local vx, vz, peak = 0, 0, 0
 	for step = 1, seconds / DT do
 		local t = step * DT
-		if rescueAt and TowerModel.tilt(state) > rescueAt * Tuning.tipAngle then
-			if TowerModel.rescueReady(lastRescue, state.t, Tuning.rescue) then
-				lastRescue = state.t
-				TowerModel.rescue(state, Tuning.rescue.duration)
+		if stanceAt then
+			local lean = TowerModel.tilt(state) / Tuning.tipAngle
+			if lean > stanceAt then
+				Stance.start(meter, Tuning.stance)
+			elseif lean < 0.2 then
+				Stance.stop(meter)
 			end
+			Stance.advance(meter, DT, Tuning.stance)
+			TowerModel.setStance(state, meter.active)
 		end
 		local tx, tz = 0, 0
 		if walk then
 			local leg = math.floor(t / 1.5) % 4
-			tx, tz = ({ 18, 0, -18, 0 })[leg + 1], ({ 0, 18, 0, -18 })[leg + 1]
+			local speed = if state.stance then 18 * Tuning.stance.walkMultiplier else 18
+			tx, tz = ({ speed, 0, -speed, 0 })[leg + 1], ({ 0, speed, 0, -speed })[leg + 1]
 		end
 		local ax, az
 		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, tx, tz, Tuning.accelSmoothing, DT)
@@ -420,7 +428,7 @@ local function assistedRun(count: number, seed: number, seconds: number, walk: b
 	return seconds, peak
 end
 
-describe("Automatic stabiliser and rescue", function()
+describe("Automatic stabiliser and steady stance", function()
 	it("keeps 1 to 5 scoops calm while standing and while walking with hard turns, without any input", function()
 		for count = 1, 5 do
 			local standing, standPeak = assistedRun(count, count, 30, false)
@@ -450,7 +458,7 @@ describe("Automatic stabiliser and rescue", function()
 		end
 	end)
 
-	it("makes walking with tall towers dangerous, and well-timed rescues buy real time", function()
+	it("makes walking with tall towers dangerous, and the stance used when it tips buys real time", function()
 		for _, count in { 15, 17, 20 } do
 			local without, with = 0, 0
 			for seed = 1, 5 do
@@ -462,64 +470,73 @@ describe("Automatic stabiliser and rescue", function()
 		end
 	end)
 
-	it("a rescue saves a tall tower from a lean the stabiliser has given up on", function()
-		local function leaning(rescue: boolean)
+	it("the stance saves a tall tower from a lean the stabiliser has given up on, even a groaning one", function()
+		local function leaning(count: number, lean: number, stance: boolean)
 			local state = TowerModel.newState(3)
-			local params = paramsFor(stack("vanilla", 15))
-			state.x = 0.75 * Tuning.tipAngle
+			local params = paramsFor(stack("vanilla", count))
+			state.x = lean * Tuning.tipAngle
 			state.seenX = state.x
-			if rescue then
-				TowerModel.rescue(state, Tuning.rescue.duration)
-			end
+			TowerModel.setStance(state, stance)
 			for _ = 1, 3 / DT do
 				local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
 				TowerModel.step(state, params, { ax = 0, az = 0, padX = px, padZ = pz }, PAD, Tuning, DT)
 			end
 			return state.toppled
 		end
-		expect(leaning(false)).toBe(true)
-		expect(leaning(true)).toBe(false)
+		expect(leaning(15, 0.75, false)).toBe(true)
+		expect(leaning(15, 0.75, true)).toBe(false)
+		expect(leaning(25, 0.95, true)).toBe(false)
 	end)
 
-	it("a rescue can fail: a tall tower already at the tip angle and groaning goes over anyway", function()
-		local state = TowerModel.newState(3)
-		local params = paramsFor(stack("vanilla", 20))
-		state.x, state.vx = 0.9 * Tuning.tipAngle, 0.4
+	it("holding the stance keeps up to 30 scoops calm while walking with hard turns, for a whole bar", function()
+		for _, count in { 15, 20, 25, 30 } do
+			for seed = 1, 3 do
+				local state = TowerModel.newState(seed)
+				local params = paramsFor(stack("vanilla", count))
+				local vx, vz, peak = 0, 0, 0
+				TowerModel.setStance(state, true)
+				for step = 1, Tuning.stance.holdSeconds / DT do
+					local leg = math.floor(step * DT / 1.5) % 4
+					local speed = 18 * Tuning.stance.walkMultiplier
+					local ax, az
+					vx, vz, ax, az = TowerModel.baseVelocityStep(
+						vx,
+						vz,
+						({ speed, 0, -speed, 0 })[leg + 1],
+						({ 0, speed, 0, -speed })[leg + 1],
+						Tuning.accelSmoothing,
+						DT
+					)
+					local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
+					TowerModel.step(state, params, { ax = ax, az = az, padX = px, padZ = pz }, PAD, Tuning, DT)
+					peak = math.max(peak, TowerModel.tilt(state) / Tuning.tipAngle)
+				end
+				expect(state.toppled).toBe(false)
+				expect(peak).toBeLessThan(0.5)
+			end
+		end
+	end)
+
+	it("the stance is not invincible: a knockdown hit on a very tall tower leaning that way still wins", function()
+		local CombatConfig = require("../src/shared/Config/Combat")
+		local state = TowerModel.newState(2)
+		local params = paramsFor(stack("vanilla", 25))
+		state.x = 0.5 * Tuning.tipAngle
 		state.seenX = state.x
-		state.groan = 0.25
-		TowerModel.rescue(state, Tuning.rescue.duration)
-		for _ = 1, 2 / DT do
+		TowerModel.setStance(state, true)
+		TowerModel.hitKick(state, CombatConfig, 25, 1, 0, CombatConfig.knockdownBoost)
+		for _ = 1, 4 / DT do
 			local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
 			TowerModel.step(state, params, { ax = 0, az = 0, padX = px, padZ = pz }, PAD, Tuning, DT)
 		end
 		expect(state.toppled).toBe(true)
 	end)
 
-	it("a rescue lasts exactly its duration", function()
+	it("a toppled tower takes no stance", function()
 		local state = TowerModel.newState(1)
-		local params = paramsFor(stack("vanilla", 5))
-		TowerModel.rescue(state, Tuning.rescue.duration)
-		local activeFor = 0
-		for _ = 1, 4 / DT do
-			if TowerModel.rescueActive(state) then
-				activeFor += DT
-			end
-			TowerModel.step(state, params, TowerModel.NO_INPUT, PAD, Tuning, DT)
-		end
-		expect(activeFor).toBeCloseTo(Tuning.rescue.duration, DT + 1e-6)
-	end)
-
-	it("the next rescue is only allowed after the duration plus the cooldown", function()
-		local rescue = Tuning.rescue
-		expect(rescue.duration).toBe(1.5)
-		expect(rescue.cooldown).toBe(6)
-		expect(TowerModel.rescueReady(10, 10, rescue)).toBe(false)
-		expect(TowerModel.rescueReady(10, 10 + rescue.duration, rescue)).toBe(false)
-		expect(TowerModel.rescueReady(10, 10 + rescue.duration + rescue.cooldown - 0.01, rescue)).toBe(false)
-		expect(TowerModel.rescueReady(10, 10 + rescue.duration + rescue.cooldown, rescue)).toBe(true)
-		-- the server's jitter slack only shaves off a fraction, it never makes back-to-back rescues possible
-		expect(TowerModel.rescueReady(10, 10 + rescue.duration + 1, rescue, 0.25)).toBe(false)
-		expect(TowerModel.rescueReady(-math.huge, 0, rescue)).toBe(true)
+		state.toppled = true
+		TowerModel.setStance(state, true)
+		expect(state.stance).toBe(false)
 	end)
 
 	it("a dash with an upright 10-scoop tower and only the stabiliser does not topple it", function()
@@ -535,13 +552,13 @@ describe("Automatic stabiliser and rescue", function()
 		end
 	end)
 
-	it("reset clears the stabiliser's view and any running rescue", function()
+	it("reset clears the stabiliser's view and the stance", function()
 		local state = TowerModel.newState(1)
 		state.seenX, state.seenVz = 0.3, 0.2
-		TowerModel.rescue(state, Tuning.rescue.duration)
+		TowerModel.setStance(state, true)
 		TowerModel.reset(state)
 		expect(state.seenX).toBe(0)
 		expect(state.seenVz).toBe(0)
-		expect(TowerModel.rescueActive(state)).toBe(false)
+		expect(state.stance).toBe(false)
 	end)
 end)

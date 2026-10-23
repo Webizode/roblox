@@ -1,6 +1,6 @@
 -- The HUD. Coins and the ice-ball ammo (with the reload countdown) on the left edge; at the bottom the tower card (scoops, worth, steady bonus) with at most one
 -- hint above it; a balance meter with a spirit level on the right edge while carrying, which pulses when the tower
--- leans dangerously and shows whether the rescue (F / Steady) is working or cooling down; toasts for
+-- leans dangerously, with the steady stance's energy bar (hold F / Steady) beside it; toasts for
 -- SERVE!/SAVED!/TOPPLED!; and a marker on the player's own cart. Everything stays out of the middle of the
 -- screen, where the character and the tower are. Catching and serving happen automatically.
 local Players = game:GetService("Players")
@@ -21,17 +21,18 @@ local Ui = require(client:WaitForChild("Ui"))
 local Hud = {}
 
 local METER_HEIGHT = 170
+local ENERGY_WIDTH = 14
 local LEVEL_SIZE = 46
 local LEVEL_DOT = 14
 
--- "catch" and "cart" show until the first serve; "steady" whenever the tower leans dangerously and a rescue is
+-- "catch" and "cart" show until the first serve; "steady" whenever the tower leans dangerously and the stance is
 -- ready, so the player learns when to react.
 local HINTS = {
 	catch = "Stand in a landing circle to catch scoops",
 	cart = "Carry your tower to your cart",
 	steady = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-		then "It's tipping! Tap Steady"
-		else "It's tipping! Press F to steady it",
+		then "It's tipping! Hold Steady"
+		else "It's tipping! Hold F to steady it",
 }
 
 local COLORS = {
@@ -59,6 +60,8 @@ local meterStroke: UIStroke
 local meterFill: Frame
 local levelDot: Frame
 local levelStroke: UIStroke
+local energyFill: Frame
+local energyStroke: UIStroke
 local toastLabel: TextLabel
 local toastStroke: UIStroke
 local cartMarker: BillboardGui
@@ -66,7 +69,7 @@ local toastTweens: { Tween } = {}
 
 local towerCount = 0
 local warning = false
-local rescueState = "ready"
+local stanceState = "ready"
 local hasServed = false
 local atCart = false
 local shownHint: string? = nil
@@ -289,6 +292,52 @@ local function buildMeter()
 	})
 	levelDot.Parent = level
 	level.Parent = meter
+
+	-- Left of the balance bar: the steady stance's energy. Mint and full when it is ready, draining while F is held,
+	-- faded while it refills below the share a new stance needs.
+	local energy
+	energy, energyStroke = Ui.card({
+		Name = "Energy",
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(0, -8, 1, 0),
+		Size = UDim2.fromOffset(ENERGY_WIDTH, METER_HEIGHT),
+	}, UDim.new(0.5, 0))
+	local energyTrack = holder("Track", {
+		AutomaticSize = Enum.AutomaticSize.None,
+		Position = UDim2.fromOffset(3, 3),
+		Size = UDim2.new(1, -6, 1, -6),
+	})
+	energyTrack.Parent = energy
+	energyFill = Instance.new("Frame")
+	energyFill.Name = "Fill"
+	energyFill.AnchorPoint = Vector2.new(0, 1)
+	energyFill.Position = UDim2.fromScale(0, 1)
+	energyFill.Size = UDim2.fromScale(1, 1)
+	energyFill.BackgroundColor3 = COLORS.mint
+	energyFill.BorderSizePixel = 0
+	Ui.corner(energyFill, UDim.new(0.5, 0))
+	energyFill.Parent = energyTrack
+	local startLine = Instance.new("Frame")
+	startLine.Name = "StartLine"
+	startLine.AnchorPoint = Vector2.new(0.5, 0.5)
+	startLine.Position = UDim2.fromScale(0.5, 1 - Tuning.stance.minStart)
+	startLine.Size = UDim2.new(1, 4, 0, 2)
+	startLine.BackgroundColor3 = COLORS.vanilla
+	startLine.BackgroundTransparency = 0.4
+	startLine.BorderSizePixel = 0
+	startLine.ZIndex = 2
+	startLine.Parent = energyTrack
+	if UserInputService.KeyboardEnabled then
+		Ui.text({
+			Name = "Key",
+			Text = "F",
+			TextSize = 14,
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 1, 4),
+		}).Parent =
+			energy
+	end
+	energy.Parent = meter
 	meter.Parent = gui
 end
 
@@ -360,7 +409,7 @@ end
 local function refreshHint()
 	if towerCount == 0 then
 		setHint(if hasServed then nil else "catch")
-	elseif warning and rescueState == "ready" then
+	elseif warning and stanceState == "ready" then
 		setHint("steady")
 	elseif not hasServed and not atCart then
 		setHint("cart")
@@ -429,14 +478,28 @@ function Hud.setTower(count: number, value: number, steady: number)
 end
 
 -- tilt is the share of the tip angle; leanX/leanY the lean in screen space as a share of it (x right, y away
--- from the camera). rescue is "ready", "active" or "cooldown".
-function Hud.setBalance(tilt: number, groaning: boolean, visible: boolean, leanX: number, leanY: number, rescue: string)
+-- from the camera). energy is the stance bar (0..1), stance "active" (held), "ready" or "empty" (refilling below
+-- the share a new stance needs).
+function Hud.setBalance(
+	tilt: number,
+	groaning: boolean,
+	visible: boolean,
+	leanX: number,
+	leanY: number,
+	energy: number,
+	stance: string
+)
 	meter.Visible = visible
 	warning = visible and tilt >= Tuning.warnFraction
-	rescueState = rescue
+	stanceState = stance
 	if not visible then
 		return
 	end
+	energyFill.Size = UDim2.fromScale(1, math.clamp(energy, 0, 1))
+	energyFill.BackgroundColor3 = if stance == "empty" then COLORS.vanilla else COLORS.mint
+	energyFill.BackgroundTransparency = if stance == "empty" then 0.5 else 0
+	energyStroke.Color = if stance == "active" then COLORS.mint else COLORS.vanilla
+	energyStroke.Transparency = if stance == "active" then 0 else 0.6
 	meterFill.Size = UDim2.fromScale(1, math.clamp(1 - tilt, 0, 1))
 	local danger = groaning or tilt >= Tuning.groanFraction
 	local color = if danger then COLORS.awning elseif tilt >= 0.5 then COLORS.lemon else COLORS.mint
@@ -450,8 +513,8 @@ function Hud.setBalance(tilt: number, groaning: boolean, visible: boolean, leanX
 	meterStroke.Color = if danger then COLORS.awning else COLORS.vanilla
 	meterStroke.Transparency = if danger then 0 else 0.6
 
-	-- the level's rim: mint while a rescue works, a red pulse when it is time to react, faded while cooling down
-	if rescue == "active" then
+	-- the level's rim: mint while the stance holds, a red pulse when it is time to react, faded while it refills
+	if stance == "active" then
 		levelStroke.Color = COLORS.mint
 		levelStroke.Transparency = 0
 		levelStroke.Thickness = 3
@@ -461,7 +524,7 @@ function Hud.setBalance(tilt: number, groaning: boolean, visible: boolean, leanX
 		levelStroke.Thickness = 3
 	else
 		levelStroke.Color = COLORS.vanilla
-		levelStroke.Transparency = if rescue == "cooldown" then 0.85 else 0.6
+		levelStroke.Transparency = if stance == "empty" then 0.85 else 0.6
 		levelStroke.Thickness = 2
 	end
 end

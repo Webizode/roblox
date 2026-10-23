@@ -1,5 +1,5 @@
 -- Records what the week-1 kill test needs: serve heights, topples and session length, grouped by control scheme
--- (today only "auto": WASD plus the automatic stabiliser and the rescue).
+-- (today only "auto": WASD plus the automatic stabiliser and the steady stance).
 -- Prints a summary every two minutes and on shutdown, and mirrors it as JSON in ServerStorage.KillTestLog
 -- so it can be read through the Studio MCP during a playtest.
 
