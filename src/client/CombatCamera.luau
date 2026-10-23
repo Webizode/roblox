@@ -2,7 +2,9 @@
 -- crosshair looks past it into the world. With a mouse or gamepad it is our own camera (the mouse, held in the
 -- centre, or the right stick turn it directly; walls pull it in), because Roblox's default camera only turns with
 -- the mouse under its own shift lock or a held right button. Touch screens keep Roblox's camera (dragging turns
--- it) and only shift it over the shoulder. Leaving hands the camera back to Roblox, looking the same way.
+-- it) and only shift it over the shoulder. Either way the character faces where the camera looks, like under shift
+-- lock: it turns with the camera, A/D strafe and the throw always goes forward. Leaving hands the camera back to
+-- Roblox, looking the same way, and lets the character turn to its walking direction again.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,6 +25,31 @@ local active = false
 local own = false -- our own camera (mouse or gamepad) instead of Roblox's shifted one
 local savedType: Enum.CameraType? = nil
 local yaw, pitch = 0, 0
+local turned: Humanoid? = nil -- the humanoid whose AutoRotate combat mode switched off
+
+local function releaseFacing()
+	if turned then
+		turned.AutoRotate = true
+		turned = nil
+	end
+end
+
+-- Turns the character to the camera's flat look direction. The humanoid's own turning to the walking direction is
+-- off meanwhile, or it would turn the character straight back.
+local function face(character: Model, look: Vector3)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local flat = Vector3.new(look.X, 0, look.Z)
+	if not humanoid or not root or humanoid.Health <= 0 or humanoid.Sit or flat.Magnitude < 1e-3 then
+		return
+	end
+	if turned ~= humanoid then
+		releaseFacing()
+		turned = humanoid
+		humanoid.AutoRotate = false
+	end
+	root.CFrame = CFrame.lookAt(root.Position, root.Position + flat)
+end
 
 local function mouseSpeed(): number
 	local ok, sensitivity = pcall(function()
@@ -66,13 +93,18 @@ local function ownStep(dt: number)
 	end
 	camera.CFrame = CFrame.new(pivot + offset) * rotation
 	camera.Focus = CFrame.new(pivot)
+	face(character :: Model, rotation.LookVector)
 end
 
 -- Touch: Roblox's camera keeps turning and zooming; this runs after it and only slides it over the shoulder.
 local function shiftStep()
 	local camera = workspace.CurrentCamera
+	local character = player.Character
 	if camera then
 		camera.CFrame *= CFrame.new(Look.shoulder, Look.up, 0)
+		if character then
+			face(character, camera.CFrame.LookVector)
+		end
 	end
 end
 
@@ -103,6 +135,7 @@ function CombatCamera.stop()
 	end
 	active = false
 	RunService:UnbindFromRenderStep(STEP)
+	releaseFacing()
 	local camera = workspace.CurrentCamera
 	if own and camera then
 		-- Roblox's camera carries on from the current look direction

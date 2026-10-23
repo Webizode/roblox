@@ -27,7 +27,7 @@ return {
 
 	-- the over-the-shoulder camera of combat mode (CombatCamera); the character stands left of the crosshair
 	camera = {
-		distance = 8, -- studs behind the pivot
+		distance = 10.5, -- studs behind the pivot
 		shoulder = 2.2, -- studs to the right
 		up = 0.6, -- studs above
 		pivotUp = 1.6, -- pivot above the HumanoidRootPart, about the neck
