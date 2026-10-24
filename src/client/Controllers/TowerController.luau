@@ -1,7 +1,7 @@
 -- Owns the local tower: runs TowerModel at a fixed step, feeds it smoothed movement plus the automatic
 -- stabiliser (TowerModel.assist), renders it, reports topples, replicates tilt and serves automatically at the
 -- player's cart. Players only steer with WASD; holding F or the Steady button takes the steady stance, which runs on
--- an energy bar (Stance) and costs speed, sprint, dash and throws.
+-- an energy bar (Stance) and costs speed and sprint; a throw or a dash ends it and locks it for a moment.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -499,10 +499,6 @@ local function askForDash(power: boolean)
 		debugDash("no request: a dash is still running")
 		return
 	end
-	if meter.active then
-		debugDash("no request: holding the steady stance")
-		return
-	end
 	local direction = flatten(humanoid.MoveDirection)
 	if direction == Vector3.zero then
 		direction = flatten(root.CFrame.LookVector)
@@ -518,6 +514,7 @@ local function askForDash(power: boolean)
 		dashReadyAt = os.clock() + Tuning.dash.cooldown
 		Remotes.Dash:FireServer(direction.X, direction.Z)
 	end
+	TowerController.interruptStance()
 	debugDash(
 		string.format(
 			"%s request sent towards (%.2f, %.2f)",
@@ -548,8 +545,9 @@ local function requestPowerDash(_: string, inputState: Enum.UserInputState): Enu
 end
 
 -- F on PC, the Steady button on touch screens: the stance holds while the key is down. It ends on release, when the
--- bar runs dry, when the tower is gone, or when the server ends it (knockdown); then it stays off until the key is
--- pressed again. The server keeps its own bar and applies the costs (speed, no sprint, dash or throw).
+-- bar runs dry (hits drain it too), when the tower is gone, with a throw or a dash (then locked for stance.lockout),
+-- or when the server ends it (knockdown); then it stays off until the key is pressed again. The server keeps its own
+-- bar and applies the costs (speed, no sprint).
 local function startStance()
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -739,15 +737,30 @@ function TowerController.catchColumn(): ({ number }?, number, number)
 	return points, state.x, state.z
 end
 
--- Whether the local player holds the steady stance (no charging or throwing meanwhile).
+-- Whether the local player holds the steady stance.
 function TowerController.inStance(): boolean
 	return meter.active
 end
 
--- An ice-ball hit announced by the server: shove the tower along the ball's flight. The server decided the power.
+-- A throw or a dash was just requested: the stance ends and is locked for stance.lockout (also one released a
+-- moment ago, like the server does). The server ends and locks its own when it grants the request; the "off" sent
+-- here, after the request, only counts if it refuses.
+function TowerController.interruptStance()
+	local wasActive = meter.active
+	Stance.interrupt(meter, Tuning.stance, Tuning.stance.lockRecent)
+	if wasActive then
+		stanceEnded(true)
+	end
+end
+
+-- An ice-ball hit announced by the server: shove the tower along the ball's flight (half as hard in the stance) and
+-- drain the stance's bar. The server decided the power and drains its own bar.
 function TowerController.hit(dirX: number, dirZ: number, power: number)
 	if #scoops > 0 and not state.toppled and not toppledAt then
 		TowerModel.hitKick(state, CombatConfig, #scoops, dirX, dirZ, power)
+	end
+	if Stance.drain(meter, power * CombatConfig.stanceDrain) then
+		stanceEnded(false)
 	end
 end
 

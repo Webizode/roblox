@@ -270,8 +270,8 @@ describe("Tower reaction to a hit", function()
 		expect(TowerModel.hitKick(TowerModel.newState(1), Config, 500, 1, 0, 1)).toBe(Config.towerKickMax)
 	end)
 
-	it("one full hit on an upright tower of up to 10 scoops is absorbed by the stabiliser", function()
-		for count = 1, 10 do
+	it("one full hit on an upright tower of up to 9 scoops is absorbed by the stabiliser", function()
+		for count = 1, 9 do
 			local state = TowerModel.newState(count)
 			TowerModel.hitKick(state, Config, count, 1, 0, 1)
 			expect(runWithAssist(state, count, 6)).toBe(false)
@@ -326,7 +326,31 @@ describe("Tower reaction to a hit", function()
 		expect(series(5, { 0.8, 0.8, 0.8 }, quick)).toBe(true)
 		expect(series(5, { 1, 1, 1 }, 1.5)).toBe(false)
 		expect(series(5, { 0.6, 0.6 }, quick)).toBe(false)
-		-- no fixed number of hits: a tiny tower rights itself even after three full ones
-		expect(series(2, { 1, 1, 1 }, quick)).toBe(false)
+		-- no fixed number of hits: a single scoop rights itself after the two quick full hits that topple five
+		expect(series(1, { 1, 1 }, quick)).toBe(false)
+		-- but three quick full hits topple even the smallest tower (protection for small towers comes with the loot)
+		expect(series(1, { 1, 1, 1 }, quick)).toBe(true)
+	end)
+
+	it("the steady stance is no shield: a hit in it reaches the tower at stanceTowerScale", function()
+		local free, steady = TowerModel.newState(1), TowerModel.newState(1)
+		TowerModel.setStance(steady, true)
+		local kFree = TowerModel.hitKick(free, Config, 5, 1, 0, 1)
+		local kSteady = TowerModel.hitKick(steady, Config, 5, 1, 0, 1)
+		expect(kSteady).toBeCloseTo(kFree * Config.stanceTowerScale, 1e-9)
+		expect(steady.vx).toBeGreaterThan(0)
+		-- the shake builds up at the same share, so the next hit is softened too
+		expect(steady.shake).toBeCloseTo(free.shake * Config.stanceTowerScale, 1e-9)
+	end)
+
+	it("held through two quick full hits, the stance keeps even 25 scoops up", function()
+		local state = TowerModel.newState(7)
+		runWithAssist(state, 25, 1)
+		TowerModel.setStance(state, true)
+		TowerModel.hitKick(state, Config, 25, 1, 0, 1)
+		runWithAssist(state, 25, Config.throwInterval + 0.05)
+		TowerModel.hitKick(state, Config, 25, 1, 0, 1)
+		-- the rest of a full bar
+		expect(runWithAssist(state, 25, 3)).toBe(false)
 	end)
 end)

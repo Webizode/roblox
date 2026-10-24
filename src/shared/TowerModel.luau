@@ -301,7 +301,8 @@ end
 -- height and the hit power, and leaves corrections weaker for a moment. Hits shake the tower: their powers add up
 -- and drain by towerShakeDecay per second, and every hit kicks harder and leaves the tower unsteady longer the more
 -- shaken it already is. So hits in quick succession build up until the tower can go over, while the same hits spread
--- out are each absorbed. Returns the kick size.
+-- out are each absorbed. In the steady stance a hit reaches the tower at stanceTowerScale of its power (kick and
+-- shake alike). Returns the kick size.
 function TowerModel.hitKick(
 	state: State,
 	hit: {
@@ -312,6 +313,7 @@ function TowerModel.hitKick(
 		towerShakeDecay: number,
 		unsteadySeconds: number,
 		unsteadyFactor: number,
+		stanceTowerScale: number,
 	},
 	count: number,
 	dirX: number,
@@ -321,6 +323,9 @@ function TowerModel.hitKick(
 	local length = math.sqrt(dirX * dirX + dirZ * dirZ)
 	if count <= 0 or length < 1e-6 or state.toppled then
 		return 0
+	end
+	if state.stance then
+		power *= hit.stanceTowerScale
 	end
 	local shake = math.max(0, state.shake - hit.towerShakeDecay * math.max(0, state.t - state.shakeAt))
 	local kick = math.min(hit.towerKickMax, hit.towerKickBase + hit.towerKickPerScoop * count)

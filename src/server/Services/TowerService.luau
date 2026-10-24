@@ -15,6 +15,7 @@ local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local RecipeConfig = require(Config:WaitForChild("Recipes"))
 local TowerTuning = require(Config:WaitForChild("Tower"))
+local CombatConfig = require(Config:WaitForChild("Combat"))
 local Features = require(Config:WaitForChild("Features"))
 
 local TowerService = {}
@@ -53,6 +54,9 @@ local MIN_TILT_INTERVAL = 0.5 / TowerTuning.tiltSendRate
 local DASH_SLACK = 0.25
 -- share of the stance bar the server lets a start fall short by, for a client whose bar ran a little ahead
 local STANCE_SLACK = 0.1
+-- seconds of the stance lockout the server lets a start fall short by: the client starts its lockout when it asks,
+-- the server only when the throw or dash arrives
+local STANCE_LOCK_SLACK = 0.3
 -- no human presses F faster than this; a quicker "on" is dropped
 local STANCE_INTERVAL = 0.1
 -- no human taps Shift faster than this; a quicker "on" is dropped
@@ -89,15 +93,23 @@ local function applyWalkSpeed(player: Player, state: TowerState)
 end
 
 -- The steady stance on or off, published as the SteadyStance attribute: the own client follows it when the server
--- ends a stance (empty bar, knockdown, empty tower), every client shows it, CombatService refuses throws in it.
+-- ends a stance (empty bar, knockdown, empty tower), every client shows it.
 local function setStance(player: Player, state: TowerState, on: boolean)
 	if on then
-		Stance.start(state.stance, TowerTuning.stance, STANCE_SLACK)
+		Stance.start(state.stance, TowerTuning.stance, STANCE_SLACK, STANCE_LOCK_SLACK)
 	else
 		Stance.stop(state.stance)
 	end
 	player:SetAttribute("SteadyStance", state.stance.active)
 	applyWalkSpeed(player, state)
+end
+
+-- A granted throw or dash: ends the stance and locks it for stance.lockout. Also locks a stance the client ended just
+-- before (its own prediction ends it with the request), so the lockout holds whatever order the requests come in.
+local function interruptStance(player: Player, state: TowerState)
+	if Stance.interrupt(state.stance, TowerTuning.stance, TowerTuning.stance.lockRecent) then
+		setStance(player, state, false)
+	end
 end
 
 local function publish(player: Player, state: TowerState, reason: string)
@@ -281,9 +293,6 @@ local function onDash(player: Player, dirX: any, dirZ: any, asked: any)
 	if not humanoid or humanoid.Health <= 0 or humanoid.Sit then
 		return reject("no living, standing humanoid")
 	end
-	if state.stance.active then
-		return reject("holding the steady stance")
-	end
 	local duration = if kind == "power"
 		then TowerTuning.dash.power.duration
 		elseif kind == "quick" then TowerTuning.dash.quick.duration
@@ -296,6 +305,7 @@ local function onDash(player: Player, dirX: any, dirZ: any, asked: any)
 	-- a little short of the burst, so network jitter never blocks the next dash the client already allows
 	state.dashUntil = time + duration * 0.8
 	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length, kind)
+	interruptStance(player, state) -- a dash in the steady stance ends it
 end
 
 -- Sprint on or off. Only changes the player's own speed, within sprintMultiplier. Switching on is rate-limited;
@@ -315,8 +325,9 @@ local function onSprint(player: Player, sprinting: any)
 end
 
 -- The steady stance (hold F / the Steady button) only strengthens the asker's own stabiliser and pays nothing; it
--- costs speed, sprint, dash and throws. On needs a tower, a living character that is not knocked down and enough
--- energy in the server's own bar, and is rate-limited; off always goes through, so a client never gets stuck in it.
+-- costs speed and sprint, and a throw or dash ends it. On needs a tower, a living character that is not knocked
+-- down, enough energy in the server's own bar and no lockout, and is rate-limited; off always goes through, so a
+-- client never gets stuck in it.
 local function onSetStance(player: Player, on: any)
 	local state = states[player]
 	if not state or type(on) ~= "boolean" or on == state.stance.active then
@@ -388,10 +399,26 @@ function TowerService.Start()
 	Remotes.Dash.OnServerEvent:Connect(onDash)
 end
 
--- Whether the player holds the steady stance (no charging or throwing meanwhile).
+-- Whether the player holds the steady stance.
 function TowerService.inStance(player: Player): boolean
 	local state = states[player]
 	return state ~= nil and state.stance.active
+end
+
+-- A granted throw ends the player's stance and locks it, like a dash.
+function TowerService.interruptStance(player: Player)
+	local state = states[player]
+	if state then
+		interruptStance(player, state)
+	end
+end
+
+-- An ice-ball hit of `power` drains the stance's bar (Config/Combat stanceDrain); an emptied bar ends the stance.
+function TowerService.hitStance(player: Player, power: number)
+	local state = states[player]
+	if state and Stance.drain(state.stance, power * CombatConfig.stanceDrain) then
+		setStance(player, state, false)
+	end
 end
 
 -- Ends the player's stance, for a knockdown.

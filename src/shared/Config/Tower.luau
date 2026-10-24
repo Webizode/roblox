@@ -81,8 +81,10 @@ return {
 
 	-- Steady stance (hold F on PC, hold the Steady button on touch): while held, the stabiliser works on the real
 	-- lean without its delay, with its own gains and up to `authority` rad/s^2 of pad, so even tall towers hardly
-	-- fall; a hard hit can still knock a very tall one over. It costs: walking at walkMultiplier of the normal speed,
-	-- no sprint, dash, charge or throw. It runs on an energy bar (Stance): a full bar lasts holdSeconds, refills in
+	-- fall; a hard hit can still knock a very tall one over. It costs: walking at walkMultiplier of the normal speed
+	-- and no sprint. Charging a throw is allowed; the throw itself and a dash end the stance at once, and it cannot
+	-- start again for `lockout` seconds (F has to be pressed again). Ice-ball hits taken in it drain the bar
+	-- (Config/Combat stanceDrain). It runs on an energy bar (Stance): a full bar lasts holdSeconds, refills in
 	-- refillSeconds once released (after refillDelay), and a new stance needs at least minStart of it. The server
 	-- keeps its own bar and enforces all of it.
 	stance = {
@@ -93,6 +95,8 @@ return {
 		refillSeconds = 6,
 		refillDelay = 0.5,
 		minStart = 0.25,
+		lockout = 1.0, -- seconds after a throw or a dash ended the stance
+		lockRecent = 0.25, -- a stance released this shortly before the throw or dash is locked too
 		walkMultiplier = 0.6,
 	},
 	warnFraction = 0.6, -- from this share of the tip angle the HUD warns (the stabiliser has given up by then)

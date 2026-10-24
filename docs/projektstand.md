@@ -123,6 +123,7 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
 - Vorhanden: Big Swirl Launcher, Fangen, Turmphysik mit Kippen, Steady-Haltung (F) mit Energie, Sprint (Shift), Dash (Q), Kampfmodus (R), Eisball-Wurf mit Ladeleiste, Munition, Nachladen, Treffer stören Turmbalance, Knockdown, Waffel-Rucksack, Servieren, Coins (nur Sitzung), Graybox-Pier, Kill-Test-Log
 - Fehlt: Beute aufsammeln, Golden Glow, Emotionssystem, Sorten-Fähigkeiten, Events, Speichern (DataStore), Upgrade-Kauf, Sammelbuch, Block/Dodge
 - Offene Punkte im Code: `debugCatch`, `debugThrow`, `debugDash` noch an; kleiner Exploit beim Steady-Bonus; Upgrades ohne Kaufweg
+- Offen (Design): Schutz für Türme unter 5 Kugeln kommt mit dem Beute-System. Seit dem Treffer-Tuning vom 25.10.2026 kippen drei schnelle volle Treffer auch den kleinsten Turm
 - **GitHub ist nicht der lokale Stand:** Animations-IDs, Quick/Power Dash, Hold-to-Aim und der Fix fürs Laufen außerhalb des Kampfmodus sind nicht im Repo. Lokalen Stand selbst committen und pushen
 
 ---

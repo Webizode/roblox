@@ -151,13 +151,7 @@ end
 local function onCharge(player: Player)
 	local state = states[player]
 	local time = now()
-	if
-		not state
-		or not state.combatMode
-		or time - state.lastChargeAt < CHARGE_INTERVAL
-		or time < state.downUntil
-		or registry.TowerService.inStance(player)
-	then
+	if not state or not state.combatMode or time - state.lastChargeAt < CHARGE_INTERVAL or time < state.downUntil then
 		return
 	end
 	state.lastChargeAt = time
@@ -203,9 +197,6 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 	elseif time < state.downUntil then
 		debugReject(player, "knocked down")
 		return
-	elseif registry.TowerService.inStance(player) then
-		debugReject(player, "holding the steady stance")
-		return
 	elseif state.ammo.count <= 0 then
 		debugReject(player, "no ammo (reloading)")
 		return
@@ -226,6 +217,7 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 		debugReject(player, "ammo check failed")
 		return
 	end
+	registry.TowerService.interruptStance(player) -- a throw in the steady stance ends it (charging does not)
 	debugLog(
 		string.format(
 			"%s throws: charge %.2f (claimed %s, held %.2f s), %.0f studs/s from %s to aim %s (%.1f studs away)",
@@ -278,6 +270,7 @@ local function hitPlayer(ball: Ball, victim: Player, position: Vector3, distance
 	if state then
 		state.stagger, knockdown = Combat.addHit(state.stagger, state.lastHitAt, time, power, Config)
 		state.lastHitAt = time
+		registry.TowerService.hitStance(victim, power)
 		if knockdown then
 			state.downUntil = time + Config.knockdownTime
 			-- a knockdown drops the charge, ends combat mode and the steady stance; the player switches them on again

@@ -137,17 +137,22 @@ return {
 
 	-- tower reaction (TowerModel.hitKick): pushed along the ball's flight, corrections weaker for a moment
 	-- Hits shake the tower: their powers add up and drain by towerShakeDecay per second, and each hit kicks harder
-	-- (x 1 + towerShakeGain * shake) and stays unsteady longer (x 1 + shake) the more shaken the tower is. In
-	-- simulation, standing with only the stabiliser: one full hit never topples up to 10 scoops; on 5 scoops two full
-	-- or three medium hits in a row topple it, the same three hits 1.5 s apart do not; on 2-3 scoops three full hits
-	-- push it to the tip, but it rights itself.
-	towerKickBase = 0.5, -- rad/s at power 1
+	-- (x 1 + towerShakeGain * shake) and stays unsteady longer (x 1 + shake) the more shaken the tower is. While
+	-- unsteady the stabiliser (and the stance) only work at unsteadyFactor. In simulation, standing with only the
+	-- stabiliser: one full hit never topples up to 9 scoops; on 5 scoops two full or three medium hits in a row topple
+	-- it, the same three hits 1.5 s apart do not; three quick full hits topple even the smallest tower, while a single
+	-- scoop survives two. A hit on 12 (leaning) or 16 scoops topples them unless the stance is taken.
+	towerKickBase = 0.75, -- rad/s at power 1
 	towerKickPerScoop = 0.03,
 	towerKickMax = 1.0,
 	towerShakeGain = 1.0,
 	towerShakeDecay = 0.6, -- per second, like the stagger
-	unsteadySeconds = 0.5, -- times 1 + shake
-	unsteadyFactor = 0.5,
+	unsteadySeconds = 1.0, -- times 1 + shake
+	unsteadyFactor = 0.35,
+	-- The steady stance is no shield: a hit taken in it reaches the tower at stanceTowerScale of its power and drains
+	-- stanceDrain of the energy bar per full hit (times the power); an emptied bar ends the stance.
+	stanceTowerScale = 0.5,
+	stanceDrain = 0.25,
 
 	-- knockdown: every hit adds its power to a stagger value that drains by staggerDecay per second. A single hit
 	-- (power <= 1) never reaches knockdownAt; two solid, well-charged hits in quick succession do.
