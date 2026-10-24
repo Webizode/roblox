@@ -12,7 +12,7 @@ Eine riesige Eismaschine schießt Kugeln über einen Pier. Du fängst sie mit de
 
 ## Richtung: Simulator mit Wettbewerb (Stand 18.10.2026)
 
-Dieses Dokument bleibt die einzige Design-Referenz. Der technische Stand steht in `docs/project-status.md`. Die bestehenden Systeme und Namen bleiben: Kugeln (Scoops), Turm, Big Swirl, Servieren am Wagen, Greg.
+Verbindlich ist `docs/design-regeln.md`, dieses Dokument ist Hintergrund. Der technische Stand steht in `docs/project-status.md`. Die bestehenden Systeme und Namen bleiben: Kugeln (Scoops), Turm, Big Swirl, Servieren am Wagen, Greg.
 
 - **Persönlicher Stapel:** Jeder Spieler baut seinen eigenen Turm. Der Fortschritt (Coins, Upgrades, gesammelte Kugeln) wird gespeichert.
 - **Stapel-Multiplikator:** Der Wert wächst mit der Höhe (heute: Summe × (1 + 0,04 × Kugeln)², dazu Steady-Bonus und Wagen-Multiplikator).
