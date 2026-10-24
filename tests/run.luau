@@ -14,6 +14,7 @@ require("./Catch.spec")
 require("./Combat.spec")
 require("./Dash.spec")
 require("./ThrowPose.spec")
+require("./BallMotion.spec")
 require("./Stance.spec")
 
 local syntaxErrors = {}

@@ -27,7 +27,9 @@ type TowerState = {
 	sneakersLevel: number,
 	cartLevel: number,
 	controls: string, -- kill-test log bucket; one control scheme since the automatic stabiliser
-	lastDashAt: number,
+	lastDashAt: number, -- the dash and the combat quick dash share this cooldown
+	lastPowerDashAt: number,
+	dashUntil: number, -- the running dash ends; no other starts before
 	stance: Stance.Meter, -- the steady stance's energy bar; the server's is the one that counts
 	lastStanceAt: number,
 	sprinting: boolean,
@@ -131,6 +133,8 @@ local function createState(player: Player): TowerState
 		cartLevel = 0,
 		controls = "auto",
 		lastDashAt = 0,
+		lastPowerDashAt = 0,
+		dashUntil = 0,
 		stance = Stance.new(),
 		lastStanceAt = 0,
 		sprinting = false,
@@ -236,8 +240,10 @@ local function onTilt(player: Player, x: any, z: any)
 end
 
 -- A dash only moves the asker's own character and shakes their own tower; it pays nothing. The server decides
--- whether it may happen (cooldown, alive, not seated) and tells every client, which plays the burst and effect.
-local function onDash(player: Player, dirX: any, dirZ: any)
+-- whether it may happen (cooldown, alive, not seated, no other dash running) and which one it is: the dash, in
+-- combat mode the quick dash, or (asked for with "power", combat mode only) the power dash with its own cooldown.
+-- It tells every client the kind, and they play the burst and effect.
+local function onDash(player: Player, dirX: any, dirZ: any, asked: any)
 	local function reject(reason: string)
 		if Features.debugDash then
 			print(`[Dash] rejected {player.Name}: {reason}`)
@@ -247,12 +253,28 @@ local function onDash(player: Player, dirX: any, dirZ: any)
 	if not state or not isFiniteNumber(dirX) or not isFiniteNumber(dirZ) then
 		return reject("no state or the direction is not two numbers")
 	end
+	if asked ~= nil and asked ~= "power" then
+		return reject("unknown dash kind")
+	end
 	local length = math.sqrt(dirX * dirX + dirZ * dirZ)
 	if length < 0.5 or length > 1.5 then
 		return reject("direction length " .. length)
 	end
+	local combat = registry.CombatService.inCombatMode(player)
+	if asked == "power" and not combat then
+		return reject("power dash outside combat mode")
+	end
+	local kind = if asked == "power" then "power" elseif combat then "quick" else "dash"
 	local time = now()
-	if time - state.lastDashAt < TowerTuning.dash.cooldown - DASH_SLACK then
+	if time < state.dashUntil then
+		return reject("another dash is still running")
+	end
+	if kind == "power" then
+		local cooldown = TowerTuning.dash.power.cooldown
+		if time - state.lastPowerDashAt < cooldown - DASH_SLACK then
+			return reject(string.format("power cooldown, %.1f s since the last one", time - state.lastPowerDashAt))
+		end
+	elseif time - state.lastDashAt < TowerTuning.dash.cooldown - DASH_SLACK then
 		return reject(string.format("cooldown, %.1f s since the last dash", time - state.lastDashAt))
 	end
 	local humanoid = humanoidOf(player)
@@ -262,8 +284,18 @@ local function onDash(player: Player, dirX: any, dirZ: any)
 	if state.stance.active then
 		return reject("holding the steady stance")
 	end
-	state.lastDashAt = time
-	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length)
+	local duration = if kind == "power"
+		then TowerTuning.dash.power.duration
+		elseif kind == "quick" then TowerTuning.dash.quick.duration
+		else TowerTuning.dash.duration
+	if kind == "power" then
+		state.lastPowerDashAt = time
+	else
+		state.lastDashAt = time
+	end
+	-- a little short of the burst, so network jitter never blocks the next dash the client already allows
+	state.dashUntil = time + duration * 0.8
+	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length, kind)
 end
 
 -- Sprint on or off. Only changes the player's own speed, within sprintMultiplier. Switching on is rate-limited;

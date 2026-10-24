@@ -7,7 +7,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Config = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = Shared:WaitForChild("Config")
+local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local Look = require(Config:WaitForChild("Backpack"))
 local Palette = require(Config:WaitForChild("Palette"))
 
@@ -139,7 +141,7 @@ local function torsoOf(character: Model): BasePart?
 end
 
 -- The waffle's frame on a torso (centre on the cone axis, +Y towards the opening) and its scale. The one place the
--- waffle's position comes from: the backpack parts and the scoop tower standing in it (Backpacks.opening) both use
+-- waffle's position comes from: the backpack parts and the scoop tower standing in it (Backpacks.seat) both use
 -- it, so the two can never drift apart.
 local function coneFrame(torso: BasePart): (CFrame, number)
 	local torsoSize = torso.Size
@@ -233,17 +235,32 @@ local function untrack(player: Player)
 	end
 end
 
--- The centre and radius of a character's waffle opening this frame, for the scoop tower that stands in it; nil while
--- the backpack is not shown on that character (no torso, dead, knocked down). Call it after the movement pose
--- (RenderPriority.Character + 2) so it matches the drawn waffle.
-function Backpacks.opening(character: Model): (Vector3?, number)
+-- Where the bottom scoop of a character's tower sits this frame: on the waffle's axis, as high above the chocolate
+-- rim's top face as TowerShape.seatInCone says, so it rests in the waffle without cutting through the rim or the
+-- wall below it from any side, the cone being tilted. Nil while the backpack is not shown on that character (no
+-- torso, dead, knocked down). Call it after the movement pose (RenderPriority.Character + 2) so it matches the drawn
+-- waffle.
+function Backpacks.seat(character: Model, scoopRadius: number): Vector3?
 	local torso = torsoOf(character)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not torso or not humanoid or humanoid.Health <= 0 or torso.CFrame.UpVector.Y < Look.minUpright then
-		return nil, 0
+		return nil
 	end
 	local cone, s = coneFrame(torso)
-	return (cone * CFrame.new(0, Look.coneLength * s / 2, 0)).Position, Look.coneTopDiameter / 2 * s
+	local length = Look.coneLength * s
+	-- the rim's top face, as place() draws it
+	local rimTop = cone * CFrame.new(0, length / 2 + RIM_LIFT * s, 0)
+	-- the widest waffle segment right below the rim, as resize() sizes it
+	local topDiameter = Look.coneTopDiameter + (Look.coneTipDiameter - Look.coneTopDiameter) * 0.5 / Look.coneSegments
+	local seat = TowerShape.seatInCone(scoopRadius, {
+		rimRadius = RIM_RADIUS * s,
+		rimHeight = Look.rimHeight * s,
+		topRadius = topDiameter / 2 * s,
+		tipRadius = Look.coneTipDiameter / 2 * s,
+		length = length - Look.rimHeight * s,
+		margin = Look.scoopMargin * s,
+	})
+	return (rimTop * CFrame.new(0, seat, 0)).Position
 end
 
 function Backpacks.Start()

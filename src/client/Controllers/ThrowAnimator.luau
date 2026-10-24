@@ -1,13 +1,21 @@
--- The throw animation: combat stance with the ball in the right hand, the wind-up while the throw button is held,
--- the explosive throw on release and the swing back into the stance. The ball leaves the hand releaseDelay after the
--- button-up (Config/Combat): the server starts it then, and the throw releases at that moment.
+-- The throw animation: the combat stance presents the ball (right forearm raised, the hand flat with its palm up, the
+-- ball floating above it), the wind-up while the throw button is held, the push forward on release and back into
+-- the stance. The ball leaves the hand releaseDelay after the button-up (Config/Combat): the server starts it then,
+-- and the throw releases at that moment.
 --   * With the three animation ids in Config/Combat (throwAnimation) the local player plays them; Roblox replicates
 --     them to everyone. The charge animation holds at its "Held" marker, the throw has a "Release" marker at
 --     releaseDelay (checked in the output while Features.debugThrow is on).
---   * While the ids are empty, a procedural pose stands in: the right shoulder, the right elbow and the waist of
---     every R15 character are turned by ThrowPose, drawn by every client from the CombatMode and Charging
---     attributes and the IceBallThrown event. It touches no joint MovementController uses (the root), so lean,
---     stumble and knockdown stay as they are, and nothing here moves the character, its speed or its tower.
+--   * With only the throw id, that one animation carries wind-up and throw: the local player starts it with the
+--     charge, it holds releaseDelay before throwRelease, and the button-up lets it swing through so its release meets
+--     the server's. It replicates; on every client the procedural pose steps aside while a character plays it and
+--     keeps the stance otherwise.
+--   * While the ids are empty, a procedural pose stands in, drawn by every client for every player from the
+--     CombatMode and Charging attributes and the IceBallThrown event. ThrowPose gives the angles; they are written
+--     into the joints' Transform right after Roblox's Animator each frame, so the right arm leaves the walk cycle
+--     for the pose (blended in and out) and the waist turn adds on top. That works the same for Motor6D joints and
+--     for the AnimationConstraint joints of newer avatars, on R15 (waist, shoulder, elbow, wrist) and on R6 (its
+--     one right shoulder, see ThrowPose.singleArm). It touches no joint MovementController uses (the root), so
+--     lean, stumble and knockdown stay as they are, and nothing here moves the character, its speed or its tower.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,11 +29,17 @@ local Features = require(Config:WaitForChild("Features"))
 
 local ThrowAnimator = {}
 
+-- A Motor6D or an AnimationConstraint: both place Part1 from Part0 through a joint frame (C0, or Attachment0) and
+-- the Transform the Animator writes.
+type Joint = Motor6D | AnimationConstraint
+
 type Rig = {
 	character: Model,
-	joints: { Motor6D }, -- waist, shoulder, elbow
-	base: { CFrame }, -- their C0 before any pose
-	applied: boolean,
+	r6: boolean,
+	waist: Joint?, -- R15 only
+	shoulder: Joint,
+	elbow: Joint?, -- R15 only
+	wrist: Joint?, -- R15 only, and optional there
 }
 
 type Entry = {
@@ -35,14 +49,18 @@ type Entry = {
 	throwAt: number?, -- os.clock() of the button-up
 }
 
-local STEP = "WobbleThrowPose"
 local Animation = CombatConfig.throwAnimation
 local USE_TRACKS = Animation.stance ~= "" and Animation.charge ~= "" and Animation.throw ~= ""
+-- only the throw animation: it carries the wind-up too, the procedural pose keeps the stance
+local THROW_ONLY = not USE_TRACKS and Animation.throw ~= ""
+local THROW_ID = string.match(Animation.throw, "%d+$")
+local THROW_FADE = 0.15 -- seconds the throw animation fades out at its end or when a charge is dropped
 
 local localPlayer = Players.LocalPlayer
 local entries: { [Player]: Entry } = {}
 local reported: { [Model]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local localReleaseAt = -math.huge
+local releasing = false -- THROW_ONLY: the local throw animation runs from the button-up to the release point
 
 local function entryFor(player: Player): Entry
 	local entry = entries[player]
@@ -53,61 +71,142 @@ local function entryFor(player: Player): Entry
 	return entry
 end
 
-local function joint(character: Model, partName: string, jointName: string): Motor6D?
+local function joint(character: Model, partName: string, jointName: string): Joint?
 	local part = character:FindFirstChild(partName)
 	local found = part and part:FindFirstChild(jointName)
-	return if found and found:IsA("Motor6D") then found else nil
+	if found and found:IsA("Motor6D") then
+		return found
+	elseif found and found:IsA("AnimationConstraint") and found.Attachment0 then
+		return found
+	end
+	return nil
 end
 
--- The three R15 joints of the pose, or nil for other rigs (R6 has no waist or elbow: no procedural pose there).
+-- The joints of the pose: R15 (waist, right shoulder, elbow and, if there, wrist) or R6 (the right shoulder), as
+-- Motor6D or AnimationConstraint. Nil for anything else; then there is no procedural pose.
 local function rigFor(entry: Entry, character: Model): Rig?
 	if entry.rig and entry.rig.character == character then
 		return entry.rig
 	end
-	local waist = joint(character, "UpperTorso", "Waist")
+	local rig: Rig? = nil
 	local shoulder = joint(character, "RightUpperArm", "RightShoulder")
+	local waist = joint(character, "UpperTorso", "Waist")
 	local elbow = joint(character, "RightLowerArm", "RightElbow")
-	if not waist or not shoulder or not elbow then
-		entry.rig = nil
-		if Features.debugThrow and not reported[character] then
-			reported[character] = true
-			print(
-				`[Throw] {character.Name}: no throw pose, the rig has no R15 Waist/RightShoulder/RightElbow (R6?). `
-					.. "Set the avatar type to R15 or use published animations for this rig."
-			)
+	if shoulder and waist and elbow then
+		rig = {
+			character = character,
+			r6 = false,
+			waist = waist,
+			shoulder = shoulder,
+			elbow = elbow,
+			wrist = joint(character, "RightHand", "RightWrist"),
+		}
+	else
+		local r6Shoulder = joint(character, "Torso", "Right Shoulder")
+		if r6Shoulder then
+			rig = { character = character, r6 = true, waist = nil, shoulder = r6Shoulder, elbow = nil, wrist = nil }
 		end
-		return nil
 	end
+	entry.rig = rig
 	if Features.debugThrow and not reported[character] then
 		reported[character] = true
-		print(`[Throw] {character.Name}: procedural throw pose on the R15 rig (no animation ids set)`)
+		if rig then
+			print(
+				`[Throw] {character.Name}: procedural throw pose on the {if rig.r6 then "R6" else "R15"} rig `
+					.. `({rig.shoulder.ClassName} joints{if rig.wrist or rig.r6 then "" else ", no wrist"})`
+			)
+		else
+			print(
+				`[Throw] {character.Name}: no throw pose, the rig has neither the R15 Waist/RightShoulder/RightElbow `
+					.. "nor the R6 Right Shoulder joint"
+			)
+		end
 	end
-	local rig = {
-		character = character,
-		joints = { waist, shoulder, elbow },
-		base = { waist.C0, shoulder.C0, elbow.C0 },
-		applied = false,
-	}
-	entry.rig = rig
 	return rig
 end
 
-local function apply(rig: Rig, pose: ThrowPose.Pose, weight: number)
-	local joints, base = rig.joints, rig.base
-	joints[1].C0 = base[1] * CFrame.Angles(0, math.rad(pose.waist * weight), 0)
-	joints[2].C0 = base[2] * CFrame.Angles(math.rad(pose.shoulder * weight), 0, 0)
-	joints[3].C0 = base[3] * CFrame.Angles(math.rad(pose.elbow * weight), 0, 0)
-	rig.applied = true
-end
-
-local function restore(rig: Rig)
-	for index, motor in rig.joints do
-		motor.C0 = rig.base[index]
+-- The joint frame on Part0's side: C0 of a Motor6D, Attachment0 of an AnimationConstraint.
+local function frameOf(target: Joint): CFrame
+	if target:IsA("Motor6D") then
+		return target.C0
 	end
-	rig.applied = false
+	local attachment = (target :: AnimationConstraint).Attachment0
+	return if attachment then attachment.CFrame else CFrame.identity
 end
 
+-- A turn given in Part0's own axes (x right, y up, -z forward for a torso standing upright), as the Transform of
+-- this joint: R6's shoulder frame is turned a quarter, R15's are not, and both then bend the same way.
+local function inParentAxes(target: Joint, rotation: CFrame): CFrame
+	local frame = frameOf(target).Rotation
+	return frame:Inverse() * rotation * frame
+end
+
+-- The arm takes the pose instead of the animation, blended by weight; the waist turn is added on top of it.
+local function hold(target: Joint?, rotation: CFrame, weight: number)
+	if target then
+		target.Transform = target.Transform:Lerp(inParentAxes(target, rotation), weight)
+	end
+end
+
+local function apply(rig: Rig, pose: ThrowPose.Pose, weight: number)
+	local out = math.rad(pose.out)
+	if rig.r6 then
+		hold(rig.shoulder, CFrame.Angles(0, 0, out) * CFrame.Angles(math.rad(ThrowPose.singleArm(pose)), 0, 0), weight)
+		return
+	end
+	hold(rig.shoulder, CFrame.Angles(0, 0, out) * CFrame.Angles(math.rad(pose.shoulder), 0, 0), weight)
+	hold(rig.elbow, CFrame.Angles(math.rad(pose.elbow), 0, 0), weight)
+	-- the twist levels the hand against the arm's turn out, so the palm faces straight up
+	hold(rig.wrist, CFrame.Angles(0, 0, math.rad(pose.twist)) * CFrame.Angles(math.rad(pose.wrist), 0, 0), weight)
+	local waist = rig.waist
+	if waist then
+		waist.Transform = inParentAxes(waist, CFrame.Angles(0, math.rad(pose.waist * weight), 0)) * waist.Transform
+	end
+end
+
+-- Whether this character plays the throw animation right now: the local player's own track, or another player's,
+-- which Roblox replicated. The procedural pose steps aside meanwhile, so the two never fight over the arm.
+local function playsThrow(humanoid: Humanoid): boolean
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not THROW_ONLY or not animator then
+		return false
+	end
+	for _, playing in animator:GetPlayingAnimationTracks() do
+		if playing.IsPlaying and string.match(playing.Animation.AnimationId, "%d+$") == THROW_ID then
+			return true
+		end
+	end
+	return false
+end
+
+local tracks: { [string]: AnimationTrack } = {}
+
+-- THROW_ONLY, the local throw animation: held just before the release while charging, at its own speed again once
+-- the release point is reached after the button-up, faded out at its end.
+local function stepThrowTrack()
+	local throw = tracks.throw
+	if not THROW_ONLY or not throw or not throw.IsPlaying then
+		return
+	end
+	local holdAt = Animation.throwRelease - CombatConfig.releaseDelay
+	if releasing then
+		if throw.TimePosition >= Animation.throwRelease then
+			releasing = false
+			throw:AdjustSpeed(1)
+		end
+	elseif throw.Speed > 0 and throw.TimePosition >= holdAt and throw.TimePosition < Animation.throwRelease then
+		throw.TimePosition = holdAt
+		throw:AdjustSpeed(0) -- wound up; waits for the button-up
+	end
+	if throw.Length > 0 and throw.Speed > 0 and throw.TimePosition >= throw.Length - THROW_FADE then
+		throw:Stop(THROW_FADE)
+	end
+end
+
+-- Runs right after the Animator each frame (PreSimulation), so its Transform is the one this frame shows. When the
+-- weight is back at 0 nothing is written and the Animator has the joints to itself again: nothing to restore.
 local function onPoseStep(dt: number)
+	stepThrowTrack()
 	local clock = os.clock()
 	local blend = dt / Animation.blendTime
 	for player, entry in entries do
@@ -118,12 +217,11 @@ local function onPoseStep(dt: number)
 			continue
 		end
 		local throwing = entry.throwAt ~= nil and clock - entry.throwAt < ThrowPose.throwLength(CombatConfig)
-		local active = humanoid.Health > 0 and (player:GetAttribute("CombatMode") == true or throwing)
+		local active = humanoid.Health > 0
+			and (player:GetAttribute("CombatMode") == true or throwing)
+			and not (not rig.r6 and playsThrow(humanoid))
 		entry.weight = math.clamp(entry.weight + (if active then blend else -blend), 0, 1)
 		if entry.weight <= 0 then
-			if rig.applied then
-				restore(rig)
-			end
 			continue
 		end
 		local pose
@@ -138,8 +236,8 @@ local function onPoseStep(dt: number)
 	end
 end
 
--- Animation tracks for the local player, used instead of the procedural pose once all three ids are set.
-local tracks: { [string]: AnimationTrack } = {}
+-- Animation tracks for the local player, used instead of the procedural pose once all three ids are set (or, with
+-- only the throw id, for the throw).
 local tracksOf: Humanoid? = nil
 
 local function track(name: string): AnimationTrack?
@@ -148,6 +246,9 @@ local function track(name: string): AnimationTrack?
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
 	if not humanoid or not animator then
 		return nil
+	end
+	if THROW_ONLY and humanoid.RigType ~= Enum.HumanoidRigType.R15 then
+		return nil -- the throw animation is made for R15; R6 keeps the procedural throw
 	end
 	if tracksOf ~= humanoid then
 		tracksOf = humanoid
@@ -171,7 +272,7 @@ local function track(name: string): AnimationTrack?
 		loaded:GetMarkerReachedSignal("Held"):Connect(function()
 			loaded:AdjustSpeed(0) -- hold the full wind-up until the release
 		end)
-	elseif name == "throw" then
+	elseif name == "throw" and USE_TRACKS then
 		loaded:GetMarkerReachedSignal("Release"):Connect(function()
 			local late = os.clock() - localReleaseAt - CombatConfig.releaseDelay
 			if Features.debugThrow and math.abs(late) > 0.03 then
@@ -223,6 +324,16 @@ function ThrowAnimator.charge(on: boolean)
 				charge:Stop(0.1)
 			end
 		end
+	elseif THROW_ONLY then
+		-- the wind-up is the start of the throw animation; a dropped charge (not the one a throw ends) fades it out
+		local throw = track("throw")
+		if throw and on then
+			releasing = false
+			throw:Play(0.1)
+			throw:AdjustSpeed(1)
+		elseif throw and not releasing and throw.IsPlaying then
+			throw:Stop(THROW_FADE)
+		end
 	end
 end
 
@@ -241,6 +352,17 @@ function ThrowAnimator.release()
 		local throw = track("throw")
 		if throw then
 			throw:Play(0.03)
+		end
+	elseif THROW_ONLY then
+		-- on to the release point in exactly releaseDelay (faster if the wind-up was cut short), then at its own speed
+		local throw = track("throw")
+		if throw then
+			if not throw.IsPlaying then
+				throw:Play(0.05)
+			end
+			local left = Animation.throwRelease - throw.TimePosition
+			releasing = left > 0
+			throw:AdjustSpeed(if left > 0 then math.max(1, left / CombatConfig.releaseDelay) else 1)
 		end
 	end
 end
@@ -263,6 +385,7 @@ local function watch(player: Player)
 		player:GetAttributeChangedSignal("CombatMode"):Connect(syncStance)
 		player.CharacterAdded:Connect(function()
 			entry.chargeSince, entry.throwAt = nil, nil
+			releasing = false
 			task.defer(syncStance)
 		end)
 		return
@@ -285,12 +408,16 @@ function ThrowAnimator.Start()
 		print(
 			if USE_TRACKS
 				then "[Throw] throw animation: playing the three animation ids from Config/Combat"
+				elseif
+					THROW_ONLY
+				then `[Throw] throw animation: {Animation.throw} for wind-up and throw (release at {Animation.throwRelease} s), procedural stance`
 				else "[Throw] throw animation: no animation ids in Config/Combat, procedural pose"
 		)
 	end
 	if not USE_TRACKS then
-		-- with MovementController's pose (Character + 2), before the held ball and backpack read the posed parts
-		RunService:BindToRenderStep(STEP, Enum.RenderPriority.Character.Value + 2, onPoseStep)
+		-- after the Animator wrote this frame's Transforms; the held ball and backpack read the posed parts when the
+		-- next frame renders
+		RunService.PreSimulation:Connect(onPoseStep)
 	end
 end
 

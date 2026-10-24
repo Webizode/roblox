@@ -53,6 +53,40 @@ function TowerShape.restingBase(
 	return x, y + seat - bottom, z
 end
 
+export type ConeOpening = {
+	rimRadius: number, -- outer radius of the rim around the opening
+	rimHeight: number, -- how far the rim reaches down from its top face
+	topRadius: number, -- the cone wall's radius right below the rim
+	tipRadius: number, -- and at the tip
+	length: number, -- from below the rim to the tip
+	margin: number, -- this much of the rim (and wall) stays visible around the scoop
+}
+
+-- How far above the rim's top face, along the cone's own axis, a scoop of scoopRadius sits in a cone opening
+-- (the waffle backpack): low enough to sit in it, high enough that neither the rim's edge nor the wall below it
+-- cuts through the scoop. Measured along the axis, so it holds for a tilted cone too; the scoop's centre belongs on
+-- that axis. 0 when the scoop is narrower than the opening anyway.
+function TowerShape.seatInCone(scoopRadius: number, cone: ConeOpening): number
+	local r2 = scoopRadius * scoopRadius
+	local seat = 0
+	-- the rim: the scoop crosses the rim's top face inside its edge
+	local rim = cone.rimRadius - cone.margin
+	if rim < scoopRadius then
+		seat = math.sqrt(r2 - rim * rim)
+	end
+	-- the wall below the rim, tapering to the tip: the scoop's slice at every depth stays inside it
+	local steps = 16
+	for step = 0, steps do
+		local along = cone.length * step / steps
+		local depth = cone.rimHeight + along
+		local wall = cone.topRadius + (cone.tipRadius - cone.topRadius) * along / cone.length - cone.margin
+		if wall < scoopRadius then
+			seat = math.max(seat, math.sqrt(r2 - math.max(wall, 0) ^ 2) - depth)
+		end
+	end
+	return seat
+end
+
 -- The tower as a polyline (flat x, y, z list, bottom to top): the cone tip, the middle scoop, the top scoop and
 -- the free slot. A scoop that comes within the catch radius of this line touches the tower, wherever it hits
 -- it, and is stacked on top. Checking only the free slot let scoops fly straight through taller towers.

@@ -4,7 +4,8 @@
 -- the mouse under its own shift lock or a held right button. Touch screens keep Roblox's camera (dragging turns
 -- it) and only shift it over the shoulder. Either way the character faces where the camera looks, like under shift
 -- lock: it turns with the camera, A/D strafe and the throw always goes forward. Leaving hands the camera back to
--- Roblox, looking the same way, and lets the character turn to its walking direction again.
+-- Roblox, looking the same way, and lets the character turn to its walking direction again. While a throw is aimed
+-- (setAiming) it eases back by aimZoom and returns afterwards; leaving combat mode always ends that.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,6 +27,13 @@ local own = false -- our own camera (mouse or gamepad) instead of Roblox's shift
 local savedType: Enum.CameraType? = nil
 local yaw, pitch = 0, 0
 local turned: Humanoid? = nil -- the humanoid whose AutoRotate combat mode switched off
+local zoom, zoomTarget = 0, 0 -- extra studs behind the character while aiming, and where it is easing to
+
+-- Eases the aiming zoom towards its target; the same curve whichever camera runs.
+local function stepZoom(dt: number): number
+	zoom += (zoomTarget - zoom) * (1 - math.exp(-dt / Look.zoomTime))
+	return zoom
+end
 
 local function releaseFacing()
 	if turned then
@@ -83,7 +91,7 @@ local function ownStep(dt: number)
 
 	local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
 	local pivot = root.Position + Vector3.new(0, Look.pivotUp, 0)
-	local offset = rotation:VectorToWorldSpace(Vector3.new(Look.shoulder, Look.up, Look.distance))
+	local offset = rotation:VectorToWorldSpace(Vector3.new(Look.shoulder, Look.up, Look.distance + stepZoom(dt)))
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { character :: Model }
@@ -97,11 +105,11 @@ local function ownStep(dt: number)
 end
 
 -- Touch: Roblox's camera keeps turning and zooming; this runs after it and only slides it over the shoulder.
-local function shiftStep()
+local function shiftStep(dt: number)
 	local camera = workspace.CurrentCamera
 	local character = player.Character
 	if camera then
-		camera.CFrame *= CFrame.new(Look.shoulder, Look.up, 0)
+		camera.CFrame *= CFrame.new(Look.shoulder, Look.up, stepZoom(dt))
 		if character then
 			face(character, camera.CFrame.LookVector)
 		end
@@ -136,12 +144,18 @@ function CombatCamera.stop()
 	active = false
 	RunService:UnbindFromRenderStep(STEP)
 	releaseFacing()
+	zoom, zoomTarget = 0, 0 -- never left pulled back for the next combat mode
 	local camera = workspace.CurrentCamera
 	if own and camera then
 		-- Roblox's camera carries on from the current look direction
 		camera.CameraType = savedType or Enum.CameraType.Custom
 	end
 	savedType = nil
+end
+
+-- A throw is being aimed (charged) or not: the camera eases back by aimZoom, or returns. Ignored outside combat mode.
+function CombatCamera.setAiming(on: boolean)
+	zoomTarget = if on and active then Look.aimZoom else 0
 end
 
 return CombatCamera

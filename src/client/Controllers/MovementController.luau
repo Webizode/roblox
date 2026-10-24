@@ -1,11 +1,16 @@
 -- How moving looks and feels. One controller for all of it; it changes no speed, jump power, dash distance or
 -- other gameplay value (the sprint speed is set by the server), and adds no second animation system:
 --   * animation ids from Config/Movement go into Roblox's own Animate script (empty ids keep the defaults),
---   * a procedural layer on the R15 root joint leans every character into runs and turns, plays a stumble on a
---     hit and a fall/get-up pose for a knockdown (every client draws it for every character from replicated
---     velocity and the server's hit events, so all players see the same thing),
+--   * a procedural layer on the root joint (R15 or R6, Motor6D or the AnimationConstraint of newer avatars) leans
+--     every character into runs and turns, plays a stumble on a hit and a fall/get-up pose for a knockdown (every
+--     client draws it for every character from replicated velocity and the server's hit events, so all players see
+--     the same thing),
 --   * small local effects: dust and a little camera shake on landing, a FOV kick and trail on a dash, camera
---     shake on hits.
+--     shake on hits,
+--   * combat movement while the CombatMode attribute is on: the local character's combat walk, idle and sprint over
+--     Animate (Config/Movement combat), the walk in reverse for walking backwards, the hips of every character
+--     turning into a sideways walk while the upper body keeps facing the aim, and a stronger forward lean. All of it
+--     ends with combat mode.
 -- The tower hangs off the HumanoidRootPart, which this never moves, so balance and catching are untouched.
 
 local Players = game:GetService("Players")
@@ -26,9 +31,19 @@ local Sfx = require(client:WaitForChild("Sfx"))
 
 local MovementController = {}
 
+-- A Motor6D or an AnimationConstraint: both place Part1 from Part0 through a joint frame (C0, or Attachment0) and
+-- the Transform the Animator writes.
+type Joint = Motor6D | AnimationConstraint
+
 type Pose = {
-	joint: Motor6D,
-	baseC0: CFrame,
+	joint: Joint,
+	waist: Joint?, -- R15 only: turned back against the hips, so the upper body keeps facing the aim
+	offset: CFrame, -- lean, stumble and knockdown in the root part's axes, laid over the animation every frame
+	hip: number, -- combat mode: the hips turned towards a sideways walk (radians, left +)
+	dashPitch: number, -- the lean of the last dash (radians), faded in and out around dashStart..dashUntil
+	dashRoll: number,
+	dashStart: number,
+	dashUntil: number,
 	pitch: number,
 	roll: number,
 	stumblePitch: number,
@@ -48,10 +63,29 @@ local baseFov: number? = nil
 local fovTween: Tween? = nil
 local sprintFov = 0 -- extra field of view while the local player sprints
 
-local function rootJoint(character: Model): Motor6D?
+-- The joint between the HumanoidRootPart and the body: R15's LowerTorso.Root or R6's HumanoidRootPart.RootJoint, as
+-- a Motor6D or as the AnimationConstraint of newer avatars.
+local function rootJoint(character: Model): Joint?
 	local lowerTorso = character:FindFirstChild("LowerTorso")
-	local joint = lowerTorso and lowerTorso:FindFirstChild("Root")
-	return if joint and joint:IsA("Motor6D") then joint else nil
+	local root = character:FindFirstChild("HumanoidRootPart")
+	local joint = (lowerTorso and lowerTorso:FindFirstChild("Root")) or (root and root:FindFirstChild("RootJoint"))
+	if joint and joint:IsA("Motor6D") then
+		return joint
+	elseif joint and joint:IsA("AnimationConstraint") and joint.Attachment0 then
+		return joint
+	end
+	return nil
+end
+
+local function waistJoint(character: Model): Joint?
+	local upperTorso = character:FindFirstChild("UpperTorso")
+	local joint = upperTorso and upperTorso:FindFirstChild("Waist")
+	if joint and joint:IsA("Motor6D") then
+		return joint
+	elseif joint and joint:IsA("AnimationConstraint") and joint.Attachment0 then
+		return joint
+	end
+	return nil
 end
 
 local function poseFor(character: Model): Pose?
@@ -61,11 +95,17 @@ local function poseFor(character: Model): Pose?
 	end
 	local joint = rootJoint(character)
 	if not joint then
-		return nil -- not R15 (or not loaded yet): no procedural layer, nothing breaks
+		return nil -- no known root joint (or not loaded yet): no procedural layer, nothing breaks
 	end
 	pose = {
 		joint = joint,
-		baseC0 = joint.C0,
+		waist = waistJoint(character),
+		offset = CFrame.identity,
+		hip = 0,
+		dashPitch = 0,
+		dashRoll = 0,
+		dashStart = -math.huge,
+		dashUntil = -math.huge,
 		pitch = 0,
 		roll = 0,
 		stumblePitch = 0,
@@ -78,15 +118,46 @@ local function poseFor(character: Model): Pose?
 	return pose
 end
 
+-- Whether an animation id loads for this experience, checked once per id: Roblox only plays animations the
+-- experience may use, and one that never arrives would leave the character stiff instead of Roblox's default.
+local loads: { [string]: boolean } = {}
+local LOAD_WAIT = 5 -- seconds
+
+local function canLoad(animator: Animator, id: string): boolean
+	if loads[id] ~= nil then
+		return loads[id]
+	end
+	local animation = Instance.new("Animation")
+	animation.AnimationId = id
+	local ok, track = pcall(function()
+		return animator:LoadAnimation(animation)
+	end)
+	local waited = 0
+	while ok and track.Length == 0 and waited < LOAD_WAIT do
+		waited += task.wait(0.1)
+	end
+	loads[id] = ok and track.Length > 0
+	if ok then
+		track:Destroy()
+	end
+	if not loads[id] then
+		warn(`[Movement] animation {id} does not load for this experience (no permission?); Roblox's default stays`)
+	end
+	return loads[id]
+end
+
 -- Puts configured animation ids into Roblox's Animate script; it reloads a set when one of its animations changes.
+-- An id that does not load is left out, so that set keeps Roblox's default.
 local function applyAnimations(character: Model)
 	local animate = character:WaitForChild("Animate", 10)
-	if not animate then
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	local animator = humanoid and humanoid:WaitForChild("Animator", 10)
+	if not animate or not animator or not animator:IsA("Animator") then
 		return
 	end
 	for setName, entries in Movement.animations do
 		for animationName, id in entries do
-			if id ~= "" then
+			if id ~= "" and canLoad(animator, id) then
 				local set = animate:WaitForChild(setName, 5)
 				local animation = set and set:FindFirstChild(animationName)
 				if animation and animation:IsA("Animation") then
@@ -94,6 +165,107 @@ local function applyAnimations(character: Model)
 				end
 			end
 		end
+	end
+end
+
+-- Combat movement of the local character (Config/Movement combat): its own walk, idle and sprint over Roblox's
+-- Animate while the CombatMode attribute is on and it stands on the ground. Animations the owner plays replicate to
+-- everyone, so only the local character gets them. Anything else (combat mode off, in the air, dead) fades them
+-- out and Animate's own animations show again; an animation that does not load leaves that state to Animate too.
+local Combat = Movement.combat
+
+type CombatTracks = {
+	humanoid: Humanoid,
+	walk: AnimationTrack?,
+	idle: AnimationTrack?,
+	sprint: AnimationTrack?,
+	current: AnimationTrack?,
+}
+
+local combatTracks: CombatTracks? = nil
+local sprintingNow = false -- the local player's sprint, from setSprinting
+local MAX_PLAY_SPEED = 2 -- a dash would otherwise spin the walk cycle
+
+local function loadCombatTracks(character: Model)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	local animator = humanoid and humanoid:WaitForChild("Animator", 10)
+	if not humanoid or not humanoid:IsA("Humanoid") or not animator or not animator:IsA("Animator") then
+		return
+	end
+	if humanoid.RigType ~= Enum.HumanoidRigType.R15 then
+		return -- the combat animations are made for R15; R6 keeps Animate's
+	end
+	local function load(id: string): AnimationTrack?
+		if id == "" or not canLoad(animator, id) then
+			return nil
+		end
+		local animation = Instance.new("Animation")
+		animation.AnimationId = id
+		local track = animator:LoadAnimation(animation)
+		track.Priority = Enum.AnimationPriority.Movement -- over Animate, under the throw (Action)
+		track.Looped = true
+		return track
+	end
+	local tracks = {
+		humanoid = humanoid,
+		walk = load(Combat.walk),
+		idle = load(Combat.idle),
+		sprint = load(Combat.sprint),
+		current = nil,
+	}
+	if character == player.Character then
+		combatTracks = tracks
+	end
+end
+
+local function stepCombatTracks()
+	local tracks = combatTracks
+	if not tracks then
+		return
+	end
+	local humanoid = tracks.humanoid
+	local character = humanoid.Parent
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local airborne = humanoid.FloorMaterial == Enum.Material.Air
+	local active = root ~= nil
+		and character == player.Character
+		and player:GetAttribute("CombatMode") == true
+		and humanoid.Health > 0
+		and not airborne
+	local want: AnimationTrack? = nil
+	local speed = 1
+	local moving = false
+	if active and root then
+		local velocity = root.AssemblyLinearVelocity
+		local flat = Vector3.new(velocity.X, 0, velocity.Z)
+		moving = flat.Magnitude > Combat.moveThreshold
+		if moving then
+			local look = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+			local backwards = look.Magnitude > 1e-3 and flat.Unit:Dot(look.Unit) < -0.25
+			if sprintingNow and tracks.sprint then
+				want = tracks.sprint
+				speed = flat.Magnitude / (Combat.walkSpeedAt * EconomyConfig.sprintMultiplier)
+			else
+				want = tracks.walk
+				speed = flat.Magnitude / Combat.walkSpeedAt * (if sprintingNow then Combat.sprintPlaySpeed else 1)
+			end
+			speed = math.min(speed, MAX_PLAY_SPEED) * (if backwards then -1 else 1)
+		else
+			want = tracks.idle -- nil without a combat idle: Animate's idle shows
+		end
+	end
+	if want ~= tracks.current then
+		local fade = if active and not moving then Combat.stopFade else Combat.fade
+		if tracks.current then
+			tracks.current:Stop(fade)
+		end
+		if want then
+			want:Play(fade)
+		end
+		tracks.current = want
+	end
+	if want then
+		want:AdjustSpeed(speed)
 	end
 end
 
@@ -186,12 +358,27 @@ local function watchLanding(character: Model)
 end
 
 local function onCharacter(character: Model)
+	combatTracks = nil -- the old character's tracks went with it
 	task.spawn(applyAnimations, character)
+	task.spawn(loadCombatTracks, character)
 	task.spawn(watchLanding, character)
 end
 
--- The procedural layer for every character: lean into runs and turns, stumble, knockdown pose.
+-- How far the hips turn towards a walk that goes sideways in combat mode (left +): along the walk for forwards and
+-- sideways, mirrored for backwards (the legs then walk backwards), at most hipTurn either way.
+local function hipTarget(root: BasePart, flat: Vector3): number
+	local direction = root.CFrame:VectorToObjectSpace(flat.Unit)
+	local x, z = direction.X, direction.Z
+	if z > 0.25 then
+		x, z = -x, -z
+	end
+	return math.clamp(-math.atan2(x, -z), -Combat.hipTurn, Combat.hipTurn)
+end
+
+-- The procedural layer for every character: lean into runs and turns, stumble, knockdown pose, and in combat mode
+-- the hips turning into a sideways walk.
 local function onRenderStep(dt: number)
+	stepCombatTracks()
 	for _, other in Players:GetPlayers() do
 		local character = other.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -204,10 +391,22 @@ local function onRenderStep(dt: number)
 			-- measured against the normal walking speed, so a sprint leans further than a walk
 			local speedShare = math.clamp(flat.Magnitude / EconomyConfig.baseWalkSpeed, 0, 1.5)
 			local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
+			local combat = other:GetAttribute("CombatMode") == true and humanoid.Health > 0
+
+			-- hips into a sideways walk; back to straight when standing, in the air or out of combat mode
+			local hipGoal = if combat
+					and grounded
+					and pose.waist
+					and flat.Magnitude > Combat.moveThreshold
+				then hipTarget(root, flat)
+				else 0
+			pose.hip += (hipGoal - pose.hip) * (1 - math.exp(-Combat.hipResponse * dt))
 
 			-- forward lean with speed, roll into turns from how fast the facing rotates
 			local targetPitch = if grounded
-				then -Movement.leanForward * math.min(speedShare, Movement.sprintLean)
+				then -Movement.leanForward * math.min(speedShare, Movement.sprintLean) * (if combat
+					then Combat.leanBoost
+					else 1)
 				else 0
 			local turnRate = 0
 			if look.Magnitude > 1e-3 and pose.lastLook.Magnitude > 1e-3 and dt > 0 then
@@ -232,18 +431,52 @@ local function onRenderStep(dt: number)
 				else math.max(pose.downTarget, pose.down - rate)
 			local fall = TweenService:GetValue(pose.down, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-			pose.joint.C0 = pose.baseC0
-				* CFrame.new(0, -Movement.knockdownDrop * fall, 0)
+			-- the dash lean: in quickly, held for the burst, out after it
+			local clock = os.clock()
+			local dashWeight = if clock < pose.dashStart
+				then 0
+				elseif clock < pose.dashUntil then math.min(1, (clock - pose.dashStart) / Movement.dashLeanIn)
+				else math.max(0, 1 - (clock - pose.dashUntil) / Movement.dashLeanOut)
+			dashWeight = TweenService:GetValue(dashWeight, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+			pose.offset = CFrame.new(0, -Movement.knockdownDrop * fall, 0)
+				* CFrame.Angles(0, pose.hip, 0)
 				* CFrame.Angles(
-					pose.pitch + pose.stumblePitch + Movement.knockdownAngle * fall,
+					pose.pitch + pose.stumblePitch + Movement.knockdownAngle * fall + pose.dashPitch * dashWeight,
 					0,
-					pose.roll + pose.stumbleRoll
+					pose.roll + pose.stumbleRoll + pose.dashRoll * dashWeight
 				)
 		end
 	end
 	for character in poses do
 		if not character.Parent then
 			poses[character] = nil
+		end
+	end
+end
+
+-- The joint frame on Part0's side: C0 of a Motor6D, Attachment0 of an AnimationConstraint.
+local function frameOf(joint: Joint): CFrame
+	if joint:IsA("Motor6D") then
+		return joint.C0
+	end
+	local attachment = (joint :: AnimationConstraint).Attachment0
+	return if attachment then attachment.CFrame else CFrame.identity
+end
+
+-- Right after the Animator each frame (PreSimulation): the offset, given in the root part's axes, goes on top of the
+-- animation's Transform. R6's root joint frame is turned against the root part, R15's is not; both lean the same.
+local function onPoseStep()
+	for _, pose in poses do
+		if pose.offset ~= CFrame.identity then
+			local frame = frameOf(pose.joint).Rotation
+			pose.joint.Transform = frame:Inverse() * pose.offset * frame * pose.joint.Transform
+		end
+		-- the upper body turns back against the hips, so it keeps facing the aim
+		local waist = pose.waist
+		if waist and math.abs(pose.hip) > 1e-4 then
+			local frame = frameOf(waist).Rotation
+			waist.Transform = frame:Inverse() * CFrame.Angles(0, -pose.hip, 0) * frame * waist.Transform
 		end
 	end
 end
@@ -368,20 +601,22 @@ local function dashAssets(): Instance?
 	return ReplicatedStorage:FindFirstChild("DashAssets")
 end
 
--- The model's particle burst, turned towards the dash, if its assets were imported. Returns nothing either way.
-local function dashParticles(root: BasePart, kind: Dash.Kind)
+-- The model's particle burst, turned towards the dash's actual direction (diagonals included; 0 ahead, 90 to the
+-- right as in the model), if its assets were imported. Returns nothing either way.
+local function dashParticles(root: BasePart, dirX: number, dirZ: number)
 	local assets = dashAssets()
 	local template = assets and assets:FindFirstChild("DashVfx")
 	if not template or not template:IsA("BasePart") then
 		return
 	end
-	local yaw = if kind == "back" then 180 elseif kind == "right" then 90 elseif kind == "left" then 270 else 0
+	local relative = root.CFrame:VectorToObjectSpace(Vector3.new(dirX, 0, dirZ))
+	local yaw = math.atan2(relative.X, -relative.Z)
 	local effect = template:Clone()
 	effect.Anchored = true
 	effect.CanCollide = false
 	effect.CanTouch = false
 	effect.CanQuery = false
-	effect.CFrame = root.CFrame * CFrame.Angles(0, math.rad(yaw), 0)
+	effect.CFrame = root.CFrame * CFrame.Angles(0, yaw, 0)
 	effect.Parent = TowerVisual.root()
 	for _, item in effect:GetDescendants() do
 		if item:IsA("ParticleEmitter") then
@@ -450,18 +685,76 @@ local function playDashAnimation(character: Model, kind: Dash.Kind)
 	track:Play(0.04)
 end
 
--- A granted dash on any character, going (dirX, dirZ): trails, afterimages and the model's particles and sound for
--- everyone; the FOV kick, the animation and (without the model's sound) the game's own dash sound for the local
--- player.
-function MovementController.dash(character: Model, duration: number, dirX: number, dirZ: number)
+-- The floor under a point (the character excluded), or nil over a gap.
+local function floorBelow(character: Model, position: Vector3): RaycastResult?
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character, TowerVisual.root() }
+	params.RespectCanCollide = true
+	return workspace:Raycast(position, Vector3.new(0, -8, 0), params)
+end
+
+-- A thin bright streak on the floor along the dash, from where it starts to where it will end, fading out; and a
+-- puff of dust at both ends. The streak runs the actual direction, diagonals included; over a gap there is none.
+local function groundStreak(character: Model, root: BasePart, dirX: number, dirZ: number, distance: number)
+	local floor = floorBelow(character, root.Position)
+	if not floor then
+		return
+	end
+	local look = Movement.dashStreak
+	local direction = Vector3.new(dirX, 0, dirZ)
+	local start = floor.Position + Vector3.new(0, 0.04, 0)
+	local streak = Instance.new("Part")
+	streak.Name = "DashStreak"
+	streak.Anchored = true
+	streak.CanCollide = false
+	streak.CanQuery = false
+	streak.CanTouch = false
+	streak.CastShadow = false
+	streak.Material = Enum.Material.Neon
+	streak.Color = Color3.fromHex(Palette.vanilla)
+	streak.Transparency = look.transparency
+	streak.Size = Vector3.new(look.width, 0.05, distance)
+	streak.CFrame = CFrame.lookAt(start + direction * distance / 2, start + direction * distance)
+	streak.Parent = TowerVisual.root()
+	TweenService:Create(streak, TweenInfo.new(look.fade, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Transparency = 1,
+		Size = Vector3.new(look.width * 0.3, 0.05, distance),
+	}):Play()
+	task.delay(look.fade + 0.05, function()
+		streak:Destroy()
+	end)
+	dust(start, 0.5)
+end
+
+-- A granted dash on any character, going (dirX, dirZ) for `distance` studs: the body leaning into it, trails,
+-- afterimages, a streak on the floor, dust and the model's particles and sound for everyone; the FOV kick, the
+-- animation and (without the model's sound) the game's own dash sound for the local player.
+function MovementController.dash(character: Model, duration: number, dirX: number, dirZ: number, distance: number?)
 	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then
 		return
 	end
 	local look = root.CFrame.LookVector
 	local kind = Dash.kind(dirX, dirZ, look.X, look.Z)
+	-- lean into the actual direction: forward or back tips the body, sideways rolls it, diagonals mix both
+	local pose = poseFor(character)
+	if pose then
+		local relative = root.CFrame:VectorToObjectSpace(Vector3.new(dirX, 0, dirZ))
+		pose.dashPitch = relative.Z * Movement.dashLean -- ahead is -Z; a forward lean is a negative pitch
+		pose.dashRoll = -relative.X * Movement.dashLean
+		pose.dashStart = os.clock()
+		pose.dashUntil = os.clock() + duration
+	end
 	limbTrails(character, duration)
-	dashParticles(root, kind)
+	dashParticles(root, dirX, dirZ)
+	groundStreak(character, root, dirX, dirZ, distance or 10)
+	task.delay(duration, function()
+		local floor = root.Parent and floorBelow(character, root.Position)
+		if floor then
+			dust(floor.Position + Vector3.new(0, 0.1, 0), 0.4)
+		end
+	end)
 	local count = math.max(1, Movement.dashAfterimages)
 	for index = 0, count - 1 do
 		task.delay(duration * index / count, afterimage, character)
@@ -512,6 +805,7 @@ end
 
 -- Local player only: a slightly wider view while sprinting. The speed itself is the server's (TowerService).
 function MovementController.setSprinting(on: boolean)
+	sprintingNow = on -- the combat sprint animation follows it
 	local camera = workspace.CurrentCamera
 	baseFov = baseFov or camera.FieldOfView
 	sprintFov = if on then Movement.sprintFov else 0
@@ -531,7 +825,9 @@ function MovementController.Start()
 	if player.Character then
 		onCharacter(player.Character)
 	end
+	-- the pose follows the frame here; it lands on the joints after the Animator, in onPoseStep
 	RunService:BindToRenderStep("WobbleMovementPose", Enum.RenderPriority.Character.Value + 2, onRenderStep)
+	RunService.PreSimulation:Connect(onPoseStep)
 end
 
 return MovementController

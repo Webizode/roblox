@@ -109,6 +109,31 @@ describe("Catch geometry", function()
 		expect(y + first).toBeCloseTo(math.sqrt(radius * radius - 0.95 * 0.95))
 	end)
 
+	it("seats the bottom scoop in a tilted waffle without cutting through its rim or wall", function()
+		local cone =
+			{ rimRadius = 1.07, rimHeight = 0.19, topRadius = 1.0, tipRadius = 0.24, length = 2.1, margin = 0.08 }
+		local radius = 1.05
+		local seat = TowerShape.seatInCone(radius, cone)
+		expect(seat).toBeGreaterThan(0)
+		-- at the rim's top face the scoop is just inside the rim's edge
+		local slice = math.sqrt(radius * radius - seat * seat)
+		expect(slice <= cone.rimRadius - cone.margin + 1e-9).toBe(true)
+		-- and below it never wider than the wall
+		for step = 0, 20 do
+			local along = cone.length * step / 20
+			local depth = cone.rimHeight + along
+			local below = seat + depth
+			if below < radius then
+				local wall = cone.topRadius + (cone.tipRadius - cone.topRadius) * along / cone.length
+				expect(math.sqrt(radius * radius - below * below) <= wall - cone.margin + 1e-6).toBe(true)
+			end
+		end
+		-- but it sits in the cone: its bottom is below the rim's top face
+		expect(seat).toBeLessThan(radius)
+		-- a scoop narrower than the opening drops right in
+		expect(TowerShape.seatInCone(0.3, cone)).toBeCloseTo(0)
+	end)
+
 	it("builds the column from the cone tip to the free slot", function()
 		for _, count in { 0, 1, 2, 7, 20 } do
 			local points = TowerShape.column(count, 0.2, -0.1, TowerTuning)

@@ -372,6 +372,12 @@ function CombatService.isDown(player: Player): boolean
 	return state ~= nil and now() < state.downUntil
 end
 
+-- Whether the player is in combat mode (the same state the CombatMode attribute shows).
+function CombatService.inCombatMode(player: Player): boolean
+	local state = states[player]
+	return state ~= nil and state.combatMode
+end
+
 function CombatService.Start()
 	local function onPlayer(player: Player)
 		local state: PlayerState = {

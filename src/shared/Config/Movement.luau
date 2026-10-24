@@ -5,14 +5,38 @@
 return {
 	-- Animation overrides for Roblox's built-in Animate script, as "rbxassetid://<id>". Empty means Roblox's
 	-- default animation stays. The animations must be published by the same account or group that owns the
-	-- experience, otherwise Roblox does not play them. Keys are the Animate script's animation sets; within a set,
-	-- each named Animation child gets the id.
+	-- experience (or shared with it), otherwise Roblox does not play them; MovementController checks that each one
+	-- loads and keeps Roblox's default for any that does not. Keys are the Animate script's animation sets; within a
+	-- set, each named Animation child gets the id. R15's Animate plays the run set at normal walking speed already
+	-- (the walk set only when creeping), so a walk animation goes into both. The animations must be made for R15: one
+	-- for R6 loads but moves no R15 joint, and the character glides with stiff legs (the load check cannot see that).
+	-- Empty for now, so Roblox's own idle, walk and run play outside combat mode: "Idle 1" (89576729034814) and
+	-- "Walk4" (95197756431784) moved no R15 joint at all, and the sprint 10862419793 does not load (other creator).
 	animations = {
 		idle = { Animation1 = "", Animation2 = "" },
 		walk = { WalkAnim = "" },
 		run = { RunAnim = "" },
 		jump = { JumpAnim = "" },
 		fall = { FallAnim = "" },
+	},
+
+	-- combat mode only (the CombatMode attribute): animations over Roblox's Animate (Movement priority, below the
+	-- throw), ended as soon as combat mode ends, the character is in the air or it dies. Empty or not loading: the
+	-- normal animation stays for that state (the combat walk stands in for the sprint).
+	combat = {
+		walk = "rbxassetid://127299725054429", -- "movement"
+		idle = "", -- your combat idle; until then the normal idle stays
+		sprint = "", -- your combat sprint; until then the combat walk, played faster
+		walkSpeedAt = 16, -- studs/s at which the walk plays at its own speed; faster walking plays it faster
+		sprintPlaySpeed = 1.15, -- extra speed of the walk standing in for the sprint
+		fade = 0.12, -- seconds between walk, sprint and idle
+		stopFade = 0.1, -- seconds from moving to standing: a quick, clean stop
+		moveThreshold = 1.5, -- studs/s on the ground below which the character counts as standing
+		-- moving sideways turns the hips (and the legs with them) up to hipTurn towards the way it goes while the
+		-- upper body keeps facing the aim; backwards plays the walk in reverse
+		hipTurn = math.rad(50),
+		hipResponse = 14, -- 1/s, how fast the hips follow a change of direction
+		leanBoost = 1.3, -- forward lean of walking and sprinting is this much stronger in combat mode
 	},
 
 	-- running lean (all characters, drawn by every client from the replicated velocity)
@@ -43,6 +67,13 @@ return {
 	dashAfterimageFade = 0.25, -- seconds
 	dashAfterimageTransparency = 0.45,
 	dashLimbTrailLifetime = 0.16,
+	-- the body leans into the dash, whichever way it goes (forward, back, to a side or diagonally): a procedural pose
+	-- on the root joint until dash animations exist (dashAnimations below)
+	dashLean = math.rad(16),
+	dashLeanIn = 0.05, -- seconds to lean in
+	dashLeanOut = 0.22, -- seconds to straighten up after the burst
+	-- a thin bright streak on the ground along the dash and a puff of dust where it starts and ends
+	dashStreak = { width = 0.9, transparency = 0.45, fade = 0.4 },
 	-- dash animations by direction (Dash.kind; forward alternates between two), "rbxassetid://<id>" of animations
 	-- published by the experience owner for the game's rig. Empty plays none. The model's own animations are R6
 	-- and published by its author, so they cannot be used as they are.

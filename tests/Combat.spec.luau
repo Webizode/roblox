@@ -294,4 +294,39 @@ describe("Tower reaction to a hit", function()
 		-- the limit: a knockdown hit on a very tall tower already leaning the same way is lost even in the stance
 		expect(hit(25, 0.5, Config.knockdownBoost, true)).toBe(true)
 	end)
+
+	it("hits shake the tower: a hit right after another kicks harder, one after a long pause does not", function()
+		local state = TowerModel.newState(1)
+		local first = TowerModel.hitKick(state, Config, 5, 1, 0, 1)
+		state.t += 0.45
+		local second = TowerModel.hitKick(state, Config, 5, 1, 0, 1)
+		expect(second).toBeGreaterThan(first)
+		state.t += 10
+		expect(TowerModel.hitKick(state, Config, 5, 1, 0, 1)).toBeCloseTo(first, 1e-9)
+		-- a reset (topple, serve) forgets the shaking
+		state.t += 0.1
+		TowerModel.reset(state)
+		expect(TowerModel.hitKick(state, Config, 5, 1, 0, 1)).toBeCloseTo(first, 1e-9)
+	end)
+
+	it("hits in quick succession can topple a short tower that the same hits spread out cannot", function()
+		local function series(count: number, powers: { number }, interval: number): boolean
+			local state = TowerModel.newState(7)
+			runWithAssist(state, count, 1)
+			for index, power in powers do
+				TowerModel.hitKick(state, Config, count, 1, 0, power)
+				if runWithAssist(state, count, if index < #powers then interval else 6) then
+					return true
+				end
+			end
+			return state.toppled
+		end
+		local quick = Config.throwInterval + 0.05
+		expect(series(5, { 1, 1 }, quick)).toBe(true)
+		expect(series(5, { 0.8, 0.8, 0.8 }, quick)).toBe(true)
+		expect(series(5, { 1, 1, 1 }, 1.5)).toBe(false)
+		expect(series(5, { 0.6, 0.6 }, quick)).toBe(false)
+		-- no fixed number of hits: a tiny tower rights itself even after three full ones
+		expect(series(2, { 1, 1, 1 }, quick)).toBe(false)
+	end)
 end)

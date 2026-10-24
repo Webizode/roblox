@@ -35,6 +35,10 @@ return {
 		pitchMax = math.rad(55),
 		mouseSpeed = math.rad(0.4), -- per pixel of mouse movement at Roblox's mouse sensitivity 1
 		gamepadSpeed = math.rad(220), -- per second with the right stick fully out
+		-- while a throw is charged (the wind-up and the held aim) the camera pulls back this much further and comes back
+		-- after the release or a dropped charge; it eases there over about zoomTime
+		aimZoom = 3, -- studs
+		zoomTime = 0.2, -- seconds
 	},
 
 	-- the ball in the hand (HeldBalls), drawn for every player in combat mode; purely visual
@@ -44,29 +48,72 @@ return {
 		frostMax = 0.85, -- share of the ball size a refilling frost ball reaches; it grows from zero over the reload
 		frostTransparency = 0.55,
 		drawDistance = 200, -- studs from the camera
+		hover = 0.25, -- studs of air between the top of the palm and the bottom of the ball floating above it
+		side = -0.15, -- studs the ball sits to the character's right (+) or left (-) of the palm's centre
+		spinSpeed = 25, -- degrees per second the floating ball slowly turns, on top of its idle sway
+		-- after a throw the next ball pops in only once the arm has swung through, so the hand is empty meanwhile
+		reappearDelay = 0.5, -- seconds
+	},
+
+	-- ice look of the ball, purely visual and client-only (BallVisual, HeldBalls, CombatController). Particles use
+	-- Roblox's built-in sparkle; colours come from the palette (vanilla, skyTop, sea). Nothing here moves a ball.
+	iceVfx = {
+		-- in the hand: a few slow sparkles and a soft glow
+		frost = { rate = 10, lifetime = 0.8, size = 0.22, brightness = 1.2, range = 4 },
+		-- in flight: a light streak from white to ice blue, twinkles falling off it, a brighter glow
+		trail = { lifetime = 0.3, lightEmission = 0.7 },
+		twinkle = { rate = 35, lifetime = 0.45, size = 0.2 },
+		glow = { brightness = 2, range = 7 },
+		fadeOut = 0.35, -- seconds the streak and twinkles linger where the ball ended
+		-- the hit: a quick pinwheel of ice shards around the impact
+		shards = 6,
+		shardTime = 0.35,
+	},
+
+	-- the vanilla ball model (BallVisual) drawn for the held and the flying ball, scaled to ballRadius; purely visual.
+	-- Its three motions come from the Blender actions of WSB_ThrowBall (BallMotion). Lengths in ball diameters,
+	-- angles in degrees.
+	ballModel = {
+		template = "WSB_ThrowBall_Vanilla", -- model in ReplicatedStorage: pivot at its centre, face towards -Z
+		-- floating in the hand: a slow bob with a little sway, one loop per period
+		idle = { period = 2, bob = 0.038, pitch = 3, yaw = 6, roll = 2.5 },
+		-- thrown: a quick hop up and back, then spinning flat around its own up axis
+		flight = { bounce = 0.115, bounceRise = 0.1, bounceEnd = 0.27, turnsPerSecond = 2 },
+		-- the next ball popping into the hand turns once
+		nextThrow = { duration = 0.33 },
 	},
 
 	-- the throw animation. The ball leaves the hand releaseDelay after the button-up: the server checks the throw when
 	-- the button-up arrives and starts the ball that much later, and the throw animation releases at the same moment
 	-- (its "Release" marker). With animation ids (published by the experience owner for the R15 rig) the local player
 	-- plays them and they replicate; while they are empty a procedural pose of the right arm and the waist stands in,
-	-- drawn by every client for every player. Angles in degrees: shoulder swing (forward +, 180 is straight up),
-	-- elbow bend, waist turn (left +). scripts/throw-animation.luau turns these poses into a KeyframeSequence file for
-	-- the Animation Editor.
+	-- drawn by every client for every player. Angles in degrees: shoulder swing (forward +, 180 is straight up), the
+	-- arm out to the side (+), elbow bend, wrist bend (forward +), wrist twist (turns the hand about the forearm; it
+	-- levels the palm against `out`), waist turn (left +). The stance presents the ball: the hand flat with its palm up, the ball floating above it (HeldBalls);
+	-- the wind-up keeps that hand and only coils the waist. R6 swings its one arm to the middle of upper and lower arm
+	-- (ThrowPose.singleArm). scripts/throw-animation.luau turns these poses into a KeyframeSequence file for the
+	-- Animation Editor.
 	releaseDelay = 0.08, -- seconds
 	throwAnimation = {
 		stance = "", -- "rbxassetid://<id>", looped combat stance
 		charge = "", -- wind-up, with a "Held" marker at the end where it stops and holds
-		throw = "", -- throw, with a "Release" marker at releaseDelay
+		-- throw, with a "Release" marker at releaseDelay. Set alone (stance and charge empty) it is one animation with
+		-- the wind-up in it: it starts with the charge, holds releaseDelay before throwRelease until the button-up and
+		-- then swings through, so the ball leaves the hand when the server starts it; the procedural pose stands in
+		-- for the stance and steps aside while it plays.
+		throw = "rbxassetid://109391766917607", -- "WSB_ThrowFixed", its "Release" marker is at 0.68 s
+		throwRelease = 0.68, -- seconds into the throw animation where the ball leaves the hand (fastest forward swing)
 		windupTime = 0.15, -- seconds from the stance to the full wind-up
 		followTime = 0.14, -- after the release: the arm swings through
 		recoverTime = 0.22, -- and back to the stance
 		blendTime = 0.15, -- in and out of combat mode
 		poses = {
-			stance = { shoulder = 55, elbow = 75, waist = 0 },
-			windup = { shoulder = 205, elbow = 95, waist = -20 },
-			release = { shoulder = 100, elbow = 10, waist = 15 },
-			follow = { shoulder = 35, elbow = 20, waist = 22 },
+			-- upper arm hanging a little forward, forearm raised a little above level, hand flat on top of it
+			stance = { shoulder = 20, out = 12, elbow = 90, wrist = 70, twist = 37, waist = 0 },
+			windup = { shoulder = 20, out = 12, elbow = 90, wrist = 70, twist = 37, waist = -12 },
+			-- a push forward and up out of the presenting hand
+			release = { shoulder = 100, out = 5, elbow = 15, wrist = 10, twist = 0, waist = 15 },
+			follow = { shoulder = 60, out = 0, elbow = 25, wrist = 15, twist = 0, waist = 22 },
 		},
 	},
 
@@ -89,10 +136,17 @@ return {
 	knockbackTime = 0.15, -- seconds
 
 	-- tower reaction (TowerModel.hitKick): pushed along the ball's flight, corrections weaker for a moment
-	towerKickBase = 0.25, -- rad/s at power 1
+	-- Hits shake the tower: their powers add up and drain by towerShakeDecay per second, and each hit kicks harder
+	-- (x 1 + towerShakeGain * shake) and stays unsteady longer (x 1 + shake) the more shaken the tower is. In
+	-- simulation, standing with only the stabiliser: one full hit never topples up to 10 scoops; on 5 scoops two full
+	-- or three medium hits in a row topple it, the same three hits 1.5 s apart do not; on 2-3 scoops three full hits
+	-- push it to the tip, but it rights itself.
+	towerKickBase = 0.5, -- rad/s at power 1
 	towerKickPerScoop = 0.03,
 	towerKickMax = 1.0,
-	unsteadySeconds = 0.5,
+	towerShakeGain = 1.0,
+	towerShakeDecay = 0.6, -- per second, like the stagger
+	unsteadySeconds = 0.5, -- times 1 + shake
 	unsteadyFactor = 0.5,
 
 	-- knockdown: every hit adds its power to a stagger value that drains by staggerDecay per second. A single hit

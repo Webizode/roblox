@@ -45,6 +45,7 @@ local FADE_RESPONSE = 8 -- 1/s
 -- beyond FADE_OUT; one threshold made a wobbling tower flicker on and off (studs beyond the scoop radius)
 local FADE_IN, FADE_OUT = 0.4, 1.2
 local DASH_ACTION = "WobbleDash"
+local POWER_DASH_ACTION = "WobblePowerDash" -- E, combat mode only
 local SPRINT_ACTION = "WobbleSprint"
 -- Roblox puts shift lock on Shift, which is the sprint here; it moves to Ctrl
 local SHIFT_LOCK_KEYS = "LeftControl,RightControl"
@@ -71,6 +72,8 @@ local lastServeRequest = 0
 local serveArmed = false
 local groundY = 1
 local dashReadyAt = 0 -- local cooldown so the key cannot spam requests; the server has the final say
+local powerDashReadyAt = 0 -- the power dash's own
+local dashRunningUntil = 0 -- no dash request while one still runs
 local meter = Stance.new() -- the steady stance's energy bar, predicted here; the server's counts
 local stanceStartedAt = 0
 local sprinting = false
@@ -94,18 +97,15 @@ local function rootPart(): BasePart?
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
--- The visible tower on the back: its bottom scoop rests in the waffle opening (Backpacks.opening, the same frame the
--- waffle is drawn from). While no waffle shows (knocked down), it falls back to the fixed offset from the root.
+-- The visible tower on the back: its bottom scoop sits in the waffle (Backpacks.seat, from the same frame the waffle
+-- is drawn with) and the rest stacks up from it. While no waffle shows (knocked down), it falls back to the fixed
+-- offset from the root.
 local function towerBase(root: BasePart): Vector3
 	local character = root.Parent :: Model?
-	local opening, ringRadius
-	if character then
-		opening, ringRadius = registry.Backpacks.opening(character)
-	end
-	if opening then
-		local x, y, z =
-			TowerShape.restingBase(opening.X, opening.Y, opening.Z, TowerVisual.SCOOP_SIZE / 2, ringRadius, Tuning)
-		return Vector3.new(x, y, z)
+	local seat = character and registry.Backpacks.seat(character, TowerVisual.SCOOP_SIZE / 2)
+	if seat then
+		local _, bottom = TowerShape.offset(1, 1, 0, 0, Tuning)
+		return seat - Vector3.new(0, bottom, 0)
 	end
 	return (root.CFrame * CFrame.new(0, Tuning.holdUp, -Tuning.holdForward)).Position
 end
@@ -343,7 +343,24 @@ local function debugDash(message: string)
 	end
 end
 
-local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ: number)
+-- How fast and how long each kind of dash goes: the dash, and in combat mode the quick and the power dash.
+local function dashMotion(kind: string): (number, number)
+	if kind == "power" then
+		return Tuning.dash.power.speed, Tuning.dash.power.duration
+	elseif kind == "quick" then
+		return Tuning.dash.quick.speed, Tuning.dash.quick.duration
+	end
+	return Tuning.dash.speed, Tuning.dash.duration
+end
+
+local function dashBurst(
+	root: BasePart,
+	humanoid: Humanoid,
+	dirX: number,
+	dirZ: number,
+	speed: number,
+	duration: number
+)
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "DashAttachment"
 	attachment.Parent = root
@@ -354,7 +371,7 @@ local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ:
 	velocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
 	velocity.PrimaryTangentAxis = Vector3.xAxis
 	velocity.SecondaryTangentAxis = Vector3.zAxis
-	velocity.PlaneVelocity = Vector2.new(dirX, dirZ) * Tuning.dash.speed
+	velocity.PlaneVelocity = Vector2.new(dirX, dirZ) * speed
 	velocity.MaxForce = root.AssemblyMass * Tuning.dash.acceleration
 	velocity.Parent = root
 
@@ -372,26 +389,18 @@ local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ:
 
 	local elapsed = 0
 	local start = root.Position
-	debugDash(
-		string.format(
-			"burst: %.0f studs/s for %.3f s towards (%.2f, %.2f)",
-			Tuning.dash.speed,
-			Tuning.dash.duration,
-			dirX,
-			dirZ
-		)
-	)
+	debugDash(string.format("burst: %.0f studs/s for %.3f s towards (%.2f, %.2f)", speed, duration, dirX, dirZ))
 	local connection: RBXScriptConnection
 	connection = RunService.Heartbeat:Connect(function(dt)
 		elapsed += dt
 		local wall = false
 		local hit
 		if root.Parent then
-			local reach = math.min(Tuning.dash.speed * dt + 0.4, 6)
+			local reach = math.min(speed * dt + 0.4, 6)
 			hit = workspace:Blockcast(root.CFrame, castSize, ahead * reach, params)
 			wall = hit ~= nil and Dash.blocks(hit.Normal.X, hit.Normal.Y, hit.Normal.Z, dirX, dirZ)
 		end
-		if not wall and elapsed < Tuning.dash.duration - dt / 2 and root.Parent then
+		if not wall and elapsed < duration - dt / 2 and root.Parent then
 			return
 		end
 		connection:Disconnect()
@@ -422,52 +431,77 @@ local function dashBurst(root: BasePart, humanoid: Humanoid, dirX: number, dirZ:
 	end)
 end
 
-local function onDash(who: Player, dirX: number, dirZ: number)
+-- The power dash yanks the tower harder than a dash.
+local function dashKickTuning(kind: string)
+	if kind ~= "power" then
+		return Tuning.dash
+	end
+	local scale = Tuning.dash.power.kickScale
+	return {
+		kickBase = Tuning.dash.kickBase * scale,
+		kickPerScoop = Tuning.dash.kickPerScoop * scale,
+		kickMax = Tuning.dash.kickMax * scale,
+		unsteadySeconds = Tuning.dash.unsteadySeconds,
+		unsteadyFactor = Tuning.dash.unsteadyFactor,
+	}
+end
+
+local function onDash(who: Player, dirX: number, dirZ: number, kind: string?)
 	local character = who.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then
 		return
 	end
+	local dashKind = if kind == "power" or kind == "quick" then kind else "dash"
+	local speed, duration = dashMotion(dashKind)
 	-- the movement and the tower kick first: an error in the effects below must never cost the dash itself
 	if who == player then
-		debugDash("granted by the server")
-		dashReadyAt = os.clock() + Tuning.dash.cooldown
+		debugDash(`{dashKind} granted by the server`)
+		if dashKind == "power" then
+			powerDashReadyAt = os.clock() + Tuning.dash.power.cooldown
+		else
+			dashReadyAt = os.clock() + Tuning.dash.cooldown
+		end
+		dashRunningUntil = os.clock() + duration
 		local humanoid = (character :: Model):FindFirstChildOfClass("Humanoid")
 		if humanoid then
-			dashBurst(root, humanoid, dirX, dirZ)
+			dashBurst(root, humanoid, dirX, dirZ, speed, duration)
 		end
 		if #scoops > 0 and not state.toppled and not toppledAt then
-			TowerModel.dashKick(state, Tuning.dash, #scoops, dirX, dirZ)
+			TowerModel.dashKick(state, dashKickTuning(dashKind), #scoops, dirX, dirZ)
 		end
 	end
 	local ok, problem = pcall(function()
-		burstRing(root, Palette.lemon)
-		registry.MovementController.dash(character :: Model, Tuning.dash.duration, dirX, dirZ)
+		burstRing(root, if dashKind == "power" then Palette.strawberry else Palette.lemon)
+		registry.MovementController.dash(character :: Model, duration, dirX, dirZ, speed * duration)
 	end)
 	if not ok then
 		warn("[Dash] effects failed, the dash itself still ran: " .. tostring(problem))
 	end
 end
 
--- Q on PC, the dash button on touch screens. Asks the server; the burst happens when it agrees.
-local function requestDash(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
-	if inputState ~= Enum.UserInputState.Begin then
-		return Enum.ContextActionResult.Sink
-	end
+-- Asks the server for a dash; the burst happens when it agrees. Every dash (the dash, the quick and the power dash)
+-- goes the way the character walks, diagonals included, or ahead when it stands.
+local function askForDash(power: boolean)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = rootPart()
 	if not humanoid or not root or humanoid.Health <= 0 then
 		debugDash("no request: no living character")
-		return Enum.ContextActionResult.Sink
+		return
 	end
-	if os.clock() < dashReadyAt then
-		debugDash(string.format("no request: cooling down for %.1f s", dashReadyAt - os.clock()))
-		return Enum.ContextActionResult.Sink
+	local readyAt = if power then powerDashReadyAt else dashReadyAt
+	if os.clock() < readyAt then
+		debugDash(string.format("no request: cooling down for %.1f s", readyAt - os.clock()))
+		return
+	end
+	if os.clock() < dashRunningUntil then
+		debugDash("no request: a dash is still running")
+		return
 	end
 	if meter.active then
 		debugDash("no request: holding the steady stance")
-		return Enum.ContextActionResult.Sink
+		return
 	end
 	local direction = flatten(humanoid.MoveDirection)
 	if direction == Vector3.zero then
@@ -475,11 +509,41 @@ local function requestDash(_: string, inputState: Enum.UserInputState): Enum.Con
 	end
 	if direction == Vector3.zero then
 		debugDash("no request: no direction")
-		return Enum.ContextActionResult.Sink
+		return
 	end
-	dashReadyAt = os.clock() + Tuning.dash.cooldown
-	Remotes.Dash:FireServer(direction.X, direction.Z)
-	debugDash(string.format("request sent towards (%.2f, %.2f)", direction.X, direction.Z))
+	if power then
+		powerDashReadyAt = os.clock() + Tuning.dash.power.cooldown
+		Remotes.Dash:FireServer(direction.X, direction.Z, "power")
+	else
+		dashReadyAt = os.clock() + Tuning.dash.cooldown
+		Remotes.Dash:FireServer(direction.X, direction.Z)
+	end
+	debugDash(
+		string.format(
+			"%s request sent towards (%.2f, %.2f)",
+			if power then "power" else "dash",
+			direction.X,
+			direction.Z
+		)
+	)
+end
+
+-- Q on PC, the dash button on touch screens: the dash, in combat mode the quick dash (the server decides which).
+local function requestDash(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
+	if inputState == Enum.UserInputState.Begin then
+		askForDash(false)
+	end
+	return Enum.ContextActionResult.Sink
+end
+
+-- E on PC, the Power button on touch screens: the power dash, only in combat mode. Outside it the key passes on.
+local function requestPowerDash(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
+	if player:GetAttribute("CombatMode") ~= true then
+		return Enum.ContextActionResult.Pass
+	end
+	if inputState == Enum.UserInputState.Begin then
+		askForDash(true)
+	end
 	return Enum.ContextActionResult.Sink
 end
 
@@ -613,6 +677,14 @@ function TowerController.Start()
 		Enum.KeyCode.Q
 	)
 	ContextActionService:SetTitle(DASH_ACTION, "Dash")
+	ContextActionService:BindActionAtPriority(
+		POWER_DASH_ACTION,
+		requestPowerDash,
+		true, -- creates the Power button on touch screens; it only works in combat mode
+		ACTION_PRIORITY,
+		Enum.KeyCode.E
+	)
+	ContextActionService:SetTitle(POWER_DASH_ACTION, "Power")
 
 	ContextActionService:BindActionAtPriority(
 		SPRINT_ACTION,

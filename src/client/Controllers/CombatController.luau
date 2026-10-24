@@ -18,6 +18,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
+local BallMotion = require(Shared:WaitForChild("BallMotion"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
 local Features = require(Config:WaitForChild("Features"))
 local Palette = require(Config:WaitForChild("Palette"))
@@ -26,6 +27,7 @@ local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local CombatCamera = require(client:WaitForChild("CombatCamera"))
 local Sfx = require(client:WaitForChild("Sfx"))
+local BallVisual = require(client:WaitForChild("BallVisual"))
 
 local CombatController = {}
 
@@ -40,7 +42,10 @@ local RELEASE_GUARD = 1
 local ACTION_PRIORITY = Enum.ContextActionPriority.High.Value + 100
 
 type Ball = {
-	part: Part,
+	part: BasePart, -- the plain ice ball, or the vanilla ball's body; the trail sits on it
+	model: Model?, -- the vanilla ball (BallVisual), hopping and spinning on the path (BallMotion.flight)
+	flight: BallVisual.Flight, -- its streak, twinkles and glow
+	facing: CFrame, -- flat along the throw, so the face starts looking where the ball flies
 	origin: Vector3,
 	velocity: Vector3,
 	t0: number,
@@ -84,26 +89,43 @@ local function debugLog(message: string)
 	end
 end
 
--- A short white streak behind a flying ball, so a fast throw stays easy to follow.
-local function addTrail(part: Part)
-	local front, back = Instance.new("Attachment"), Instance.new("Attachment")
-	front.Position = Vector3.new(0, CombatConfig.ballRadius * 0.6, 0)
-	back.Position = Vector3.new(0, -CombatConfig.ballRadius * 0.6, 0)
-	front.Parent, back.Parent = part, part
-	local trail = Instance.new("Trail")
-	trail.Attachment0, trail.Attachment1 = front, back
-	trail.Lifetime = 0.15
-	trail.FaceCamera = true
-	trail.Color = ColorSequence.new(Color3.new(1, 1, 1))
-	trail.Transparency = NumberSequence.new(0.3, 1)
-	trail.Parent = part
+-- The ball ends (hit, missed or lost): its streak and twinkles stay where it was and fade out, the ball goes.
+local function destroyBall(ball: Ball)
+	BallVisual.leaveFlight(ball.flight, ball.part.CFrame)
+	if ball.model then
+		ball.model:Destroy()
+	else
+		ball.part:Destroy()
+	end
 end
 
 local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: Vector3, t0: number)
-	local part = effectPart("IceBall", CombatConfig.ballRadius * 2, Color3.fromHex(Palette.skyTop), origin)
-	part.Transparency = 1 -- still in the hand until t0, the throw animation's release
-	addTrail(part)
-	balls[id] = { part = part, origin = origin, velocity = velocity, t0 = t0 }
+	-- still in the hand until t0, the throw animation's release
+	local model = BallVisual.new("IceBall", CombatConfig.ballRadius * 2)
+	local part: BasePart
+	if model then
+		part = BallVisual.body(model)
+		BallVisual.setTransparency(model, 1)
+		model:PivotTo(CFrame.new(origin))
+		model.Parent = TowerVisual.root()
+	else
+		part = effectPart("IceBall", CombatConfig.ballRadius * 2, Color3.fromHex(Palette.skyTop), origin)
+		part.Transparency = 1
+	end
+	-- the streak, twinkles and glow (BallVisual); dark until the release, like the ball
+	local flight = BallVisual.addFlight(part, CombatConfig.ballRadius)
+	flight.emitter.Enabled = false
+	flight.light.Enabled = false
+	local flat = Vector3.new(velocity.X, 0, velocity.Z)
+	balls[id] = {
+		part = part,
+		model = model,
+		flight = flight,
+		facing = if flat.Magnitude > 1e-3 then CFrame.lookAt(Vector3.zero, flat) else CFrame.identity,
+		origin = origin,
+		velocity = velocity,
+		t0 = t0,
+	}
 	registry.ThrowAnimator.thrown(thrower, t0)
 	if thrower == player then
 		debugLog(
@@ -119,13 +141,14 @@ local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: 
 	Sfx.play("throw")
 end
 
--- A puff of ice where the ball ended, bigger and whiter on a hit.
+-- A puff of ice where the ball ended, bigger on a hit; see-through and small enough not to hide the player behind it
+-- (BallVisual.hitShards adds the shards around it).
 local function puff(position: Vector3, hit: boolean)
-	local size = if hit then 3 else 1.6
+	local size = if hit then 2 else 1.3
 	local part = effectPart("IcePuff", size, Color3.fromHex(Palette.vanilla), position)
-	part.Transparency = 0.2
+	part.Transparency = 0.45
 	TweenService:Create(part, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Size = Vector3.new(size * 2.5, size * 2.5, size * 2.5),
+		Size = Vector3.new(size * 2, size * 2, size * 2),
 		Transparency = 1,
 	}):Play()
 	task.delay(0.4, function()
@@ -204,7 +227,7 @@ local function onResolved(
 	local ball = balls[id]
 	if ball then
 		balls[id] = nil
-		ball.part:Destroy()
+		destroyBall(ball)
 		if thrower == player then
 			debugLog(
 				string.format(
@@ -219,6 +242,7 @@ local function onResolved(
 		end
 	end
 	puff(position, victim ~= nil)
+	BallVisual.hitShards(position, victim ~= nil)
 	if not victim then
 		return
 	end
@@ -259,27 +283,34 @@ local function onRenderStep()
 		if t > CombatConfig.maxFlight + 0.5 then
 			-- the resolve message got lost; do not keep orphans around
 			balls[id] = nil
-			ball.part:Destroy()
+			destroyBall(ball)
 			continue
 		end
 		if t < 0 then
 			continue -- the throw animation has not released it yet
 		end
 		if ball.part.Transparency > 0 then
-			ball.part.Transparency = 0
+			if ball.model then
+				BallVisual.setTransparency(ball.model, 0)
+			else
+				ball.part.Transparency = 0
+			end
+			ball.flight.emitter.Enabled = true
+			ball.flight.light.Enabled = true
 		end
 		local o, v = ball.origin, ball.velocity
-		local x, y, z = Combat.position(
-			o.X,
-			o.Y,
-			o.Z,
-			v.X,
-			v.Y,
-			v.Z,
-			CombatConfig.gravity,
-			math.clamp(t, 0, CombatConfig.maxFlight)
-		)
-		ball.part.Position = Vector3.new(x, y, z)
+		local flight = math.clamp(t, 0, CombatConfig.maxFlight)
+		local x, y, z = Combat.position(o.X, o.Y, o.Z, v.X, v.Y, v.Z, CombatConfig.gravity, flight)
+		local model = ball.model
+		if model then
+			-- the hop is only drawn; the server's path (and its hit test) stays exactly the curve above
+			local lift, spin = BallMotion.flight(flight, CombatConfig)
+			model:PivotTo(
+				CFrame.new(x, y + lift * CombatConfig.ballRadius * 2, z) * ball.facing * CFrame.Angles(0, spin, 0)
+			)
+		else
+			ball.part.Position = Vector3.new(x, y, z)
+		end
 	end
 end
 
@@ -304,6 +335,7 @@ local function cancelCharge(releaseButton: boolean)
 		registry.ThrowAnimator.charge(false)
 	end
 	charging = false
+	CombatCamera.setAiming(false) -- after a throw and after a dropped charge alike
 	if releaseButton then
 		wantCharge = false
 	end
@@ -318,6 +350,7 @@ local function tryStartCharge()
 			chargeStartedAt = os.clock()
 			Remotes.ChargeIceBall:FireServer()
 			registry.ThrowAnimator.charge(true)
+			CombatCamera.setAiming(true)
 		end
 	end
 end

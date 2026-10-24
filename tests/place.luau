@@ -50,6 +50,7 @@ for _, name in
 		"Combat",
 		"Dash",
 		"ThrowPose",
+		"BallMotion",
 		"Stance",
 	}
 do
@@ -75,7 +76,7 @@ end
 for _, name in { "GrayboxService", "KillTestLog", "CartService", "TowerService", "LauncherService", "CombatService" } do
 	expectInstance({ "ServerScriptService", "Server", "Services", name }, "ModuleScript")
 end
-for _, name in { "TowerVisual", "Sfx", "Ui", "CombatCamera" } do
+for _, name in { "TowerVisual", "BallVisual", "Sfx", "Ui", "CombatCamera" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", name }, "ModuleScript")
 end
 for _, name in

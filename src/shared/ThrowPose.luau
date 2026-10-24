@@ -1,9 +1,11 @@
 --!strict
--- Pure maths for the throw pose: the angles of the right shoulder, the right elbow and the waist over a charge and a
--- throw, from the poses in Config/Combat (throwAnimation). ThrowAnimator draws them on every character while no
--- animation ids are set, and scripts/throw-animation.luau bakes the same poses into keyframes. No Roblox globals.
+-- Pure maths for the throw pose: the angles of the right shoulder (forward swing and out to the side), the right
+-- elbow, the right wrist and the waist over a charge and a throw, from the poses in Config/Combat (throwAnimation).
+-- The stance presents the ball: the forearm raised, the hand flat with its palm up, the ball floating above it.
+-- ThrowAnimator draws them on every character while no animation ids are set (R15 with all joints, R6 with its one
+-- shoulder, see singleArm), and scripts/throw-animation.luau bakes the same poses into keyframes. No Roblox globals.
 
-export type Pose = { shoulder: number, elbow: number, waist: number }
+export type Pose = { shoulder: number, out: number, elbow: number, wrist: number, twist: number, waist: number }
 
 export type Config = {
 	releaseDelay: number,
@@ -30,7 +32,10 @@ function ThrowPose.blend(from: Pose, to: Pose, alpha: number): Pose
 	alpha = math.clamp(alpha, 0, 1)
 	return {
 		shoulder = from.shoulder + (to.shoulder - from.shoulder) * alpha,
+		out = from.out + (to.out - from.out) * alpha,
 		elbow = from.elbow + (to.elbow - from.elbow) * alpha,
+		wrist = from.wrist + (to.wrist - from.wrist) * alpha,
+		twist = from.twist + (to.twist - from.twist) * alpha,
 		waist = from.waist + (to.waist - from.waist) * alpha,
 	}
 end
@@ -69,6 +74,12 @@ end
 function ThrowPose.throwLength(config: Config): number
 	local animation = config.throwAnimation
 	return config.releaseDelay + animation.followTime + animation.recoverTime
+end
+
+-- R6 has one stiff arm without an elbow: its forward swing points the whole arm halfway between the upper arm and
+-- the forearm of the R15 pose, so the hand end lands about where the R15 hand is.
+function ThrowPose.singleArm(pose: Pose): number
+	return pose.shoulder + pose.elbow / 2
 end
 
 return ThrowPose

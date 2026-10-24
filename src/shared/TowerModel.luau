@@ -77,6 +77,8 @@ export type State = {
 	rigidUntil: number,
 	unsteadyUntil: number, -- after a dash: corrections only partly land until this time
 	unsteadyFactor: number,
+	shake: number, -- ice-ball hits the tower is still shaken by (summed powers, draining over time)
+	shakeAt: number, -- state.t of the last hit
 	seenX: number, -- the lean as the automatic stabiliser sees it: smoothed, so it reacts late
 	seenZ: number,
 	seenVx: number,
@@ -114,6 +116,8 @@ function TowerModel.newState(seed: number): State
 		rigidUntil = 0,
 		unsteadyUntil = 0,
 		unsteadyFactor = 1,
+		shake = 0,
+		shakeAt = 0,
 		seenX = 0,
 		seenZ = 0,
 		seenVx = 0,
@@ -133,6 +137,7 @@ function TowerModel.reset(state: State)
 	state.steadySeconds = 0
 	state.rigidUntil = 0
 	state.unsteadyUntil = 0
+	state.shake = 0
 	state.seenX, state.seenZ, state.seenVx, state.seenVz = 0, 0, 0, 0
 	state.stance = false
 end
@@ -293,13 +298,18 @@ function TowerModel.dashKick(
 end
 
 -- An ice-ball hit pushes the top along the ball's flight (dirX/dirZ on the ground) with a kick that grows with the
--- height and the hit power, and leaves corrections weaker for a moment. Returns the kick size.
+-- height and the hit power, and leaves corrections weaker for a moment. Hits shake the tower: their powers add up
+-- and drain by towerShakeDecay per second, and every hit kicks harder and leaves the tower unsteady longer the more
+-- shaken it already is. So hits in quick succession build up until the tower can go over, while the same hits spread
+-- out are each absorbed. Returns the kick size.
 function TowerModel.hitKick(
 	state: State,
 	hit: {
 		towerKickBase: number,
 		towerKickPerScoop: number,
 		towerKickMax: number,
+		towerShakeGain: number,
+		towerShakeDecay: number,
 		unsteadySeconds: number,
 		unsteadyFactor: number,
 	},
@@ -312,9 +322,13 @@ function TowerModel.hitKick(
 	if count <= 0 or length < 1e-6 or state.toppled then
 		return 0
 	end
-	local kick = math.min(hit.towerKickMax, hit.towerKickBase + hit.towerKickPerScoop * count) * power
+	local shake = math.max(0, state.shake - hit.towerShakeDecay * math.max(0, state.t - state.shakeAt))
+	local kick = math.min(hit.towerKickMax, hit.towerKickBase + hit.towerKickPerScoop * count)
+		* power
+		* (1 + hit.towerShakeGain * shake)
 	TowerModel.impulse(state, dirX / length * kick, dirZ / length * kick)
-	state.unsteadyUntil = math.max(state.unsteadyUntil, state.t + hit.unsteadySeconds)
+	state.shake, state.shakeAt = shake + power, state.t
+	state.unsteadyUntil = math.max(state.unsteadyUntil, state.t + hit.unsteadySeconds * (1 + state.shake))
 	state.unsteadyFactor = hit.unsteadyFactor
 	return kick
 end

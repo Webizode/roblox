@@ -96,18 +96,11 @@ local function onRenderStep(dt: number)
 			remote.tiltX += (remote.targetX - remote.tiltX) * alpha
 			remote.tiltZ += (remote.targetZ - remote.tiltZ) * alpha
 			-- standing in the waffle on their back, like the own tower (TowerController.towerBase)
-			local opening, ringRadius = registry.Backpacks.opening(character :: Model)
+			local seat = registry.Backpacks.seat(character :: Model, TowerVisual.SCOOP_SIZE / 2)
 			local base = root.CFrame * CFrame.new(0, Tuning.holdUp, -Tuning.holdForward)
-			if opening then
-				local x, y, z = TowerShape.restingBase(
-					opening.X,
-					opening.Y,
-					opening.Z,
-					TowerVisual.SCOOP_SIZE / 2,
-					ringRadius,
-					Tuning
-				)
-				base = CFrame.new(x, y, z)
+			if seat then
+				local _, bottom = TowerShape.offset(1, 1, 0, 0, Tuning)
+				base = CFrame.new(seat - Vector3.new(0, bottom, 0))
 			end
 			remote.visual:update(base, remote.tiltX, remote.tiltZ)
 		end

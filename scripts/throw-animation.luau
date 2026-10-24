@@ -29,17 +29,26 @@ local function pose(name: string, parent, cframe, weight: number)
 	return instance
 end
 
--- One keyframe of the R15 hierarchy. Only the waist (UpperTorso), the right shoulder (RightUpperArm) and the right
--- elbow (RightLowerArm) carry the throw; the parents are there because poses must follow the rig.
+-- One keyframe of the R15 hierarchy. Only the waist (UpperTorso), the right shoulder (RightUpperArm), the right
+-- elbow (RightLowerArm) and the right wrist (RightHand) carry the throw, turned like ThrowAnimator turns them; the
+-- parents are there because poses must follow the rig.
 local function keyframe(sequence, time: number, angles, marker: string?)
 	local frame = Instance.new("Keyframe")
 	frame.Time = time
 	frame.Parent = sequence
+	local out = math.rad(angles.out)
 	local root = pose("HumanoidRootPart", frame, CFrame.new(), 0)
 	local lower = pose("LowerTorso", root, CFrame.new(), 0)
 	local upper = pose("UpperTorso", lower, CFrame.Angles(0, math.rad(angles.waist), 0), 1)
-	local arm = pose("RightUpperArm", upper, CFrame.Angles(math.rad(angles.shoulder), 0, 0), 1)
-	pose("RightLowerArm", arm, CFrame.Angles(math.rad(angles.elbow), 0, 0), 1)
+	local arm =
+		pose("RightUpperArm", upper, CFrame.Angles(0, 0, out) * CFrame.Angles(math.rad(angles.shoulder), 0, 0), 1)
+	local forearm = pose("RightLowerArm", arm, CFrame.Angles(math.rad(angles.elbow), 0, 0), 1)
+	pose(
+		"RightHand",
+		forearm,
+		CFrame.Angles(0, 0, math.rad(angles.twist)) * CFrame.Angles(math.rad(angles.wrist), 0, 0),
+		1
+	)
 	if marker then
 		local instance = Instance.new("KeyframeMarker")
 		instance.Name = marker

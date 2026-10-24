@@ -14,7 +14,9 @@ local DEFINITIONS = {
 	TowerTilt = "UnreliableRemoteEvent", -- client -> server: x, z (10 Hz); server -> other players: player, x, z
 	ServeRequest = "RemoteEvent", -- client -> server: steadyBonus
 	Served = "RemoteEvent", -- server -> all: player, count, value
-	Dash = "RemoteEvent", -- client -> server: dirX, dirZ (request); server -> all: player, dirX, dirZ (granted)
+	-- client -> server: dirX, dirZ, "power" or nil (request); server -> all: player, dirX, dirZ, kind (granted:
+	-- "dash", "quick" or "power")
+	Dash = "RemoteEvent",
 	SetSprint = "RemoteEvent", -- client -> server: sprinting (boolean)
 	SetStance = "RemoteEvent", -- client -> server: holding the steady stance (boolean); the server answers with the SteadyStance attribute
 	SetCombatMode = "RemoteEvent", -- client -> server: combat mode on or off (boolean)

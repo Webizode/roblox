@@ -15,6 +15,9 @@ return {
 	coneBack = 0.05, -- gap between the back and the rim, the cone's closest point
 	-- the opening leans away from the back; about the cone's half angle, so its near side runs along the back
 	coneTilt = math.rad(20),
+	-- the bottom scoop of the tower sits on the cone's axis, just high enough that this much of the chocolate rim
+	-- (and of the waffle below it) stays visible all round it instead of the scoop cutting through them
+	scoopMargin = 0.08,
 
 	-- shoulder straps
 	strapWidth = 0.22,
