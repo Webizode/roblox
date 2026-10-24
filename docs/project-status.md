@@ -1,5 +1,7 @@
 # Projektstatus Wobble Scoops
 
+> **Hinweis:** Dieses Dokument ist der technische Status und die Playtest-Checkliste. Entscheidungen und Richtung stehen in `docs/projektstand.md`, die verbindlichen Design-Regeln in `docs/design-regeln.md`.
+
 Stand: 18.10.2026, Branch `claude/wobble-scoops-week1` bei `69aaffb`. Geprüft wurde der Quellcode in einer Cloud-Session. Dein lokaler Ordner `C:\Users\beszt\roblox` kann davon abweichen (`git pull`).
 
 ## Was wirklich geprüft ist

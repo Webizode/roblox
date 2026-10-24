@@ -1,6 +1,6 @@
 # Wobble Scoops
 
-Roblox-Spiel, Solo-Projekt mit Claude Code. Ziel: ~2.000 € über DevEx. Referenz für alle Design-Fragen: `docs/concept.md`. Aktueller Stand und Kill-Test: `docs/killtest.md`. Mit dem Nutzer auf Deutsch sprechen.
+Roblox-Spiel, Solo-Projekt mit Claude Code. Ziel: ~2.000 € über DevEx. Referenz für alle Design-Fragen: `docs/design-regeln.md` (verbindlich, hat bei Widersprüchen Vorrang) und `docs/concept.md`. Aktueller Projektstand und Entscheidungen: `docs/projektstand.md`. Aktueller Stand und Kill-Test: `docs/killtest.md`. Mit dem Nutzer auf Deutsch sprechen.
 
 ## Workflow
 

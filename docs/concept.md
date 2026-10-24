@@ -1,6 +1,8 @@
 # Wobble Scoops: Spielkonzept
 
-Ergebnis des Konzept-Panels vom 18.10.2026: Markt-Recherche, 4 eigenständige Konzepte, 3 Jurys (Spieler + Retention, Monetarisierung + Growth, Roblox-Engineering), Synthese. Dieses Dokument ist die Referenz für alle Design-Entscheidungen. Was davon in welcher Woche gebaut wird, steht unter MVP.
+> **Vorrang:** Die verbindlichen Design-Regeln stehen in `docs/design-regeln.md` (Stand 24.10.2026). Widerspricht dieses Dokument ihnen, gilt `docs/design-regeln.md`.
+
+Ergebnis des Konzept-Panels vom 18.10.2026: Markt-Recherche, 4 eigenständige Konzepte, 3 Jurys (Spieler + Retention, Monetarisierung + Growth, Roblox-Engineering), Synthese. Dieses Dokument ist die ergänzende Hintergrund-Referenz; verbindlich ist `docs/design-regeln.md`. Was davon in welcher Woche gebaut wird, steht unter MVP.
 
 ## Pitch
 
