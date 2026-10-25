@@ -70,7 +70,6 @@ local lastServeRequest = 0
 -- a tower is only served after it has been carried outside the serve radius once, so catching next to the
 -- cart does not instantly serve every single scoop
 local serveArmed = false
-local groundY = 1
 local dashReadyAt = 0 -- local cooldown so the key cannot spam requests; the server has the final say
 local powerDashReadyAt = 0 -- the power dash's own
 local dashRunningUntil = 0 -- no dash request while one still runs
@@ -139,7 +138,7 @@ local function onEvent(event: string)
 	elseif event == "toppled" then
 		visual:setGroan(false)
 		toppledAt = os.clock()
-		visual:spill(Economy.keepOnTopple(#scoops, EconomyConfig), groundY)
+		visual:spill(Economy.keepOnTopple(#scoops, EconomyConfig))
 		Sfx.play("topple")
 		registry.Hud.toast("TOPPLED!", Palette.awning)
 		Remotes.TowerToppled:FireServer()
@@ -651,12 +650,6 @@ function TowerController.Init(reg)
 end
 
 function TowerController.Start()
-	local pier = workspace:WaitForChild("Pier", 30)
-	local deck = pier and pier:WaitForChild("Deck", 30)
-	if deck and deck:IsA("BasePart") then
-		groundY = deck.Position.Y + deck.Size.Y / 2
-	end
-
 	Remotes.TowerChanged.OnClientEvent:Connect(onTowerChanged)
 	Remotes.Served.OnClientEvent:Connect(function(who: Player, count: number, value: number)
 		if who == player then
@@ -762,6 +755,16 @@ function TowerController.hit(dirX: number, dirZ: number, power: number)
 	if Stance.drain(meter, power * CombatConfig.stanceDrain) then
 		stanceEnded(false)
 	end
+end
+
+-- Whether the local tower can take a scoop right now (not toppling, room on the cone): catching and picking up.
+function TowerController.canTake(): boolean
+	return canCatch()
+end
+
+-- The free scoops of the own topple arrived (LootRenderer): the stand-ins left where the tower stood can go.
+function TowerController.clearSpill()
+	visual:clearSpill()
 end
 
 -- Where the next scoop sits on the tower, used to show a claimed scoop until the server confirms it.

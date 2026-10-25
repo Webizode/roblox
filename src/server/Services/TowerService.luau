@@ -172,7 +172,9 @@ local function onToppled(player: Player)
 	end
 	state.lastToppleAt = now()
 
+	-- small towers keep everything; from the rest the bottom share stays and the others spill as free scoops
 	local keep = Economy.keepOnTopple(count, EconomyConfig)
+	registry.LootService.spill(player, table.clone(state.scoops), keep, state.tiltX, state.tiltZ)
 	for index = count, keep + 1, -1 do
 		state.scoops[index] = nil
 	end

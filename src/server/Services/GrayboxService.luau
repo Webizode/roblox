@@ -7,6 +7,8 @@
 --   Workspace.Pier.Carts.<Name>         one Model per cart, each with
 --     .ServePoint                       BasePart (invisible), where the player serves and spawns
 --     .Body.Label                       optional BillboardGui with a TextLabel, shows the owner
+--   Water (optional)                    any part named "Water", Water material or Terrain water: spilled scoops
+--                                       that roll onto it sink (LootService); so do ones with no ground below
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

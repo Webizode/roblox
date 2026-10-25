@@ -3,7 +3,6 @@
 -- match the server's idea of where the top is.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -155,29 +154,30 @@ function TowerVisual:setGroan(on: boolean)
 	self.highlight.Enabled = on
 end
 
--- Topple: everything above `keep` flies off and rolls away. The kept scoops stay in place.
-function TowerVisual:spill(keep: number, groundY: number)
-	local random = Random.new()
+-- seconds a spilled scoop stays where it was when no free scoop from the server takes its place
+local SPILL_HOLD = 1
+
+-- The scoops above `keep` come off the tower and stay where they are for a moment: the server spills them as free
+-- scoops (LootService) that start right there, and clearSpill removes these stand-ins once those arrived.
+function TowerVisual:spill(keep: number)
+	self.spilled = self.spilled or {}
 	for index = #self.scoops, keep + 1, -1 do
 		local part = self.scoops[index]
 		self.scoops[index] = nil
 		self.flavors[index] = nil
 		part.Parent = getVisualsRoot()
-
-		local angle = random:NextNumber() * math.pi * 2
-		local distance = random:NextNumber(6, 14) + index * 0.3
-		local target = part.Position + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
-		target = Vector3.new(target.X, groundY + SCOOP_SIZE / 2, target.Z)
-		local tween = TweenService:Create(
-			part,
-			TweenInfo.new(0.6 + random:NextNumber() * 0.4, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out),
-			{ CFrame = CFrame.new(target) }
-		)
-		tween:Play()
-		task.delay(2.5, function()
+		table.insert(self.spilled, part)
+		task.delay(SPILL_HOLD, function()
 			part:Destroy()
 		end)
 	end
+end
+
+function TowerVisual:clearSpill()
+	for _, part in self.spilled or {} do
+		part:Destroy()
+	end
+	self.spilled = {}
 end
 
 function TowerVisual:destroy()

@@ -10,7 +10,9 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
+local Loot = require(Shared:WaitForChild("Loot"))
 local Config = require(Shared:WaitForChild("Config"):WaitForChild("Combat"))
+local LootConfig = require(Shared:WaitForChild("Config"):WaitForChild("Loot"))
 local Features = require(Shared:WaitForChild("Config"):WaitForChild("Features"))
 
 local CombatService = {}
@@ -27,6 +29,7 @@ type PlayerState = {
 	lastChargeAt: number,
 	combatMode: boolean, -- only in combat mode can the player charge and throw; off after every respawn
 	lastModeAt: number,
+	unshieldedUntil: number, -- a throw from the own cart's safe zone lifts its protection until then
 }
 
 type Ball = {
@@ -97,6 +100,12 @@ local function rootOf(player: Player): BasePart?
 		return nil
 	end
 	return character:FindFirstChild("HumanoidRootPart") :: BasePart?
+end
+
+-- Studs from the player's root to their own cart's ServePoint, or nil without either.
+local function cartDistance(player: Player, root: BasePart): number?
+	local servePoint = registry.CartService.servePoint(player)
+	return servePoint and (root.Position - servePoint).Magnitude
 end
 
 local function publishAmmo(player: Player, state: PlayerState)
@@ -218,6 +227,12 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 		return
 	end
 	registry.TowerService.interruptStance(player) -- a throw in the steady stance ends it (charging does not)
+	-- no camping: a throw from the own safe zone lifts its protection for a while (UnshieldedUntil for the HUD)
+	local unshielded = Loot.afterThrow(cartDistance(player, root), time, state.unshieldedUntil, LootConfig)
+	if unshielded ~= state.unshieldedUntil then
+		state.unshieldedUntil = unshielded
+		player:SetAttribute("UnshieldedUntil", unshielded)
+	end
 	debugLog(
 		string.format(
 			"%s throws: charge %.2f (claimed %s, held %.2f s), %.0f studs/s from %s to aim %s (%.1f studs away)",
@@ -256,15 +271,38 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 	Remotes.IceBallThrown:FireAllClients(nextId, player, origin, Vector3.new(vx, vy, vz), time + Config.releaseDelay)
 end
 
-local function resolve(ball: Ball, victim: Player?, position: Vector3, power: number, knockdown: boolean)
+local function resolve(
+	ball: Ball,
+	victim: Player?,
+	position: Vector3,
+	power: number,
+	knockdown: boolean,
+	shielded: boolean?
+)
 	local flat = Vector3.new(ball.vx, 0, ball.vz)
 	flat = if flat.Magnitude > 1e-3 then flat.Unit else Vector3.zero
-	Remotes.IceBallResolved:FireAllClients(ball.id, ball.thrower, victim, position, flat.X, flat.Z, power, knockdown)
+	Remotes.IceBallResolved:FireAllClients(
+		ball.id,
+		ball.thrower,
+		victim,
+		position,
+		flat.X,
+		flat.Z,
+		power,
+		knockdown,
+		shielded == true
+	)
 end
 
 local function hitPlayer(ball: Ball, victim: Player, position: Vector3, distance: number, speed: number)
 	local state = states[victim]
 	local time = now()
+	-- at the own cart a hit lands but does no harm: no power, no stagger, no knockdown (design rule 4)
+	local root = rootOf(victim)
+	if state and root and Loot.isShielded(cartDistance(victim, root), time, state.unshieldedUntil, LootConfig) then
+		resolve(ball, victim, position, 0, false, true)
+		return
+	end
 	local power = Combat.hitPower(distance, speed, ball.speed, ball.charge, Config)
 	local knockdown = false
 	if state then
@@ -277,6 +315,8 @@ local function hitPlayer(ball: Ball, victim: Player, position: Vector3, distance
 			-- after getting up
 			setCombatMode(victim, state, false)
 			registry.TowerService.endStance(victim)
+			-- the head start on the own spilled scoops only begins once the player is up again
+			registry.LootService.ownerDown(victim, state.downUntil)
 		end
 	end
 	resolve(ball, victim, position, power, knockdown)
@@ -365,6 +405,12 @@ function CombatService.isDown(player: Player): boolean
 	return state ~= nil and now() < state.downUntil
 end
 
+-- Server time until which the player lies knocked down (in the past when they are up).
+function CombatService.downUntil(player: Player): number
+	local state = states[player]
+	return if state then state.downUntil else 0
+end
+
 -- Whether the player is in combat mode (the same state the CombatMode attribute shows).
 function CombatService.inCombatMode(player: Player): boolean
 	local state = states[player]
@@ -383,6 +429,7 @@ function CombatService.Start()
 			lastChargeAt = -math.huge,
 			combatMode = false,
 			lastModeAt = -math.huge,
+			unshieldedUntil = 0,
 		}
 		states[player] = state
 		publishAmmo(player, state)

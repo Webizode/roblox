@@ -12,6 +12,7 @@ local ORDER = {
 	"HeldBalls",
 	"ThrowAnimator",
 	"ShotRenderer",
+	"LootRenderer",
 	"RemoteTowers",
 }
 

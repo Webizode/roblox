@@ -1,4 +1,5 @@
--- Records what the week-1 kill test needs: serve heights, topples and session length, grouped by control scheme
+-- Records what the week-1 kill test needs: serve heights, topples, picked-up spilled scoops (own and foreign) and
+-- session length, serves and topples grouped by control scheme
 -- (today only "auto": WASD plus the automatic stabiliser and the steady stance).
 -- Prints a summary every two minutes and on shutdown, and mirrors it as JSON in ServerStorage.KillTestLog
 -- so it can be read through the Studio MCP during a playtest.
@@ -11,10 +12,12 @@ local KillTestLog = {}
 type Serve = { userId: number, controls: string, count: number, value: number, carry: number, minute: number }
 type Topple = { userId: number, controls: string, count: number, cause: string }
 type Session = { userId: number, name: string, joinedAt: number, leftAt: number? }
+type Pickup = { userId: number, ownerId: number, foreign: boolean }
 
 local serves: { Serve } = {}
 local topples: { Topple } = {}
 local sessions: { [number]: Session } = {}
+local pickups: { Pickup } = {}
 local dirty = false
 local mirror: StringValue
 
@@ -84,9 +87,26 @@ function KillTestLog.summary(): string
 
 	for _, session in sessions do
 		local minutes = ((session.leftAt or now()) - session.joinedAt) / 60
+		local own, foreign = 0, 0
+		for _, pickup in pickups do
+			if pickup.userId == session.userId then
+				if pickup.foreign then
+					foreign += 1
+				else
+					own += 1
+				end
+			end
+		end
 		table.insert(
 			lines,
-			string.format("  %s: %.1f min%s", session.name, minutes, if session.leftAt then "" else " (still playing)")
+			string.format(
+				"  %s: %.1f min%s, picked up %d foreign and %d own spilled scoops",
+				session.name,
+				minutes,
+				if session.leftAt then "" else " (still playing)",
+				foreign,
+				own
+			)
 		)
 	end
 	return table.concat(lines, "\n")
@@ -102,7 +122,8 @@ local function flush()
 	for _, session in sessions do
 		table.insert(sessionList, session)
 	end
-	mirror.Value = HttpService:JSONEncode({ serves = serves, topples = topples, sessions = sessionList })
+	mirror.Value =
+		HttpService:JSONEncode({ serves = serves, topples = topples, pickups = pickups, sessions = sessionList })
 end
 
 local function changed()
@@ -153,6 +174,12 @@ function KillTestLog.topple(player: Player, controls: string, count: number, cau
 	changed()
 end
 
+-- A spilled scoop picked up; ownerId is the UserId of the player whose tower it fell from.
+function KillTestLog.pickup(player: Player, ownerId: number)
+	table.insert(pickups, { userId = player.UserId, ownerId = ownerId, foreign = ownerId ~= player.UserId })
+	changed()
+end
+
 function KillTestLog.Init()
 	mirror = Instance.new("StringValue")
 	mirror.Name = "KillTestLog"
@@ -165,7 +192,7 @@ function KillTestLog.Start()
 	end)
 	while true do
 		task.wait(120)
-		if #serves > 0 or #topples > 0 then
+		if #serves > 0 or #topples > 0 or #pickups > 0 then
 			print(KillTestLog.summary())
 		end
 	end

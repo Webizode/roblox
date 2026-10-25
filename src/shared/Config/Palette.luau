@@ -13,4 +13,19 @@ return {
 	lemon = "#FFD23F",
 	awning = "#E5484D",
 	ink = "#2B2D42",
+
+	-- one per cart (CartService sets it as the PlayerColor attribute): marks what belongs to a player, like the glow
+	-- of their spilled scoops. Bright and far apart, so they read on the deck and on small screens.
+	playerColors = {
+		"#3A86FF",
+		"#FF006E",
+		"#FFBE0B",
+		"#8338EC",
+		"#06D6A0",
+		"#FB5607",
+		"#00B4D8",
+		"#70E000",
+		"#C1121F",
+		"#F15BB5",
+	},
 }

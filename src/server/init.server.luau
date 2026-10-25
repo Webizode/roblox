@@ -10,6 +10,7 @@ local ORDER = {
 	"TowerService",
 	"LauncherService",
 	"CombatService",
+	"LootService",
 }
 
 local registry = {}

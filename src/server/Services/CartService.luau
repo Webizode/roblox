@@ -4,7 +4,9 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local EconomyConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Economy"))
+local Config = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
+local EconomyConfig = require(Config:WaitForChild("Economy"))
+local Palette = require(Config:WaitForChild("Palette"))
 
 local CartService = {}
 
@@ -40,6 +42,9 @@ local function assign(player: Player)
 	end
 	assigned[player] = chosen
 	player:SetAttribute("CartName", chosen.Name)
+	-- the player's colour follows the cart, so two players never share one unless they share a cart
+	local index = table.find(graybox.carts, chosen) or 1
+	player:SetAttribute("PlayerColor", Palette.playerColors[(index - 1) % #Palette.playerColors + 1])
 end
 
 local function release(player: Player)

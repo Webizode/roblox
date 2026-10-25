@@ -24,6 +24,7 @@ export type Config = {
 	heightFactor: number,
 	keepOnToppleFraction: number,
 	keepOnToppleMin: number,
+	keepAllBelow: number,
 	baseWalkSpeed: number,
 	walkSpeedPenaltyPerScoop: number,
 	minWalkSpeed: number,
@@ -86,8 +87,12 @@ function Economy.serveValue(
 	return base * Economy.heightMultiplier(count, config) * (1 + steady) * serveMultiplier * towerFactor
 end
 
--- How many scoops stay on the cone when a tower topples. The rest roll away.
+-- How many scoops stay on the cone when a tower topples: all of a small tower, else the bottom share. The rest spill
+-- (Loot).
 function Economy.keepOnTopple(count: number, config: Config): number
+	if count < config.keepAllBelow then
+		return count
+	end
 	local keep = math.max(config.keepOnToppleMin, math.floor(count * config.keepOnToppleFraction))
 	return math.min(count, keep)
 end

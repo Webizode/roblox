@@ -222,7 +222,8 @@ local function onResolved(
 	dirX: number,
 	dirZ: number,
 	power: number,
-	knockdown: boolean
+	knockdown: boolean,
+	shielded: boolean?
 )
 	local ball = balls[id]
 	if ball then
@@ -244,6 +245,13 @@ local function onResolved(
 	puff(position, victim ~= nil)
 	BallVisual.hitShards(position, victim ~= nil)
 	if not victim then
+		return
+	end
+	if shielded then
+		-- the victim stands in their cart's safe zone: the ball lands, nothing else happens
+		if thrower == player or victim == player then
+			registry.Hud.toast("SAFE!", Palette.mint)
+		end
 		return
 	end
 

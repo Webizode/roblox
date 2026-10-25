@@ -23,7 +23,14 @@ local DEFINITIONS = {
 	ChargeIceBall = "RemoteEvent", -- client -> server: the throw button went down; starts the server's charge clock
 	ThrowIceBall = "RemoteEvent", -- client -> server: aimX, aimY, aimZ (point under the crosshair), charge (bar 0..1)
 	IceBallThrown = "RemoteEvent", -- server -> all: id, thrower, origin, velocity, t0 (server time)
-	IceBallResolved = "RemoteEvent", -- server -> all: id, thrower, victim (nil on a miss), position, dirX, dirZ, power, knockdown
+	-- server -> all: id, thrower, victim (nil on a miss), position, dirX, dirZ, power, knockdown, shielded (the victim
+	-- stood in their cart's safe zone: no harm)
+	IceBallResolved = "RemoteEvent",
+	LootSpawned = "RemoteEvent", -- server -> all (a spill) or one (on join): list of free scoops, see LootService
+	LootUpdated = "RemoteEvent", -- server -> all: ids, ownerUntil (the owner's head start moved, e.g. a knockdown)
+	LootRemoved = "RemoteEvent", -- server -> all: id, catcher (Player or nil), reason ("caught", "gone", "water", "room")
+	LootClaim = "RemoteEvent", -- client -> server: id (the local player walked over a free scoop)
+	LootRejected = "RemoteEvent", -- server -> claimant: id (the scoop stays on the ground)
 }
 
 local remotes = {}

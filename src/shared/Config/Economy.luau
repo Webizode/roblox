@@ -6,6 +6,7 @@ return {
 
 	keepOnToppleFraction = 0.3, -- the bottom 30 % stay on the cone
 	keepOnToppleMin = 2,
+	keepAllBelow = 5, -- towers of fewer scoops lose nothing when they topple (design rule 4)
 
 	baseWalkSpeed = 18,
 	walkSpeedPenaltyPerScoop = 0.012,
