@@ -7,7 +7,7 @@ return {
 
 	-- ammo: three throws per load; once all three are gone the load refills after reloadTime. The server owns it.
 	ammo = 3,
-	reloadTime = 7, -- seconds
+	reloadTime = 4, -- seconds
 	throwInterval = 0.4, -- seconds between two throws, so a macro cannot fire a whole load at once
 
 	-- throw strength: holding the throw button charges a bar that runs from 0 up to 1 in chargeRise seconds, back

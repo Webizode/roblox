@@ -116,9 +116,9 @@ describe("TowerModel", function()
 		expect(state.toppled).toBe(false)
 	end)
 
-	it("tall towers drift and topple when nobody balances", function()
+	it("very tall towers drift and topple when nobody balances", function()
 		local state = TowerModel.newState(11)
-		local params = paramsFor(stack("vanilla", 20))
+		local params = paramsFor(stack("vanilla", 30))
 		local events = simulate(state, params, PAD, 15, nil)
 		expect(state.toppled).toBe(true)
 		expect(events[#events]).toBe("toppled")
@@ -147,12 +147,12 @@ describe("TowerModel", function()
 		expect(state.toppled).toBe(false)
 	end)
 
-	-- Since the pad only corrects at full strength, a fast, hard player no longer overshoots and holds up to 43
-	-- (was 28); the other styles are unchanged. The starter cone only takes 20 anyway.
-	it("50 scoops on a starter cone are beyond a 0.2 s player, whatever their style", function()
+	-- Since the pad only corrects at full strength, a fast, hard player no longer overshoots; with the faint drift of
+	-- tall towers the best style holds up to 70 and the others fewer. The starter cone only takes 20 anyway.
+	it("80 scoops on a starter cone are beyond a 0.2 s player, whatever their style", function()
 		for _, gains in { { 3, 0.8 }, { 2, 0.6 }, { 1.6, 0.4 }, { 1, 0.4 } } do
 			local state = TowerModel.newState(13)
-			local params = paramsFor(stack("vanilla", 50))
+			local params = paramsFor(stack("vanilla", 80))
 			simulate(state, params, PAD, 30, padPlayer(gains[1], gains[2]), 12)
 			expect(state.toppled).toBe(true)
 		end
@@ -459,7 +459,7 @@ describe("Automatic stabiliser and steady stance", function()
 	end)
 
 	it("makes walking with tall towers dangerous, and the stance used when it tips buys real time", function()
-		for _, count in { 15, 17, 20 } do
+		for _, count in { 22, 25, 28 } do
 			local without, with = 0, 0
 			for seed = 1, 5 do
 				without += assistedRun(count, seed, 30, true)
@@ -520,11 +520,11 @@ describe("Automatic stabiliser and steady stance", function()
 	it("the stance is not invincible: a knockdown hit on a very tall tower leaning that way still wins", function()
 		local CombatConfig = require("../src/shared/Config/Combat")
 		local state = TowerModel.newState(2)
-		local params = paramsFor(stack("vanilla", 25))
+		local params = paramsFor(stack("vanilla", 30))
 		state.x = 0.5 * Tuning.tipAngle
 		state.seenX = state.x
 		TowerModel.setStance(state, true)
-		TowerModel.hitKick(state, CombatConfig, 25, 1, 0, CombatConfig.knockdownBoost)
+		TowerModel.hitKick(state, CombatConfig, 30, 1, 0, CombatConfig.knockdownBoost)
 		for _ = 1, 4 / DT do
 			local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
 			TowerModel.step(state, params, { ax = 0, az = 0, padX = px, padZ = pz }, PAD, Tuning, DT)
@@ -560,5 +560,69 @@ describe("Automatic stabiliser and steady stance", function()
 		expect(state.seenX).toBe(0)
 		expect(state.seenVz).toBe(0)
 		expect(state.stance).toBe(false)
+	end)
+end)
+
+-- The danger comes from players, not from the physics alone (docs/design-regeln.md). Like assistedRun, but starting
+-- with the landing kick of the last caught scoop and walking at the game's speed for the tower (Economy.walkSpeed):
+-- `straight` walks 3 s, stops for 1 s and sets off again 30 degrees to the other side, as a player does on the way
+-- to the cart. Returns the survival time.
+local function freeRun(count: number, seed: number, seconds: number, straight: boolean, stanceAt: number?)
+	local state = TowerModel.newState(seed)
+	local params = paramsFor(stack("vanilla", count))
+	local meter = Stance.new()
+	local speed = Economy.walkSpeed(count, 0, EconomyConfig)
+	local vx, vz = 0, 0
+	TowerModel.landingKick(state, Tuning, count)
+	for step = 1, seconds / DT do
+		local t = step * DT
+		if stanceAt then
+			local lean = TowerModel.tilt(state) / Tuning.tipAngle
+			if lean > stanceAt then
+				Stance.start(meter, Tuning.stance)
+			elseif lean < 0.2 then
+				Stance.stop(meter)
+			end
+			Stance.advance(meter, DT, Tuning.stance)
+			TowerModel.setStance(state, meter.active)
+		end
+		local tx, tz = 0, 0
+		if straight and t % 4 < 3 then
+			local leg = math.floor(t / 4)
+			local angle = math.rad(30) * (if leg % 2 == 0 then leg / 2 else -(leg + 1) / 2)
+			local s = if state.stance then speed * Tuning.stance.walkMultiplier else speed
+			tx, tz = math.cos(angle) * s, math.sin(angle) * s
+		end
+		local ax, az
+		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, tx, tz, Tuning.accelSmoothing, DT)
+		local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
+		TowerModel.step(state, params, { ax = ax, az = az, padX = px, padZ = pz }, PAD, Tuning, DT)
+		if state.toppled then
+			return t
+		end
+	end
+	return seconds
+end
+
+describe("The danger comes from players, not from the physics alone", function()
+	it("a tower standing still never topples by itself, up to 40 scoops", function()
+		for _, count in { 25, 30, 35, 40 } do
+			for seed = 1, 4 do
+				expect(freeRun(count, seed, 120, false)).toBe(120)
+			end
+		end
+	end)
+
+	it("walking straight ahead with stops holds 25 scoops for a minute without any input", function()
+		for seed = 1, 6 do
+			expect(freeRun(25, seed, 60, true)).toBe(60)
+		end
+	end)
+
+	it("walking straight ahead with 30 scoops needs the steady stance now and then", function()
+		for seed = 1, 4 do
+			expect(freeRun(30, seed, 60, true)).toBeLessThan(60)
+			expect(freeRun(30, seed, 60, true, 0.6)).toBe(60)
+		end
 	end)
 end)

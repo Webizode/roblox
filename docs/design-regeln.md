@@ -1,6 +1,6 @@
 # Wobble Scoops: Design-Regeln (verbindlich)
 
-Stand: 24.10.2026. Dieses Dokument legt die Richtung fest. Bei Widersprüchen gilt es vor `docs/concept.md` und vor älteren Zusammenfassungen aus ChatGPT.
+Stand: 25.10.2026. Dieses Dokument legt die Richtung fest. Bei Widersprüchen gilt es vor `docs/concept.md` und vor älteren Zusammenfassungen aus ChatGPT.
 
 ## 1. Was Wobble Scoops ist
 
@@ -33,6 +33,12 @@ Kugeln fangen → Turm wächst → du wirst zum Ziel → sicher servieren **oder
 6. **Smooth vor Features.** Eingabe reagiert sofort, Wurf und Bewegung werden auf dem Client vorhergesagt, der Server prüft. Lieber wenige Mechaniken, die sich perfekt anfühlen.
 7. **Die Scoops leben.** Jede Kugel hat Gesicht, Persönlichkeit und reagiert auf das, was dir passiert (Abschnitt 5).
 8. **Bestehendes wird erweitert, nicht ersetzt.** Turmphysik, Fangen, Wurf, Dash und Server-Autorität bleiben die Grundlage.
+9. **Gefahr kommt von Spielern, nicht von der Physik allein.** Ein Turm kippt nicht einfach so, sondern weil jemand etwas getan hat: du selbst oder ein Gegner.
+   - Stillstehen: bis mindestens 40 Kugeln kippt der Turm nie von selbst.
+   - Normales Gehen geradeaus: bis ca. 25 Kugeln stabil, darüber nur mit gelegentlichem Steady.
+   - Sprint, Dash, scharfe Kurven und Treffer sind die echten Gefahren und wirken mit der Höhe stärker. (Der Sprung als Turm-Gefahr kommt später.)
+   - Abgesichert durch Tests in `tests/TowerModel.spec.luau` („The danger comes from players …“), Stellschrauben in `src/shared/Config/Tower.luau`.
+10. **Läuft auf allen Geräten gleich gut.** Handy, Tablet, PC und Konsole sind gleichwertig. Jede Aktion hat Touch-, Gamepad- und Tastatur/Maus-Steuerung. Große Touch-Buttons, lesbare UI auf kleinen Bildschirmen, Leistung auf schwachen Android-Handys geprüft. Zielen mit Daumen und Stick bekommt später eine leichte Zielhilfe. Kamera-Effekte dezent und abschaltbar.
 
 ## 5. Lebendige Scoops: Emotionssystem
 

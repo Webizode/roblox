@@ -42,14 +42,16 @@ return {
 	-- Share of that authority for input that does not reduce the current lean (pushing an upright tower, pushing
 	-- with the lean, sideways). The stabiliser and the stance act through this, so they cannot push a tower over.
 	padWrongWay = 0.35,
-	driftStartScoops = 10, -- below this the tower never wanders on its own
-	driftPerScoop = 0.12, -- rad/s^2 of slow wandering per scoop above the start
+	-- The danger comes from players, not from the physics alone (docs/design-regeln.md): the drift is only a faint
+	-- wander on very tall towers, so the stabiliser holds a standing tower of 40 and more (simulation below).
+	driftStartScoops = 28, -- below this the tower never wanders on its own
+	driftPerScoop = 0.015, -- rad/s^2 of slow wandering per scoop above the start
 	jerkInterval = 0.9, -- seconds between cursed pickle kicks
 	jerkStrength = 0.35, -- rad/s per unit of flavor jerk
 	landingKick = 0.12, -- rad/s nudge every time a scoop lands
 
 	steady = {
-		minScoops = 10, -- steady time only counts once the tower drifts by itself
+		minScoops = 10, -- steady time only counts on towers of at least this many scoops
 		fraction = 0.25, -- tilt below this share of tipAngle counts as steady
 		ratePerSecond = 0.05,
 		max = 0.25,
@@ -58,15 +60,18 @@ return {
 	accelSmoothing = 0.25, -- seconds, MoveDirection lerp that feeds the tower instead of raw Humanoid velocity
 
 	-- Physics profile. padGain multiplies the pad authority above (the stabiliser and the stance act through it),
-	-- driftScale the random wandering.
-	variant = { accelGain = 0.02, padGain = 1, driftScale = 1 },
+	-- driftScale the random wandering. accelPerInstability makes walking tip unstable towers harder, so moving with
+	-- a tall tower is what makes it dangerous, not standing with it.
+	variant = { accelGain = 0.02, accelPerInstability = 0.2, padGain = 1, driftScale = 1 },
 
 	-- Automatic stabiliser (TowerModel.assist), a PD controller on the lean that is deliberately imperfect: it sees
 	-- the lean smoothed over `lag` seconds, uses at most `strength` of the pad, gives up between fadeFrom and fadeTo
 	-- of the tip angle, and gets weaker from fullUntil scoops to `floor` of its strength at zeroAt scoops.
-	-- In simulation (no player input at all): standing still, towers of up to 20 scoops stay up for 60 s; walking
-	-- with a full-speed 90 degree turn every 1.5 s peaks at about 30 % of the tip angle up to 9 scoops, 47 % at 11,
-	-- risks a topple from 13 and needs the steady stance from 15.
+	-- In simulation (no player input at all, 12 seeds): standing still, towers of up to 44 scoops stay up for 300 s;
+	-- walking straight ahead (a stop every 3 s, 30 degree changes of heading) holds 25 for 60 s and up to 37 with
+	-- the occasional steady stance. Sprinting holds 21, hard 90 degree turns every 1.5 s 24 (sprinting 21); at 25
+	-- scoops a sprint topples after about 9 s, hard turns after 11 s, sprinted turns after 3 s. Dashes topple from
+	-- 16 scoops, a single full ice-ball hit from 10.
 	assist = {
 		kp = 2.0,
 		kd = 0.6,
