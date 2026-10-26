@@ -25,12 +25,16 @@ local owners: { [Instance]: Player } = {}
 local assigned: { [Player]: Model } = {}
 local respawning: { [Player]: boolean } = {}
 
-local function setLabel(cart: Model, text: string)
+-- The name over a taken stand; a free stand shows nothing (text nil).
+local function setLabel(cart: Model, text: string?)
 	local body = cart:FindFirstChild("Body")
 	local label = body and body:FindFirstChild("Label")
 	local textLabel = label and label:FindFirstChildOfClass("TextLabel")
+	if label and label:IsA("BillboardGui") then
+		label.Enabled = text ~= nil
+	end
 	if textLabel then
-		textLabel.Text = text
+		textLabel.Text = text or ""
 	end
 end
 
@@ -62,7 +66,7 @@ local function release(player: Player)
 	respawning[player] = nil
 	if cart and owners[cart] == player then
 		owners[cart] = nil
-		setLabel(cart, "FREE CART")
+		setLabel(cart, nil)
 	end
 end
 
@@ -118,6 +122,9 @@ function CartService.Init(registry)
 end
 
 function CartService.Start()
+	for _, cart in map.carts do
+		setLabel(cart, nil) -- every stand starts free
+	end
 	local function onPlayer(player: Player)
 		assign(player)
 		player.CharacterAdded:Connect(function(character)

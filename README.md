@@ -2,7 +2,7 @@
 
 Roblox-Spiel: Eiskugeln fangen, einen wackelnden Turm mit dem Daumen balancieren und ihn zum eigenen Eiswagen tragen, bevor er kippt. Volles Konzept in [`docs/concept.md`](docs/concept.md), der Kill-Test für Woche 1 in [`docs/killtest.md`](docs/killtest.md).
 
-**Stand:** Woche 1, Feel-Prototyp. Big Swirl schießt Kugeln, Fangen, Wackelturm mit automatischer Grundstabilisierung und Steady-Haltung (F / Steady halten, mit Energie-Leiste), Springen und Dash, Servieren am Wagen, Coins, Kill-Test-Log. Rempeln, Greg, Golden Scoops, Speichern und Shop kommen ab Woche 2.
+**Stand:** Woche 1, Feel-Prototyp. Big Swirl schießt Kugeln, Fangen, Wackelturm mit automatischer Grundstabilisierung und Steady-Haltung (F / Steady halten, mit Energie-Leiste), Springen und Dash, Servieren am Wagen, Coins, Kill-Test-Log. Fortschritt wird gespeichert (ProfileStore). Rempeln, Greg, Golden Scoops und Shop kommen später.
 
 ## Setup auf Windows (einmalig, ca. 1 Abend)
 

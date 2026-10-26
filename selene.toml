@@ -1,4 +1,6 @@
 std = "roblox"
+# vendored third-party code (ProfileStore), kept as published
+exclude = ["src/server/Packages/*"]
 
 [lints]
 # Roblox code often shadows on purpose (e.g. `local root = ...` inside helpers)

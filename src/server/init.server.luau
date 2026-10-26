@@ -5,6 +5,7 @@ local Services = script:WaitForChild("Services")
 
 local ORDER = {
 	"MapService",
+	"DataService",
 	"KillTestLog",
 	"CartService",
 	"TowerService",

@@ -11,6 +11,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local Stance = require(Shared:WaitForChild("Stance"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
+local SaveData = require(Shared:WaitForChild("SaveData"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local RecipeConfig = require(Config:WaitForChild("Recipes"))
@@ -160,7 +161,9 @@ local function createState(player: Player): TowerState
 		joinedAt = now(),
 		leaderstats = { coins = coins, best = best },
 	}
-	player:SetAttribute("ConeLevel", state.coneLevel)
+	if player:GetAttribute("ConeLevel") == nil then
+		player:SetAttribute("ConeLevel", state.coneLevel) -- DataService sets the saved level once it is loaded
+	end
 	return state
 end
 
@@ -197,8 +200,8 @@ local function onServe(player: Player, steadyClaim: any)
 
 	local root = rootOf(player)
 	local servePoint = registry.CartService.servePoint(player)
-	if not root or not servePoint then
-		return
+	if not root or not servePoint or not registry.DataService.data(player) then
+		return -- no serving before the save is loaded: the coins would have nowhere to go
 	end
 	if (root.Position - servePoint).Magnitude > EconomyConfig.serveRadius + 4 then
 		return
@@ -218,8 +221,12 @@ local function onServe(player: Player, steadyClaim: any)
 		stacks = stacks,
 	})
 
-	state.coins += value
-	state.best = math.max(state.best, count)
+	-- the save is the truth about coins and the record; the state mirrors it for the leaderstats
+	registry.DataService.recordServe(player, state.scoops, value)
+	local data = registry.DataService.data(player)
+	if data then
+		state.coins, state.best = data.coins, data.bestTower
+	end
 	table.clear(state.scoops)
 	state.carryStartedAt = nil
 	state.tiltX, state.tiltZ = 0, 0
@@ -365,10 +372,31 @@ function TowerService.Init(reg)
 	registry = reg
 end
 
+-- The player's save is loaded (or was reset): coins, record and upgrade levels come from it.
+local function applySave(player: Player, data: SaveData.Data)
+	local state = states[player]
+	if not state then
+		return -- onPlayer applies it once the state exists
+	end
+	state.coins = data.coins
+	state.best = data.bestTower
+	state.coneLevel = data.upgrades.cone
+	state.sneakersLevel = data.upgrades.sneakers
+	state.cartLevel = data.upgrades.cart
+	-- the tower itself is untouched, so no TowerChanged: that would restart the client's tower simulation
+	state.leaderstats.coins.Value = math.floor(state.coins)
+	state.leaderstats.best.Value = state.best
+	applyWalkSpeed(player, state)
+end
+
 function TowerService.Start()
 	local function onPlayer(player: Player)
 		local state = createState(player)
 		states[player] = state
+		local data = registry.DataService.data(player)
+		if data then
+			applySave(player, data)
+		end
 		registry.KillTestLog.join(player)
 		player.CharacterAdded:Connect(function()
 			-- a new character starts with an empty cone
@@ -391,6 +419,8 @@ function TowerService.Start()
 		registry.KillTestLog.leave(player)
 		states[player] = nil
 	end)
+
+	registry.DataService.onLoaded(applySave)
 
 	Remotes.TowerToppled.OnServerEvent:Connect(onToppled)
 	Remotes.ServeRequest.OnServerEvent:Connect(onServe)

@@ -54,6 +54,7 @@ for _, name in
 		"Stance",
 		"MapRules",
 		"MapQuery",
+		"SaveData",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")
@@ -72,13 +73,17 @@ for _, name in
 		"Movement",
 		"Backpack",
 		"Map",
+		"Save",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", "Config", name }, "ModuleScript")
 end
-for _, name in { "MapService", "KillTestLog", "CartService", "TowerService", "LauncherService", "CombatService" } do
+for _, name in
+	{ "MapService", "DataService", "KillTestLog", "CartService", "TowerService", "LauncherService", "CombatService" }
+do
 	expectInstance({ "ServerScriptService", "Server", "Services", name }, "ModuleScript")
 end
+expectInstance({ "ServerScriptService", "Server", "Packages", "ProfileStore" }, "ModuleScript")
 for _, name in { "TowerVisual", "BallVisual", "Sfx", "Ui", "CombatCamera" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", name }, "ModuleScript")
 end

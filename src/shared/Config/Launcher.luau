@@ -9,7 +9,9 @@ return {
 	playerOffset = 9, -- max studs from the targeted player
 	tutorialShots = 3, -- first shots aim right at a new player
 	tutorialOffset = 1.5,
-	landingRadius = 80, -- random targets stay inside this circle around the machine
+	-- random targets stay inside this circle around the machine; it reaches past the spawns in front of the stands
+	-- (about 83 studs out), so the tutorial shots land right at a new player
+	landingRadius = 90,
 
 	flightBase = 1.7, -- seconds
 	flightPerStud = 0.012,
