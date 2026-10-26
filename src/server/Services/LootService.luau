@@ -27,7 +27,8 @@ type Free = {
 	baseX: number,
 	baseY: number,
 	baseZ: number,
-	groundY: number, -- the ground under the landing point
+	groundY: number, -- the ground under the landing point (a guess below the tower when it lands in water)
+	profile: Loot.Profile, -- the ground along the roll, and where the roll stops or sinks
 	t0: number, -- server time of the topple
 	landedAt: number,
 	ownerUntil: number,
@@ -45,8 +46,6 @@ local order: { number } = {} -- ids, oldest first
 local nextId = 0
 local claimBudget: { [Player]: { since: number, count: number } } = {}
 local lastRejectLog: { [Player]: number } = {}
-local rayParams = RaycastParams.new()
-rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 local function now(): number
 	return workspace:GetServerTimeNow()
@@ -57,26 +56,15 @@ local function rootOf(player: Player): BasePart?
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
-local function isWater(result: RaycastResult): boolean
-	return result.Material == Enum.Material.Water
-		or result.Instance.Name == "Water"
-		or result.Instance.Material == Enum.Material.Water
-end
-
 -- The ground height under (x, z) looking down from `fromY`, or nil over water or nothing.
 local function groundAt(x: number, fromY: number, z: number): number?
-	local characters = {}
-	for _, player in Players:GetPlayers() do
-		if player.Character then
-			table.insert(characters, player.Character)
-		end
-	end
-	rayParams.FilterDescendantsInstances = characters
-	local result = workspace:Raycast(Vector3.new(x, fromY, z), Vector3.new(0, -GROUND_REACH, 0), rayParams)
-	if not result or isWater(result) then
-		return nil
-	end
-	return result.Position.Y
+	return registry.MapService.groundAt(x, fromY, z, GROUND_REACH).y
+end
+
+-- The ground under a scoop right now: where it lies along its roll.
+local function groundNow(scoop: Free, elapsed: number): number
+	local roll = math.min(Loot.rollShare(elapsed, LootConfig), scoop.profile.stopShare)
+	return Loot.groundHeight(scoop.profile, roll) or scoop.groundY
 end
 
 -- What clients get for one scoop: enough to draw the same path and to know who may claim it.
@@ -88,6 +76,9 @@ local function wire(scoop: Free)
 		owner = scoop.owner,
 		base = Vector3.new(scoop.baseX, scoop.baseY, scoop.baseZ),
 		groundY = scoop.groundY,
+		shares = scoop.profile.shares,
+		heights = scoop.profile.heights,
+		stopShare = scoop.profile.stopShare,
 		start = Vector3.new(path.sx, path.sy, path.sz),
 		land = Vector3.new(path.lx, 0, path.lz),
 		roll = Vector3.new(path.rx, 0, path.rz),
@@ -160,14 +151,15 @@ local function onClaim(player: Player, id: any)
 		return reject(player, id, "knocked down")
 	end
 
-	local x, _, z = Loot.position(scoop.path, time - scoop.t0, LootConfig)
+	local elapsed = time - scoop.t0
+	local x, _, z = Loot.position(scoop.path, elapsed, LootConfig, scoop.profile.stopShare)
 	local position = root.Position
 	local velocity = root.AssemblyLinearVelocity
 	local speed = CatchRules.cappedSpeed(velocity.X, velocity.Z, humanoid.WalkSpeed)
 	if
 		not Loot.inReach(
 			position.X - (scoop.baseX + x),
-			position.Y - scoop.groundY - humanoid.HipHeight - root.Size.Y / 2,
+			position.Y - groundNow(scoop, elapsed) - humanoid.HipHeight - root.Size.Y / 2,
 			position.Z - (scoop.baseZ + z),
 			speed,
 			true,
@@ -262,16 +254,19 @@ function LootService.spill(player: Player, flavorIds: { string }, keep: number, 
 	local list = {}
 	for index = 1, kept do
 		local path = paths[index]
-		-- the ground under the landing point, and the first point along the roll without ground: there it sinks
+		-- the ground under the landing point and along the roll: it follows steps down, stops at steps up and sinks
+		-- at the first point without ground
 		local fromY = base.Y + 2
-		local groundY = groundAt(base.X + path.lx, fromY, base.Z + path.lz)
+		local samples = Loot.groundSamples(path, LootConfig)
+		local heights = {}
+		for index, sample in samples do
+			heights[index] = groundAt(base.X + sample.x, fromY, base.Z + sample.z)
+		end
+		local profile = Loot.rollProfile(samples, heights, LootConfig)
 		local endAt = time + LootConfig.lifetime
-		local sinks = false
-		for _, sample in Loot.groundSamples(path, LootConfig) do
-			if not groundAt(base.X + sample.x, fromY, base.Z + sample.z) then
-				endAt, sinks = math.min(endAt, time + sample.t), true
-				break
-			end
+		local sinks = profile.sinkAt ~= nil
+		if profile.sinkAt then
+			endAt = math.min(endAt, time + profile.sinkAt)
 		end
 		nextId += 1
 		local scoop: Free = {
@@ -282,7 +277,8 @@ function LootService.spill(player: Player, flavorIds: { string }, keep: number, 
 			baseX = base.X,
 			baseY = base.Y,
 			baseZ = base.Z,
-			groundY = groundY or (base.Y - 3),
+			groundY = profile.heights[1] or (base.Y - 3),
+			profile = profile,
 			t0 = time,
 			landedAt = landedAt,
 			ownerUntil = ownerUntil,

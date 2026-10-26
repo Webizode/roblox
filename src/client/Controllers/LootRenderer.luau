@@ -15,6 +15,7 @@ local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Loot = require(Shared:WaitForChild("Loot"))
 local LootConfig = require(Config:WaitForChild("Loot"))
+local MapConfig = require(Config:WaitForChild("Map"))
 local Palette = require(Config:WaitForChild("Palette"))
 
 local client = script.Parent.Parent
@@ -28,6 +29,9 @@ type Wire = {
 	owner: number,
 	base: Vector3,
 	groundY: number,
+	shares: { number },
+	heights: { number },
+	stopShare: number,
 	start: Vector3,
 	land: Vector3,
 	roll: Vector3,
@@ -40,6 +44,7 @@ type Wire = {
 type Drawn = {
 	wire: Wire,
 	path: Loot.Path,
+	profile: Loot.Profile,
 	rule: Loot.Scoop,
 	part: Part,
 	ring: Part?,
@@ -75,12 +80,18 @@ local function ownerColor(userId: number): Color3?
 	return if type(hex) == "string" then Color3.fromHex(hex) else nil
 end
 
+-- The ground under the scoop `elapsed` seconds after the topple: it follows the server's height profile of the roll.
+local function groundAt(scoop: Drawn, elapsed: number): number
+	local roll = math.min(Loot.rollShare(elapsed, LootConfig), scoop.profile.stopShare)
+	return Loot.groundHeight(scoop.profile, roll) or scoop.wire.groundY
+end
+
 -- World position of the scoop's centre at `elapsed` seconds after the topple. Loot.position's height is the share
--- of the way down from the tower; here it ends on the ground under the landing point.
+-- of the way down from the tower; here it ends on the ground under the scoop.
 local function worldPosition(scoop: Drawn, elapsed: number): Vector3
 	local wire, path = scoop.wire, scoop.path
-	local x, y, z = Loot.position(path, elapsed, LootConfig)
-	local restY = wire.groundY + LootConfig.scoopRadius
+	local x, y, z = Loot.position(path, elapsed, LootConfig, scoop.profile.stopShare)
+	local restY = groundAt(scoop, elapsed) + LootConfig.scoopRadius
 	local fall = if path.sy > 1e-3 then y / path.sy else 0
 	local startY = wire.base.Y + path.sy
 	return Vector3.new(wire.base.X + x, restY + (startY - restY) * fall, wire.base.Z + z)
@@ -103,7 +114,8 @@ local function updateRing(scoop: Drawn, now: number)
 	end
 	if scoop.ring then
 		local position = scoop.part.Position
-		scoop.ring.CFrame = CFrame.new(position.X, scoop.wire.groundY + 0.1, position.Z) * FLAT
+		local ground = groundAt(scoop, now - scoop.wire.t0)
+		scoop.ring.CFrame = CFrame.new(position.X, ground + 0.1, position.Z) * FLAT
 	end
 end
 
@@ -127,6 +139,12 @@ local function add(wire: Wire)
 			lz = wire.land.Z,
 			rx = wire.roll.X,
 			rz = wire.roll.Z,
+		},
+		profile = {
+			shares = wire.shares,
+			heights = wire.heights,
+			stopShare = wire.stopShare,
+			sinkAt = nil, -- the server's endAt already covers it
 		},
 		rule = {
 			owner = wire.owner,
@@ -211,7 +229,7 @@ local function onRemoved(id: number, catcher: Player?, reason: string)
 		end
 		vanish(part, 0.2)
 	elseif reason == "water" then
-		splash(Vector3.new(part.Position.X, scoop.wire.groundY - 2, part.Position.Z))
+		splash(Vector3.new(part.Position.X, MapConfig.waterLevel, part.Position.Z))
 		part:Destroy()
 	else
 		vanish(part, 0.25)
@@ -237,7 +255,8 @@ local function tryClaim(scoop: Drawn, now: number, root: BasePart, humanoid: Hum
 	end
 	local position = scoop.part.Position
 	local feet = root.Position.Y - humanoid.HipHeight - root.Size.Y / 2
-	local dx, dy, dz = root.Position.X - position.X, feet - scoop.wire.groundY, root.Position.Z - position.Z
+	local ground = groundAt(scoop, now - scoop.wire.t0)
+	local dx, dy, dz = root.Position.X - position.X, feet - ground, root.Position.Z - position.Z
 	if Loot.inReach(dx, dy, dz, 0, false, LootConfig) then
 		scoop.claimedAt = os.clock()
 		Remotes.LootClaim:FireServer(scoop.wire.id)

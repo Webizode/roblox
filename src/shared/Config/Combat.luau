@@ -39,6 +39,9 @@ return {
 		-- after the release or a dropped charge; it eases there over about zoomTime
 		aimZoom = 3, -- studs
 		zoomTime = 0.2, -- seconds
+		-- the camera is kept this far out of solid parts (a swept sphere), so roofs, palms and decorations do not
+		-- slice through the near plane
+		wallRadius = 0.6, -- studs
 	},
 
 	-- the ball in the hand (HeldBalls), drawn for every player in combat mode; purely visual

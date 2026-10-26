@@ -11,6 +11,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
 local Loot = require(Shared:WaitForChild("Loot"))
+local MapQuery = require(Shared:WaitForChild("MapQuery"))
 local Config = require(Shared:WaitForChild("Config"):WaitForChild("Combat"))
 local LootConfig = require(Shared:WaitForChild("Config"):WaitForChild("Loot"))
 local Features = require(Shared:WaitForChild("Config"):WaitForChild("Features"))
@@ -77,20 +78,9 @@ local function debugReject(player: Player, reason: string)
 end
 
 -- A raycast that only stops at parts a ball cannot fly through: anything without collision (invisible zones,
--- trigger volumes, decorations) is skipped, the same rule the client's aim ray follows.
+-- trigger volumes) and the thin decoration of Config/Map is skipped, the same rule the client's aim ray follows.
 local function solidRaycast(origin: Vector3, direction: Vector3, ignore: { Instance }): RaycastResult?
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local skipped = table.clone(ignore)
-	for _ = 1, 8 do
-		params.FilterDescendantsInstances = skipped
-		local result = workspace:Raycast(origin, direction, params)
-		if not result or result.Instance.CanCollide then
-			return result
-		end
-		table.insert(skipped, result.Instance)
-	end
-	return nil
+	return MapQuery.throwRaycast(origin, direction, ignore)
 end
 
 local function rootOf(player: Player): BasePart?

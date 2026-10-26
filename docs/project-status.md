@@ -32,7 +32,7 @@ Stand: 18.10.2026, Branch `claude/wobble-scoops-week1` bei `69aaffb`. Geprüft w
 | Coins | nur für die Sitzung (leaderstats), kein Speichern | `TowerService.luau` |
 | Mehrspieler | Server ist die Wahrheit, Neigung fremder Türme repliziert, ein Wagen pro Spieler | `src/client/Controllers/RemoteTowers.luau`, `TowerService.luau` |
 | HUD | Coins, Turm-Karte, ein Hinweis, Balance-Anzeige, Meldungen, Wagen-Markierung | `src/client/Controllers/Hud.luau`, `src/client/Ui.luau` |
-| Map | Graybox-Pier, falls `Workspace.Pier` fehlt (die Map ist nicht in Rojo gemappt) | `src/server/Services/GrayboxService.luau` |
+| Map | Kornels Insel (`Ice Cream Map`, im Place, nicht in Rojo), Hilfsteile in `Workspace.Pier`, Big Swirl wird beim Start auf den Platz-Marker gebaut; Landezonen, Boden per Raycast, Meer und Würfe nach `Config/Map` | `src/server/Services/MapService.luau`, `src/shared/MapRules.luau`, `src/shared/MapQuery.luau`, `Config/Map.luau` |
 | Kill-Test-Log | Serves und Stürze pro Steuerung | `src/server/Services/KillTestLog.luau` |
 
 ## Bestätigte Bugs und Risiken (aus dem Code)

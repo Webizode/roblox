@@ -16,6 +16,7 @@ export type Config = {
 	rollSpread: number,
 	rollDecay: number,
 	waterSamples: number,
+	maxRollStep: number,
 	pickupRadius: number,
 	pickupHeight: number,
 	serverTolerance: number,
@@ -106,27 +107,87 @@ function Loot.rollShare(elapsed: number, config: Config): number
 end
 
 -- Offset from the tower base `elapsed` seconds after the topple. y is the height above the ground (0 once landed).
-function Loot.position(path: Path, elapsed: number, config: Config): (number, number, number)
+-- `stopShare` (Profile.stopShare) ends the roll early where a step or a wall is in the way.
+function Loot.position(path: Path, elapsed: number, config: Config, stopShare: number?): (number, number, number)
 	if elapsed < config.fallTime then
 		local share = math.max(0, elapsed) / config.fallTime
 		return path.sx + (path.lx - path.sx) * share,
 			path.sy * (1 - share * share),
 			path.sz + (path.lz - path.sz) * share
 	end
-	local roll = Loot.rollShare(elapsed, config)
+	local roll = math.min(Loot.rollShare(elapsed, config), stopShare or 1)
 	return path.lx + path.rx * roll, 0, path.lz + path.rz * roll
 end
 
 -- The points along the way where the server checks for ground: the landing point and waterSamples points along the
--- roll, each with the time the scoop gets there. A scoop sinks at the first one without ground.
-function Loot.groundSamples(path: Path, config: Config): { { x: number, z: number, t: number } }
-	local samples = { { x = path.lx, z = path.lz, t = config.fallTime } }
+-- roll, each with the share of the roll done there and the time the scoop gets there.
+function Loot.groundSamples(path: Path, config: Config): { { x: number, z: number, t: number, share: number } }
+	local samples = { { x = path.lx, z = path.lz, t = config.fallTime, share = 0 } }
 	for step = 1, config.waterSamples do
 		local share = step / config.waterSamples * 0.95 -- the roll never quite ends
 		local elapsed = config.fallTime - math.log(1 - share) / config.rollDecay
-		table.insert(samples, { x = path.lx + path.rx * share, z = path.lz + path.rz * share, t = elapsed })
+		table.insert(
+			samples,
+			{ x = path.lx + path.rx * share, z = path.lz + path.rz * share, t = elapsed, share = share }
+		)
 	end
 	return samples
+end
+
+-- The ground along one scoop's way, from the heights the server found under groundSamples (nil: water or nothing).
+--   shares/heights  the ground under the landing point and along the roll, as far as the scoop gets
+--   stopShare       share of the roll where it ends: 1, or earlier at a step up higher than maxRollStep (it stops
+--                   against it). Down steps are followed, the scoop drops off the edge.
+--   sinkAt          seconds after the topple it reaches water, nil if it never does
+export type Profile = {
+	shares: { number },
+	heights: { number },
+	stopShare: number,
+	sinkAt: number?,
+}
+
+function Loot.rollProfile(
+	samples: { { x: number, z: number, t: number, share: number } },
+	heights: { number? },
+	config: Config
+): Profile
+	local profile: Profile = { shares = {}, heights = {}, stopShare = 1, sinkAt = nil }
+	local previous: number? = nil
+	for index, sample in samples do
+		local height = heights[index]
+		if height == nil then
+			profile.sinkAt = sample.t
+			profile.stopShare = sample.share
+			break
+		end
+		if previous and height - previous > config.maxRollStep then
+			profile.stopShare = samples[index - 1].share
+			break
+		end
+		table.insert(profile.shares, sample.share)
+		table.insert(profile.heights, height)
+		previous = height
+	end
+	return profile
+end
+
+-- The ground height under the scoop at `share` of its roll, nil when the profile has no ground at all (it landed in
+-- the water). Between two samples it slopes, so a scoop rolling off an edge comes down over a stud or so.
+function Loot.groundHeight(profile: Profile, share: number): number?
+	local shares, heights = profile.shares, profile.heights
+	if #heights == 0 then
+		return nil
+	end
+	if share <= shares[1] then
+		return heights[1]
+	end
+	for index = 2, #heights do
+		if share <= shares[index] then
+			local blend = (share - shares[index - 1]) / (shares[index] - shares[index - 1])
+			return heights[index - 1] + (heights[index] - heights[index - 1]) * blend
+		end
+	end
+	return heights[#heights]
 end
 
 -- Until when only the owner may pick up a scoop that landed at `landedAt`: ownerSeconds from the moment the owner can

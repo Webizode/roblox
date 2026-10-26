@@ -17,6 +17,7 @@ require("./ThrowPose.spec")
 require("./BallMotion.spec")
 require("./Stance.spec")
 require("./Loot.spec")
+require("./MapRules.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

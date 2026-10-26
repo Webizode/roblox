@@ -1,0 +1,53 @@
+--!strict
+-- Kornel's ice cream island (Workspace."Ice Cream Map") and how the game reads it: where the Big Swirl stands, where
+-- the sea starts, which surfaces scoops may land on and which decorations a thrown ball flies through.
+-- Folder names are the map's own top-level folders (Polish). The contract for Workspace.Pier is in MapService.
+
+return {
+	root = "Ice Cream Map", -- Kornel's map in Workspace, never changed by the game
+	pier = "Pier", -- the invisible helpers in Workspace (MapService contract)
+
+	-- the Big Swirl (our own machine, built by MapService) stands on this part in the middle of the plaza
+	machineMarker = { "Plac", "Arena_Znacznik" },
+	machine = {
+		bodyHeight = 22,
+		bodyDiameter = 16,
+		nozzleSize = 7,
+		nozzleGap = 3, -- studs from the top of the body to the centre of the nozzle
+	},
+
+	-- the sea: Terrain water from the original map file. Anything below waterLevel counts as water, so the sea floor
+	-- under it is never ground.
+	waterLevel = -6,
+	-- a player whose root is below waterLevel + respawnMargin is in the sea and respawns at the own stand
+	respawnMargin = 1.5,
+	waterCheckInterval = 0.25, -- seconds between the server's checks
+
+	-- where the Big Swirl may land a scoop: MapService samples a grid of spots once at the start and keeps those
+	-- where a player could stand (footprint flat, surface not blocked, not water)
+	landing = {
+		gridStep = 2, -- studs between sampled spots
+		footprint = 1.5, -- studs from the spot to the four extra rays around it
+		maxStep = 0.8, -- studs of height difference within the footprint (rules out railings, lamp heads, knobs)
+		minNormalY = 0.8, -- surfaces steeper than about 37 degrees are not ground
+		-- never a landing spot: roofs, palms, lamps, lollipops, bushes, the fence, decorations, the machine
+		blockedFolders = {
+			"Stoiska",
+			"Palmy",
+			"Latarnie",
+			"Lizaki",
+			"Trawa",
+			"Plot",
+			"Dekoracje",
+			"Wodospady",
+			"Wysepki",
+			"BigSwirl",
+		},
+		blockedNamePrefixes = { "Poręcz", "Gałka" }, -- platform railings and the knobs on them
+	},
+
+	-- thrown balls fly through thin decoration (garlands, lamps, lollipops, palm leaves and coconuts); palm trunks,
+	-- stands, the fence and the cover in Covery stop them like any other solid part
+	throwPassFolders = { "Girlandy", "Latarnie", "Lizaki" },
+	throwPassNames = { "PalmLeaf", "Coconut" },
+}

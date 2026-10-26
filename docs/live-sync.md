@@ -17,7 +17,7 @@ Stand: Rojo 7.7.1, festgelegt in `rokit.toml`. Alle Aussagen über das Plugin un
 | `ReplicatedStorage.Shared` | `src/shared` | werden überschrieben, sobald sich die passende Datei ändert oder Rojo neu verbindet |
 | `ServerScriptService.Server` | `src/server` | ebenso |
 | `StarterPlayer.StarterPlayerScripts.Client` | `src/client` | ebenso |
-| alles andere: `Workspace.Pier` (Map), Lighting, weitere Objekte in diesen Services | der Place selbst | Rojo fasst es nicht an |
+| alles andere: `Workspace."Ice Cream Map"` und `Workspace.Pier` (Map), Terrain, Lighting, weitere Objekte in diesen Services | der Place selbst | Rojo fasst es nicht an |
 
 - Innerhalb der drei Ordner entfernt Rojo alles, was es nicht als Datei gibt. Ein Script, das du in Studio in `Shared` anlegst, ist beim nächsten Verbinden weg, innerhalb derselben Studio-Sitzung sogar ohne Nachfrage. Code deshalb nur über die Dateien ändern.
 - Die Map lebt nur im Place. Rojo sichert sie nicht: in Studio mit Strg+S speichern (oder veröffentlichen).

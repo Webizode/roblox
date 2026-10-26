@@ -5,7 +5,7 @@ Roblox-Spiel, Solo-Projekt mit Claude Code. Ziel: ~2.000 € über DevEx. Refere
 ## Workflow
 
 - **Code lebt in Dateien** unter `src/` und wird per Rojo (`rojo serve`) live nach Studio gesynct. Scripts nie direkt in Studio ändern, Rojo überschreibt sie. Ablauf, Plugin-Einstellungen und Grenzen (laufender Playtest lädt Code nicht nach): `docs/live-sync.md`.
-- **Die Map lebt im Place** (`Workspace.Pier`). Sie wird in Studio gebaut (per Studio-MCP oder von Hand) und muss dem Map-Vertrag oben in `src/server/Services/GrayboxService.luau` folgen. Fehlt `Workspace.Pier`, baut der Server eine Graybox.
+- **Die Map lebt im Place:** Kornels Insel `Workspace."Ice Cream Map"` (nie ändern) plus unsichtbare Hilfsteile in `Workspace.Pier` (ServePoints der 6 Stände), Terrain-Wasser bis y=-6. Sie muss dem Map-Vertrag oben in `src/server/Services/MapService.luau` folgen, sonst bricht der Server mit Fehler ab. Die Big Swirl baut `MapService` beim Start auf `Plac.Arena_Znacznik`. Ordnernamen und Regeln (Landezonen, Würfe, Wasser) stehen in `Config/Map.luau`.
 - **Studio-MCP** (nur lokal auf Windows/Mac) ist für Playtests da: Play starten, Konsole auf Fehler prüfen, Screenshots, Spieler steuern, Map bauen, `ServerStorage.KillTestLog` lesen.
 - Vor jedem Commit: `lune run scripts/check` (StyLua, Selene, Lune-Tests, Rojo-Build, Place-Check). Muss grün sein.
 
@@ -13,7 +13,7 @@ Roblox-Spiel, Solo-Projekt mit Claude Code. Ziel: ~2.000 € über DevEx. Refere
 
 - **Server ist die Wahrheit** über Kugeln, Fänge, Coins und Serve-Wert. Der Client simuliert nur die Neigung und meldet Stürze und einen Steady-Bonus, der serverseitig auf die Tragezeit gedeckelt wird.
 - Jeder `OnServerEvent`-Handler prüft Typen (inkl. NaN/inf), Wertebereiche und Rate-Limits. Clientwerten nie vertrauen.
-- `src/shared/*.luau` (TowerModel, TowerShape, Economy, Recipes, ShotMath) sind **rein**: keine Roblox-Globals, keine `require`s. Configs werden als Argument übergeben. Nur so laufen sie in Lune-Tests. Neue Logik mit Zahlen gehört hierher, mit Tests in `tests/`.
+- `src/shared/*.luau` (TowerModel, TowerShape, Economy, Recipes, ShotMath) sind **rein**: keine Roblox-Globals, keine `require`s. Configs werden als Argument übergeben. Nur so laufen sie in Lune-Tests. Neue Logik mit Zahlen gehört hierher, mit Tests in `tests/`. Ausnahmen, die die Roblox-Laufzeit brauchen: `Remotes` und `MapQuery` (Raycasts auf die Map, die Regeln dazu stehen rein in `MapRules`).
 - `src/shared/Config/*.luau` sind reine Daten. Tuning gehört dorthin, nicht in den Code.
 - Services und Controller folgen demselben Muster: Modul mit optionalem `Init(registry)` und `Start()`, Reihenfolge in `init.server.luau` / `init.client.luau`.
 - Features der späteren Wochen hängen an `Config/Features.luau`.

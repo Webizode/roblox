@@ -19,6 +19,7 @@ local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
 local BallMotion = require(Shared:WaitForChild("BallMotion"))
+local MapQuery = require(Shared:WaitForChild("MapQuery"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
 local Features = require(Config:WaitForChild("Features"))
 local Palette = require(Config:WaitForChild("Palette"))
@@ -363,7 +364,8 @@ local function tryStartCharge()
 end
 
 -- The world point under the crosshair (the screen centre), or a point far along that ray. The ray ignores the own
--- character, everything the ball would fly through anyway (parts without collision, like invisible zones), and
+-- character, everything the ball would fly through anyway (parts without collision and the thin decoration of
+-- Config/Map, MapQuery.throwRaycast), and
 -- everything between the camera and the character, so only what lies ahead of the player can be the target.
 local function aimPoint(): Vector3
 	local camera = workspace.CurrentCamera
@@ -375,21 +377,9 @@ local function aimPoint(): Vector3
 		origin += unit * math.max(0, (root.Position - origin):Dot(unit))
 	end
 	local ignore: { Instance } = if character then { character } else {}
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
 	local direction = unit * CombatConfig.aimDistance
-	for _ = 1, 8 do
-		params.FilterDescendantsInstances = ignore
-		local result = workspace:Raycast(origin, direction, params)
-		if not result then
-			break
-		end
-		if result.Instance.CanCollide then
-			return result.Position
-		end
-		table.insert(ignore, result.Instance)
-	end
-	return origin + direction
+	local result = MapQuery.throwRaycast(origin, direction, ignore)
+	return if result then result.Position else origin + direction
 end
 
 -- Button down charges, button up throws with the bar's value at that moment. The local checks only save pointless
@@ -587,8 +577,9 @@ function CombatController.Start()
 	-- combat mode and its mouse never outlive the character: death, respawn, or the server ending it (knockdown)
 	local function watchCharacter(character: Model)
 		local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
-		if humanoid then
+		if humanoid and character == player.Character then
 			humanoid.Died:Connect(forceExit)
+			CombatCamera.follow() -- the normal camera follows the new character, not the old one
 		end
 	end
 	player.CharacterAdded:Connect(function(character)

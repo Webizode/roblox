@@ -37,7 +37,7 @@ type Shot = {
 }
 
 local registry
-local graybox
+local map
 local shots: { [number]: Shot } = {}
 local nextId = 0
 local tutorialLeft: { [Player]: number } = {}
@@ -66,31 +66,17 @@ local function rootOf(player: Player): BasePart?
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
-local function onGround(x: number, z: number): Vector3
-	-- keep every target inside the landing circle around the machine
-	local center = graybox.center
-	local offset = Vector3.new(x - center.X, 0, z - center.Z)
-	if offset.Magnitude > Tuning.landingRadius then
-		offset = offset.Unit * Tuning.landingRadius
-	end
-	return Vector3.new(center.X + offset.X, graybox.groundY, center.Z + offset.Z)
-end
-
-local function randomOffset(radius: number): (number, number)
-	local angle = rng:NextNumber() * math.pi * 2
-	local distance = math.sqrt(rng:NextNumber()) * radius
-	return math.cos(angle) * distance, math.sin(angle) * distance
-end
-
-local function pickTarget(): Vector3
+-- Every target is one of the map's landing spots (MapService): ground a player can stand on inside the landing
+-- circle, never water, a roof, a palm or a railing. Near a player means a spot within `radius` of them, or the
+-- nearest spot when they stand where nothing may land.
+local function pickTarget(): Vector3?
 	local candidates = {}
 	for _, player in Players:GetPlayers() do
 		local root = rootOf(player)
 		if root then
 			if (tutorialLeft[player] or 0) > 0 then
 				tutorialLeft[player] -= 1
-				local dx, dz = randomOffset(Tuning.tutorialOffset)
-				return onGround(root.Position.X + dx, root.Position.Z + dz)
+				return map.landingNear(root.Position.X, root.Position.Z, Tuning.tutorialOffset, rng)
 			end
 			table.insert(candidates, root)
 		end
@@ -98,12 +84,10 @@ local function pickTarget(): Vector3
 
 	if #candidates > 0 and rng:NextNumber() < Tuning.targetPlayerChance then
 		local root = candidates[rng:NextInteger(1, #candidates)]
-		local dx, dz = randomOffset(Tuning.playerOffset)
-		return onGround(root.Position.X + dx, root.Position.Z + dz)
+		return map.landingNear(root.Position.X, root.Position.Z, Tuning.playerOffset, rng)
 	end
 
-	local dx, dz = randomOffset(Tuning.landingRadius)
-	return onGround(graybox.center.X + dx, graybox.center.Z + dz)
+	return map.randomLanding(rng)
 end
 
 local function resolve(shot: Shot, catcher: Player?)
@@ -116,8 +100,11 @@ local function resolve(shot: Shot, catcher: Player?)
 end
 
 local function fire()
-	local from = graybox.nozzle.Position
+	local from = map.nozzle.Position
 	local to = pickTarget()
+	if not to then
+		return -- a map without a single landing spot; MapService said so at the start
+	end
 	local distance = Vector3.new(to.X - from.X, 0, to.Z - from.Z).Magnitude
 
 	nextId += 1
@@ -216,7 +203,7 @@ end
 
 function LauncherService.Init(reg)
 	registry = reg
-	graybox = reg.GrayboxService
+	map = reg.MapService
 end
 
 function LauncherService.Start()

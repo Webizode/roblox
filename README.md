@@ -39,7 +39,7 @@ cd $HOME\roblox
 rojo serve default.project.json
 ```
 
-Das Fenster offen lassen. In Studio den Place öffnen (beim ersten Mal eine neue *Baseplate*) → Plugins → Rojo → *Connect*, die angezeigten Änderungen prüfen, *Accept*. Dann **Play (F5)**: Der Server baut beim Start automatisch einen Graybox-Pier, wenn im Place noch keiner existiert.
+Das Fenster offen lassen. In Studio den Place öffnen (beim ersten Mal eine neue *Baseplate*) → Plugins → Rojo → *Connect*, die angezeigten Änderungen prüfen, *Accept*. Dann **Play (F5)**. Die Map (Kornels Insel und `Workspace.Pier`) liegt im Place, nicht im Repo; ohne sie bricht der Server mit einer Meldung zum Map-Vertrag (`MapService.luau`) ab.
 
 **Live-Sync:** Jede gespeicherte Datei unter `src/` ist sofort in Studio. Einstellungen, Grenzen bei laufendem Playtest (nach Codeänderungen Stop + F5) und Fehlerbehebung: [`docs/live-sync.md`](docs/live-sync.md). Änderungen aus Cloud-Sessions holst du mit `git pull --ff-only` im Repo-Ordner, Rojo übernimmt sie ohne Neustart.
 
@@ -89,7 +89,7 @@ Führt StyLua, Selene, die Lune-Tests, einen Rojo-Build und die Prüfung des geb
 | Pfad | Wird in Roblox zu | Inhalt |
 |---|---|---|
 | `src/shared` | `ReplicatedStorage.Shared` | reine Logik (TowerModel, TowerShape, Economy, Recipes, ShotMath), Remotes, `Config/*` |
-| `src/server` | `ServerScriptService.Server` | Services: Graybox, Cart, Tower, Launcher, KillTestLog |
+| `src/server` | `ServerScriptService.Server` | Services: Map, Cart, Tower, Launcher, Combat, Loot, KillTestLog |
 | `src/client` | `StarterPlayerScripts.Client` | TowerVisual, Sfx, Ui (gemeinsamer UI-Stil), Controllers: Hud, TowerController, ShotRenderer, RemoteTowers |
 | `tests` | (nur Lune) | Unit-Tests der reinen Logik, Syntax-Check aller Dateien, Place-Check |
 | `docs` | | Konzept, Kill-Test, Live-Sync mit Studio |

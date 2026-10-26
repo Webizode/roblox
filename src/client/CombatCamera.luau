@@ -20,11 +20,12 @@ local CombatCamera = {}
 local STEP = "WobbleCombatCamera"
 local STICK_DEAD_ZONE = 0.15
 local WALL_MARGIN = 0.4
+local WALL_TRIES = 6 -- non-colliding parts a camera ray may pass before it gives up
+local MIN_DISTANCE = 0.5 -- studs from the pivot the camera keeps even right against a wall
 
 local player = Players.LocalPlayer
 local active = false
 local own = false -- our own camera (mouse or gamepad) instead of Roblox's shifted one
-local savedType: Enum.CameraType? = nil
 local yaw, pitch = 0, 0
 local turned: Humanoid? = nil -- the humanoid whose AutoRotate combat mode switched off
 local zoom, zoomTarget = 0, 0 -- extra studs behind the character while aiming, and where it is easing to
@@ -76,6 +77,27 @@ local function stick(): Vector2
 	return Vector2.zero
 end
 
+-- How far the camera may go from `pivot` along `offset` before it would sit in a solid part: a sphere of
+-- Look.wallRadius is swept along the way, so roof edges and palm leaves cannot slip past a thin ray into the near
+-- plane. Parts without collision (garlands, decoration layers) are looked through.
+local function unblocked(pivot: Vector3, offset: Vector3, character: Model): Vector3
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local skipped: { Instance } = { character }
+	for _ = 1, WALL_TRIES do
+		params.FilterDescendantsInstances = skipped
+		local wall = workspace:Spherecast(pivot, Look.wallRadius, offset, params)
+		if not wall then
+			return offset
+		end
+		if wall.Instance:IsA("Terrain") or (wall.Instance :: BasePart).CanCollide then
+			return offset.Unit * math.max(MIN_DISTANCE, wall.Distance - WALL_MARGIN)
+		end
+		table.insert(skipped, wall.Instance)
+	end
+	return offset
+end
+
 local function ownStep(dt: number)
 	local camera = workspace.CurrentCamera
 	local character = player.Character
@@ -92,24 +114,25 @@ local function ownStep(dt: number)
 	local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
 	local pivot = root.Position + Vector3.new(0, Look.pivotUp, 0)
 	local offset = rotation:VectorToWorldSpace(Vector3.new(Look.shoulder, Look.up, Look.distance + stepZoom(dt)))
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character :: Model }
-	local wall = workspace:Raycast(pivot, offset, params)
-	if wall and wall.Instance.CanCollide then
-		offset = offset.Unit * math.max(0.5, wall.Distance - WALL_MARGIN)
-	end
-	camera.CFrame = CFrame.new(pivot + offset) * rotation
+	camera.CFrame = CFrame.new(pivot + unblocked(pivot, offset, character :: Model)) * rotation
 	camera.Focus = CFrame.new(pivot)
 	face(character :: Model, rotation.LookVector)
 end
 
--- Touch: Roblox's camera keeps turning and zooming; this runs after it and only slides it over the shoulder.
+-- Touch: Roblox's camera keeps turning and zooming; this runs after it and only slides it over the shoulder. Roblox
+-- keeps its own camera out of walls, but not the slide, so the shifted camera is pulled in like ours.
 local function shiftStep(dt: number)
 	local camera = workspace.CurrentCamera
 	local character = player.Character
 	if camera then
-		camera.CFrame *= CFrame.new(Look.shoulder, Look.up, stepZoom(dt))
+		local shifted = camera.CFrame * CFrame.new(Look.shoulder, Look.up, stepZoom(dt))
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if character and root then
+			local pivot = root.Position + Vector3.new(0, Look.pivotUp, 0)
+			local offset = unblocked(pivot, shifted.Position - pivot, character)
+			shifted = shifted.Rotation + pivot + offset
+		end
+		camera.CFrame = shifted
 		if character then
 			face(character, camera.CFrame.LookVector)
 		end
@@ -127,13 +150,27 @@ function CombatCamera.start()
 		local look = camera.CFrame.LookVector
 		yaw = math.atan2(-look.X, -look.Z)
 		pitch = math.clamp(math.asin(math.clamp(look.Y, -1, 1)), Look.pitchMin, Look.pitchMax)
-		savedType = camera.CameraType
 		camera.CameraType = Enum.CameraType.Scriptable
 		-- Roblox's camera does nothing while the camera is Scriptable, so this takes its place in the frame
 		RunService:BindToRenderStep(STEP, Enum.RenderPriority.Camera.Value, ownStep)
 	else
 		own = false
 		RunService:BindToRenderStep(STEP, Enum.RenderPriority.Camera.Value + 1, shiftStep)
+	end
+end
+
+-- Gives the camera to Roblox's own camera, following the current character. Nothing saved earlier is restored: after
+-- a respawn the old camera state still points at the old character (in the sea, or gone).
+local function handBack()
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+	camera.CameraType = Enum.CameraType.Custom
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid and camera.CameraSubject ~= humanoid then
+		camera.CameraSubject = humanoid
 	end
 end
 
@@ -145,12 +182,16 @@ function CombatCamera.stop()
 	RunService:UnbindFromRenderStep(STEP)
 	releaseFacing()
 	zoom, zoomTarget = 0, 0 -- never left pulled back for the next combat mode
-	local camera = workspace.CurrentCamera
-	if own and camera then
-		-- Roblox's camera carries on from the current look direction
-		camera.CameraType = savedType or Enum.CameraType.Custom
+	-- Roblox's camera carries on from the current look direction
+	handBack()
+end
+
+-- A new character: outside combat mode the camera follows it. Combat mode is already over (CombatController ends it
+-- on every respawn); this also catches a camera Roblox left on the old character.
+function CombatCamera.follow()
+	if not active then
+		handBack()
 	end
-	savedType = nil
 end
 
 -- A throw is being aimed (charged) or not: the camera eases back by aimZoom, or returns. Ignored outside combat mode.

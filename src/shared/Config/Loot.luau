@@ -16,7 +16,9 @@ return {
 	rollMax = 4,
 	rollSpread = math.rad(50), -- the roll leaves along the lean, give or take this much
 	rollDecay = 4, -- 1/s; the roll slows down exponentially, 98 % done after a second
-	waterSamples = 4, -- points along the roll the server checks for ground, so a scoop rolling off the pier sinks
+	waterSamples = 4, -- points along the roll the server checks for ground, so a scoop rolling into the sea sinks
+	-- a scoop rolls down steps (off a platform, a bridge or the river edge) but stops against one higher than this
+	maxRollStep = 1, -- studs
 
 	-- picking up: walking over a scoop, measured from the character's root on the ground plane
 	pickupRadius = 3,

@@ -131,6 +131,62 @@ describe("Spilled scoops: what falls", function()
 	end)
 end)
 
+describe("Spilled scoops: real ground along the roll", function()
+	local function samples()
+		return Loot.groundSamples(spill(10, Tuning.tipAngle, 0)[1], Config)
+	end
+
+	it("on flat ground it rolls all the way at that height", function()
+		local list = samples()
+		local profile = Loot.rollProfile(list, { 8.4, 8.4, 8.4, 8.4, 8.4 }, Config)
+		expect(profile.stopShare).toBe(1)
+		expect(profile.sinkAt).toBeNil()
+		expect(Loot.groundHeight(profile, 0)).toBe(8.4)
+		expect(Loot.groundHeight(profile, 1)).toBe(8.4)
+	end)
+
+	it("follows a step down: off a platform it comes down to the floor", function()
+		local list = samples()
+		local profile = Loot.rollProfile(list, { 17, 17, 5.9, 5.9, 5.9 }, Config)
+		expect(profile.stopShare).toBe(1)
+		expect(Loot.groundHeight(profile, list[2].share)).toBe(17)
+		expect(Loot.groundHeight(profile, list[3].share)).toBe(5.9)
+		-- in between it is on the way down
+		local middle = Loot.groundHeight(profile, (list[2].share + list[3].share) / 2) :: number
+		expect(middle).toBeLessThan(17)
+		expect(middle).toBeGreaterThan(5.9)
+	end)
+
+	it("stops against a step up higher than maxRollStep, rolls over a lower one", function()
+		local list = samples()
+		local blocked = Loot.rollProfile(list, { 8.4, 8.4, 8.4 + Config.maxRollStep + 0.5, 12, 12 }, Config)
+		expect(blocked.stopShare).toBe(list[2].share)
+		expect(#blocked.heights).toBe(2)
+		local path = spill(10, Tuning.tipAngle, 0)[1]
+		local x, _, z = Loot.position(path, 10, Config, blocked.stopShare)
+		expect(x).toBeCloseTo(path.lx + path.rx * blocked.stopShare, 1e-6)
+		expect(z).toBeCloseTo(path.lz + path.rz * blocked.stopShare, 1e-6)
+
+		local over = Loot.rollProfile(list, { 8.4, 8.4, 9.2, 9.2, 9.2 }, Config) -- onto the river edge
+		expect(over.stopShare).toBe(1)
+	end)
+
+	it("sinks at the first point without ground and never rolls past it", function()
+		local list = samples()
+		local profile = Loot.rollProfile(list, { 8.4, 8.4, 8.4, nil, 8.4 }, Config)
+		expect(profile.sinkAt).toBe(list[4].t)
+		expect(profile.stopShare).toBe(list[4].share)
+	end)
+
+	it("landing in the water sinks at once and has no ground", function()
+		local list = samples()
+		local profile = Loot.rollProfile(list, {}, Config)
+		expect(profile.sinkAt).toBe(Config.fallTime)
+		expect(profile.stopShare).toBe(0)
+		expect(Loot.groundHeight(profile, 0.5)).toBeNil()
+	end)
+end)
+
 describe("Spilled scoops: who may pick up", function()
 	it("gives the owner a 3 s head start from the landing, then everybody may", function()
 		local s = scoop(1, 100)
