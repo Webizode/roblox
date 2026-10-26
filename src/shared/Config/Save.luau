@@ -10,7 +10,7 @@ return {
 	-- may reset their own save with the chat command below; only works in Studio
 	admins = {
 		1521940809, -- Oliwier (OlekGamer03)
-		-- Nik: UserId still to come
+		5091937796, -- Nik (FALCONEYSEE)
 	},
 	resetCommand = "/resetsave",
 
