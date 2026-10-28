@@ -25,7 +25,7 @@ return {
 	-- normal animation stays for that state (the combat walk stands in for the sprint).
 	combat = {
 		walk = "rbxassetid://127299725054429", -- "movement"
-		idle = "", -- your combat idle; until then the normal idle stays
+		idle = "rbxassetid://111304519579927", -- "Idle Animation"; its right arm stays under the procedural stance
 		sprint = "", -- your combat sprint; until then the combat walk, played faster
 		walkSpeedAt = 16, -- studs/s at which the walk plays at its own speed; faster walking plays it faster
 		sprintPlaySpeed = 1.15, -- extra speed of the walk standing in for the sprint
