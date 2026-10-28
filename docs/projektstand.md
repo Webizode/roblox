@@ -115,16 +115,18 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
 
 ---
 
-## 7. Technischer Stand (Repo, geprüft 24.10.2026)
+## 7. Technischer Stand (Repo, geprüft 28.10.2026)
 
-- Repo: https://github.com/Webizode/roblox, Branch `claude/wobble-scoops-week1`, letzter Commit 23.10.2026
-- ca. 10.000 Zeilen Luau, Client/Server/Shared sauber getrennt, Server-Autorität
-- **113 Unit-Tests bestanden, 0 fehlgeschlagen**
-- Vorhanden: Big Swirl Launcher, Fangen, Turmphysik mit Kippen, Steady-Haltung (F) mit Energie, Sprint (Shift), Dash (Q), Kampfmodus (R), Eisball-Wurf mit Ladeleiste, Munition, Nachladen, Treffer stören Turmbalance, Knockdown, Waffel-Rucksack, Servieren, Coins (nur Sitzung), Graybox-Pier, Kill-Test-Log
-- Fehlt: Beute aufsammeln, Golden Glow, Emotionssystem, Sorten-Fähigkeiten, Events, Speichern (DataStore), Upgrade-Kauf, Sammelbuch, Block/Dodge
-- Offene Punkte im Code: `debugCatch`, `debugThrow`, `debugDash` noch an; kleiner Exploit beim Steady-Bonus; Upgrades ohne Kaufweg
-- Offen (Design): Schutz für Türme unter 5 Kugeln kommt mit dem Beute-System. Seit dem Treffer-Tuning vom 25.10.2026 kippen drei schnelle volle Treffer auch den kleinsten Turm
-- **GitHub ist nicht der lokale Stand:** Animations-IDs, Quick/Power Dash, Hold-to-Aim und der Fix fürs Laufen außerhalb des Kampfmodus sind nicht im Repo. Lokalen Stand selbst committen und pushen
+- Repo: https://github.com/Webizode/roblox, Branch `claude/wobble-scoops-week1`, letzter Commit 28.10.2026
+- ca. 14.000 Zeilen Luau, Client/Server/Shared sauber getrennt, Server-Autorität
+- **193 Unit-Tests bestanden, 0 fehlgeschlagen**
+- Vorhanden: Big Swirl Launcher, Fangen, Turmphysik mit Kippen, Steady-Haltung (F) mit Energie, Sprint (Shift), Dash (Q), Kampfmodus (R) mit eigener Lauf- und Idle-Animation, Eisball-Wurf mit Ladeleiste, Munition, Nachladen, Treffer stören Turmbalance, Knockdown, Beute (verschüttete Kugeln einsammeln), Waffel-Rucksack, Servieren, Kornels Insel als Map, Kill-Test-Log
+- **Speichern** (seit 27.10.2026): ProfileStore mit Session-Lock. Gespeichert werden Coins, Upgrade-Stufen, servierte Kugeln pro Sorte, Kugeln gesamt, Rekord-Turm und die Einstellungen. Datenformat Version 2 mit Migration, alte Spielstände bekommen Standard-Einstellungen. Studio speichert getrennt, `/resetsave` setzt in Studio zurück
+- **Einstellungsmenü** (seit 28.10.2026): Zahnrad oben links, am Gamepad Steuerkreuz hoch. Audio (Effekte, Musik), Grafik (VFX-Qualität, Leistungsmodus ohne Schatten, Bloom, Sonnenstrahlen), Kamera (Wackeln, Sichtfeld 70–110, Standard 80, Sprint-/Dash-/Ziel-Effekte), Fadenkreuz (Form, Größe, Farbe), Steuerung (Eingabegerät, Tastenübersicht im Kampf). Server prüft jeden Wert und speichert höchstens einmal pro Sekunde. Hintergrundmusik ist ein Platzhalter
+- **Upgrade-Shop:** fertig auf Branch `feature/upgrade-shop`, noch nicht in diesem Branch (siehe dort)
+- Fehlt: Golden Glow, Emotionssystem, Sorten-Fähigkeiten, Events, Sammelbuch, Cone Rank, Block/Dodge
+- Offene Punkte im Code: `debugCatch`, `debugThrow`, `debugDash` noch an; kleiner Exploit beim Steady-Bonus; Einstellungen, die vor dem Laden des Spielstands geändert werden, gehen verloren
+- Offen (Design): Seit dem Treffer-Tuning vom 25.10.2026 kippen drei schnelle volle Treffer auch den kleinsten Turm
 
 ---
 
