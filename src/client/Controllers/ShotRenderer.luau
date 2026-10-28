@@ -2,6 +2,8 @@
 -- The touch test sweeps the path between two frames against the whole tower column (cone tip to the free slot
 -- on top), so a scoop that flies into the side of a tall tower is caught instead of passing through it.
 -- The claim carries the server time of the touch and the tilt at that moment; the server replays exactly that.
+-- With the Big Swirl's arm rig a scoop first rides in its arm's cup (from scoopAt, on the cup bone) and only starts its
+-- flight at t0; until then it is not catchable. The landing circle shows from the start, as a warning.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,9 +16,11 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local ShotMath = require(Shared:WaitForChild("ShotMath"))
 local Tuning = require(Config:WaitForChild("Launcher"))
 local Features = require(Config:WaitForChild("Features"))
+local ArmConfig = require(Config:WaitForChild("BigSwirl"))
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
+local BigSwirlArms = require(client:WaitForChild("BigSwirlArms"))
 
 local ShotRenderer = {}
 
@@ -31,12 +35,17 @@ type Shot = {
 	part: Part,
 	circle: Part,
 	claimed: boolean,
+	arm: number?, -- the Big Swirl arm it leaves from (nil: the Nozzle)
+	scoopAt: number?, -- server time it shows in that arm's cup
 }
 
 local CIRCLE_SIZE = 7
 local CIRCLE_ROTATION = CFrame.Angles(0, 0, math.rad(90))
 
 local player = Players.LocalPlayer
+local SCOOP_SIZE = 2 -- studs across in flight
+local SCOOP_OFFSET = CFrame.new(ArmConfig.scoopOffset[1], ArmConfig.scoopOffset[2], ArmConfig.scoopOffset[3])
+
 local registry
 local shots: { [number]: Shot } = {}
 
@@ -83,12 +92,18 @@ local function onShotFired(
 	to: Vector3,
 	apex: number,
 	t0: number,
-	flight: number
+	flight: number,
+	arm: number?,
+	scoopAt: number?,
+	speed: number?
 )
+	if arm and speed then
+		BigSwirlArms.start(arm, t0, speed) -- the arm dives, scoops and whips so that it releases at t0
+	end
 	local part = makePart()
 	part.Name = "Scoop"
 	part.Shape = Enum.PartType.Ball
-	part.Size = Vector3.new(2, 2, 2)
+	part.Size = Vector3.one * SCOOP_SIZE * (if arm then ArmConfig.scoopInCupScale else 1)
 	part.CFrame = CFrame.new(from)
 	TowerVisual.applyFlavor(part, flavorId)
 
@@ -112,7 +127,12 @@ local function onShotFired(
 		part = part,
 		circle = circle,
 		claimed = false,
+		arm = arm,
+		scoopAt = scoopAt,
 	}
+	if arm then
+		part.Transparency = 1 -- shows once it is scooped
+	end
 end
 
 local function onShotResolved(id: number, catcher: Player?)
@@ -140,6 +160,7 @@ end
 
 local function onRenderStep()
 	local now = workspace:GetServerTimeNow()
+	BigSwirlArms.step(now) -- the arms first: a scoop riding in a cup follows its bone this frame
 	local column, tiltX, tiltZ = registry.TowerController.catchColumn()
 	local top = registry.TowerController.topPosition()
 	for id, shot in shots do
@@ -148,6 +169,24 @@ local function onRenderStep()
 			-- the resolve message got lost; do not keep orphans around
 			remove(id)
 			continue
+		end
+
+		local arm = shot.arm
+		if arm and alpha < 0 then
+			-- still in the arm: hidden until it is scooped, then riding in the cup
+			local bone = BigSwirlArms.cup(arm)
+			local scooped = now >= (shot.scoopAt or shot.t0)
+			shot.part.Transparency = if scooped and bone then 0 else 1
+			if bone then
+				shot.part.CFrame = bone.TransformedWorldCFrame * SCOOP_OFFSET
+			end
+			shot.lastAlpha = 0
+			continue
+		elseif arm then
+			-- just released: visible, shrinking from its size in the cup to its flying size
+			shot.part.Transparency = 0
+			local grown = math.clamp(1 - alpha * shot.flight / ArmConfig.shrinkTime, 0, 1)
+			shot.part.Size = Vector3.one * SCOOP_SIZE * (1 + (ArmConfig.scoopInCupScale - 1) * grown)
 		end
 
 		if shot.claimed then

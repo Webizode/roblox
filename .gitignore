@@ -15,3 +15,7 @@ roblox.yml
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Blender keeps a backup of every saved .blend
+*.blend1
+assets/BigSwirl/textures/*.fbx

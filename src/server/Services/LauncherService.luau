@@ -1,4 +1,8 @@
 -- The Big Swirl. Fires scoops on a parabola, announces where they land, and validates catch claims.
+-- With the arm rig (Config/BigSwirl) each scoop leaves from the arm that points its way: the arm's cycle starts now
+-- (every client turns its bones from the shot's times), the scoop shows in its cup from scoopAt and flies from the
+-- release point at t0, so the landing circle appears a couple of seconds ahead. An arm is only picked again once its
+-- cycle is over. Without the rig the scoop leaves from the Nozzle right away.
 -- The server knows every scoop it fired, so a client can only catch scoops that exist, after their highest
 -- point, at a recent time, close to its own tower (CatchRules).
 
@@ -11,8 +15,10 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local ShotMath = require(Shared:WaitForChild("ShotMath"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local CatchRules = require(Shared:WaitForChild("CatchRules"))
+local LaunchArms = require(Shared:WaitForChild("LaunchArms"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local Tuning = require(Config:WaitForChild("Launcher"))
+local ArmConfig = require(Config:WaitForChild("BigSwirl"))
 local TowerTuning = require(Config:WaitForChild("Tower"))
 local Features = require(Config:WaitForChild("Features"))
 
@@ -44,6 +50,10 @@ local tutorialLeft: { [Player]: number } = {}
 local lastCatchAt: { [Player]: number } = {}
 local lastRejectLog: { [Player]: number } = {}
 local rng = Random.new()
+
+-- the arm rig, when the machine has one: its root part, how many arms, when each arm is free again
+type Arms = { root: BasePart, count: number, freeAt: { number } }
+local arms: Arms? = nil
 
 local totalWeight = 0
 for _, flavor in Flavors.list do
@@ -99,11 +109,28 @@ local function resolve(shot: Shot, catcher: Player?)
 	Remotes.ShotResolved:FireAllClients(shot.id, catcher)
 end
 
-local function fire()
-	local from = map.nozzle.Position
+-- interval: seconds until the next shot, which sets how fast the arms play
+local function fire(interval: number)
 	local to = pickTarget()
 	if not to then
 		return -- a map without a single landing spot; MapService said so at the start
+	end
+
+	local now = workspace:GetServerTimeNow()
+	local from, t0, arm, scoopAt, speed = map.nozzle.Position, now, nil, nil, nil
+	if arms then
+		local base = arms.root.Position
+		arm = LaunchArms.pick(to.X - base.X, to.Z - base.Z, arms.freeAt, now, ArmConfig)
+		if not arm then
+			return -- the arms that point that way are all busy; the next tick picks again
+		end
+		local timing = LaunchArms.timing(LaunchArms.playSpeed(interval, ArmConfig), ArmConfig)
+		local point = ArmConfig.releasePoints[arm]
+		from = arms.root.CFrame:PointToWorldSpace(Vector3.new(point[1], point[2], point[3]))
+		t0 = now + timing.releaseLead
+		scoopAt = t0 - timing.scoopLead
+		arms.freeAt[arm] = now + timing.busyFor -- never reused before its motion is over
+		speed = timing.speed
 	end
 	local distance = Vector3.new(to.X - from.X, 0, to.Z - from.Z).Magnitude
 
@@ -114,7 +141,7 @@ local function fire()
 		from = from,
 		to = to,
 		apex = ShotMath.apex(distance, Tuning),
-		t0 = workspace:GetServerTimeNow(),
+		t0 = t0,
 		flight = ShotMath.flightTime(distance, Tuning),
 		resolved = false,
 		fx = from.X,
@@ -125,9 +152,46 @@ local function fire()
 		tz = to.Z,
 	}
 	shots[shot.id] = shot
-	Remotes.ShotFired:FireAllClients(shot.id, shot.flavorId, shot.from, shot.to, shot.apex, shot.t0, shot.flight)
+	Remotes.ShotFired:FireAllClients(
+		shot.id,
+		shot.flavorId,
+		shot.from,
+		shot.to,
+		shot.apex,
+		shot.t0,
+		shot.flight,
+		arm,
+		scoopAt,
+		speed
+	)
 
-	task.delay(shot.flight * Tuning.resolveAfter, resolve, shot, nil)
+	task.delay(t0 - now + shot.flight * Tuning.resolveAfter, resolve, shot, nil)
+end
+
+-- The arm rig of the machine the Nozzle sits in, if it has one (a RootPart and the bones of every arm in
+-- Config/BigSwirl). The server only schedules the arms; every client turns their bones (BigSwirlArms). Nil keeps the
+-- Nozzle launcher.
+local function setUpArms(): Arms?
+	local machine = map.nozzle.Parent
+	local root = machine and machine:FindFirstChild("RootPart")
+	if not machine or not root or not root:IsA("BasePart") then
+		return nil
+	end
+	-- only bones count: the imported model also keeps values named after them (InitialPoses)
+	local bones = {}
+	for _, item in machine:GetDescendants() do
+		if item:IsA("Bone") then
+			bones[item.Name] = true
+		end
+	end
+	for arm = 1, #ArmConfig.releasePoints do
+		for _, name in { ArmConfig.shoulderBone, ArmConfig.cupBone } do
+			if not bones[string.format(name, arm)] then
+				return nil -- an arm without its bones: the Nozzle fires
+			end
+		end
+	end
+	return { root = root, count = #ArmConfig.releasePoints, freeAt = {} }
 end
 
 local function logRejection(player: Player, id: number, reason: string, distance: number?)
@@ -221,11 +285,18 @@ function LauncherService.Start()
 
 	Remotes.CatchClaim.OnServerEvent:Connect(onCatchClaim)
 
+	arms = setUpArms()
+	print(
+		if arms
+			then `[Launcher] the Big Swirl fires from its {arms.count} arms`
+			else "[Launcher] the Big Swirl fires from its Nozzle"
+	)
 	while true do
+		local pause = interval()
 		if #Players:GetPlayers() > 0 then
-			fire()
+			fire(pause)
 		end
-		task.wait(interval())
+		task.wait(pause)
 	end
 end
 
