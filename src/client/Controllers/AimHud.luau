@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 
 local client = script.Parent.Parent
 local Ui = require(client:WaitForChild("Ui"))
+local Settings = require(client:WaitForChild("Settings"))
 
 local AimHud = {}
 
@@ -25,6 +26,9 @@ local COLORS = {
 local crosshair: Frame
 local ring: UIStroke
 local dot: Frame
+local dotStroke: UIStroke
+local crossBars: { Frame } = {}
+local crossScale: UIScale
 local bar: Frame
 local fill: Frame
 local maxPoint: Frame
@@ -37,6 +41,23 @@ local function centred(props: { [string]: any }?): { [string]: any }
 		result[key] = value
 	end
 	return result
+end
+
+-- The crosshair as the settings want it: ring (ring and dot), dot (a bigger dot) or cross (four bars and the
+-- dot), in the chosen palette colour and size.
+local function restyle(settings: { [string]: any })
+	local color = Ui.color(settings.crosshairColor)
+	local style = settings.crosshairStyle
+	crossScale.Scale = settings.crosshairSize
+	ring.Color = color
+	ring.Enabled = style == "ring"
+	dot.BackgroundColor3 = color
+	dot.Size = if style == "dot" then UDim2.fromOffset(9, 9) else UDim2.fromOffset(6, 6)
+	dotStroke.Enabled = true
+	for _, bar in crossBars do
+		bar.BackgroundColor3 = color
+		bar.Visible = style == "cross"
+	end
 end
 
 function AimHud.Init()
@@ -52,8 +73,25 @@ function AimHud.Init()
 	ring = Ui.stroke(crosshair, "vanilla", 2, 0.25)
 	crosshair.Parent = gui
 	dot = Ui.circle(6, "vanilla", centred({ Name = "Dot" }))
-	Ui.stroke(dot, "ink", 1.5, 0.2)
+	dotStroke = Ui.stroke(dot, "ink", 1.5, 0.2)
 	dot.Parent = crosshair
+	-- the cross style: four short bars around the centre, hidden in the other styles
+	for index = 0, 3 do
+		local angle = index * math.pi / 2
+		local bar = Instance.new("Frame")
+		bar.Name = "Cross"
+		bar.AnchorPoint = Vector2.new(0.5, 0.5)
+		bar.Position = UDim2.new(0.5, math.cos(angle) * 9, 0.5, math.sin(angle) * 9)
+		bar.Size = if index % 2 == 0 then UDim2.fromOffset(8, 3) else UDim2.fromOffset(3, 8)
+		bar.BorderSizePixel = 0
+		bar.Visible = false
+		Ui.stroke(bar, "ink", 1, 0.3)
+		bar.Parent = crosshair
+		table.insert(crossBars, bar)
+	end
+	crossScale = Instance.new("UIScale")
+	crossScale.Parent = crosshair
+	Settings.onChanged(restyle)
 
 	bar = Instance.new("Frame")
 	bar.Name = "Charge"
@@ -113,6 +151,9 @@ function AimHud.set(active: boolean, ready: boolean, charge: number?)
 		shownReady = ready
 		ring.Transparency = if ready then 0.25 else 0.7
 		dot.BackgroundTransparency = if ready then 0 else 0.6
+		for _, cross in crossBars do
+			cross.BackgroundTransparency = dot.BackgroundTransparency
+		end
 	end
 	bar.Visible = charge ~= nil
 	if not charge then

@@ -55,6 +55,7 @@ for _, name in
 		"MapRules",
 		"MapQuery",
 		"SaveData",
+		"SettingsRules",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")
@@ -74,6 +75,7 @@ for _, name in
 		"Backpack",
 		"Map",
 		"Save",
+		"Settings",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", "Config", name }, "ModuleScript")
@@ -84,7 +86,7 @@ do
 	expectInstance({ "ServerScriptService", "Server", "Services", name }, "ModuleScript")
 end
 expectInstance({ "ServerScriptService", "Server", "Packages", "ProfileStore" }, "ModuleScript")
-for _, name in { "TowerVisual", "BallVisual", "Sfx", "Ui", "CombatCamera" } do
+for _, name in { "TowerVisual", "BallVisual", "Sfx", "Ui", "CombatCamera", "Settings" } do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", name }, "ModuleScript")
 end
 for _, name in
@@ -99,6 +101,7 @@ for _, name in
 		"ThrowAnimator",
 		"ShotRenderer",
 		"RemoteTowers",
+		"SettingsController",
 	}
 do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", "Controllers", name }, "ModuleScript")

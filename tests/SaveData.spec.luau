@@ -76,6 +76,29 @@ describe("Save: loading old or broken data", function()
 		expect(type(data.flavorServes)).toBe("table")
 	end)
 
+	it("a version 1 save moves to version 2 with empty settings and keeps its progress", function()
+		local data, changed = SaveData.migrate({
+			version = 1,
+			coins = 77,
+			upgrades = { cone = 1, sneakers = 0, cart = 2 },
+			flavorServes = { vanilla = 5 },
+			scoopsServed = 5,
+			bestTower = 5,
+		}, Economy)
+		expect(changed).toBe(true)
+		expect(data.version).toBe(2)
+		expect(type(data.settings)).toBe("table")
+		expect(next(data.settings)).toBeNil()
+		expect(data.coins).toBe(77)
+		expect(data.upgrades.cart).toBe(2)
+		expect(data.flavorServes.vanilla).toBe(5)
+	end)
+
+	it("settings a save already has survive the migration", function()
+		local data = SaveData.migrate({ version = 1, settings = { fov = 95 } }, Economy)
+		expect(data.settings.fov).toBe(95)
+	end)
+
 	it("a save from a newer game version keeps its unknown fields", function()
 		local data = SaveData.migrate({ version = SaveData.VERSION + 1, coins = 10, futureField = "keep" }, Economy)
 		expect(data.version).toBe(SaveData.VERSION)

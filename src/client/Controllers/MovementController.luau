@@ -28,6 +28,7 @@ local EconomyConfig = require(Config:WaitForChild("Economy"))
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local Sfx = require(client:WaitForChild("Sfx"))
+local Settings = require(client:WaitForChild("Settings"))
 
 local MovementController = {}
 
@@ -59,7 +60,6 @@ local player = Players.LocalPlayer
 local poses: { [Model]: Pose } = {}
 local shakeUntil = 0
 local shakeStrength = 0
-local baseFov: number? = nil
 local fovTween: Tween? = nil
 local sprintFov = 0 -- extra field of view while the local player sprints
 
@@ -287,7 +287,16 @@ local function onShakeStep()
 	camera.CFrame *= CFrame.Angles(math.sin(t) * amount, math.cos(t * 1.3) * amount, 0)
 end
 
+-- The camera's field of view: the setting, widened while sprinting if the motion effects are on.
+local function fovTarget(): number
+	local effects = Settings.effective()
+	return effects.fov + (if effects.motionEffects then sprintFov else 0)
+end
+
 local function startShake(degrees: number)
+	if not Settings.effective().cameraShake then
+		return -- switched off in the settings
+	end
 	local running = os.clock() < shakeUntil
 	shake(degrees)
 	if not running then
@@ -296,7 +305,9 @@ local function startShake(degrees: number)
 end
 
 local function dust(position: Vector3, amount: number)
-	for index = 1, math.max(1, math.floor(Movement.dustPuffs * amount + 0.5)) do
+	-- fewer puffs at a lower VFX quality, none at all below one
+	local puffs = math.floor(Movement.dustPuffs * amount * Settings.effective().particleScale + 0.5)
+	for index = 1, puffs do
 		local angle = index / Movement.dustPuffs * math.pi * 2
 		local part = Instance.new("Part")
 		part.Name = "Dust"
@@ -621,7 +632,8 @@ local function dashParticles(root: BasePart, dirX: number, dirZ: number)
 	for _, item in effect:GetDescendants() do
 		if item:IsA("ParticleEmitter") then
 			item.Enabled = false
-			item:Emit(math.clamp(math.floor(item.Rate * 0.12), 4, 22))
+			local count = math.clamp(math.floor(item.Rate * 0.12), 4, 22)
+			item:Emit(math.max(1, math.floor(count * Settings.effective().particleScale + 0.5)))
 		end
 	end
 	task.delay(2, function()
@@ -638,6 +650,7 @@ local function dashSound(root: BasePart, kind: Dash.Kind): boolean
 		return false
 	end
 	local sound = source:Clone()
+	sound.SoundGroup = Sfx.effectsGroup()
 	sound.Parent = root
 	sound:Play()
 	task.delay(4, function()
@@ -746,7 +759,10 @@ function MovementController.dash(character: Model, duration: number, dirX: numbe
 		pose.dashStart = os.clock()
 		pose.dashUntil = os.clock() + duration
 	end
-	limbTrails(character, duration)
+	local effects = Settings.effective()
+	if effects.heavyDashEffects then
+		limbTrails(character, duration)
+	end
 	dashParticles(root, dirX, dirZ)
 	groundStreak(character, root, dirX, dirZ, distance or 10)
 	task.delay(duration, function()
@@ -755,9 +771,11 @@ function MovementController.dash(character: Model, duration: number, dirX: numbe
 			dust(floor.Position + Vector3.new(0, 0.1, 0), 0.4)
 		end
 	end)
-	local count = math.max(1, Movement.dashAfterimages)
-	for index = 0, count - 1 do
-		task.delay(duration * index / count, afterimage, character)
+	if effects.heavyDashEffects then
+		local count = math.max(1, Movement.dashAfterimages)
+		for index = 0, count - 1 do
+			task.delay(duration * index / count, afterimage, character)
+		end
 	end
 	local soundPlayed = dashSound(root, kind)
 	if character == player.Character then
@@ -787,17 +805,16 @@ function MovementController.dash(character: Model, duration: number, dirX: numbe
 		bottom:Destroy()
 	end)
 
-	if character == player.Character then
+	if character == player.Character and Settings.effective().motionEffects then
 		local camera = workspace.CurrentCamera
-		baseFov = baseFov or camera.FieldOfView
 		if fovTween then
 			fovTween:Cancel()
 		end
-		camera.FieldOfView = (baseFov :: number) + sprintFov + Movement.dashFovKick
+		camera.FieldOfView = fovTarget() + Movement.dashFovKick
 		fovTween = TweenService:Create(
 			camera,
 			TweenInfo.new(Movement.dashFovTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ FieldOfView = (baseFov :: number) + sprintFov }
+			{ FieldOfView = fovTarget() }
 		)
 		fovTween:Play()
 	end
@@ -807,7 +824,6 @@ end
 function MovementController.setSprinting(on: boolean)
 	sprintingNow = on -- the combat sprint animation follows it
 	local camera = workspace.CurrentCamera
-	baseFov = baseFov or camera.FieldOfView
 	sprintFov = if on then Movement.sprintFov else 0
 	if fovTween then
 		fovTween:Cancel()
@@ -815,12 +831,19 @@ function MovementController.setSprinting(on: boolean)
 	fovTween = TweenService:Create(
 		camera,
 		TweenInfo.new(Movement.sprintFovTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{ FieldOfView = (baseFov :: number) + sprintFov }
+		{ FieldOfView = fovTarget() }
 	)
 	fovTween:Play()
 end
 
 function MovementController.Start()
+	-- a changed FOV setting (or motion effects switched off) shows at once
+	Settings.onChanged(function()
+		if fovTween then
+			fovTween:Cancel()
+		end
+		workspace.CurrentCamera.FieldOfView = fovTarget()
+	end)
 	player.CharacterAdded:Connect(onCharacter)
 	if player.Character then
 		onCharacter(player.Character)

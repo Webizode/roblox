@@ -19,6 +19,7 @@ require("./Stance.spec")
 require("./Loot.spec")
 require("./MapRules.spec")
 require("./SaveData.spec")
+require("./SettingsRules.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

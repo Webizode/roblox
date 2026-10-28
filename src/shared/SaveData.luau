@@ -15,6 +15,7 @@ export type Data = {
 	flavorServes: { [string]: number }, -- scoops of each flavor ever served; an entry means "in the flavor book"
 	scoopsServed: number, -- all scoops ever served, the base of the Cone Rank
 	bestTower: number, -- the tallest tower ever served
+	settings: { [string]: any }, -- the settings menu (since version 2); checked against Config/Settings by DataService
 }
 
 export type EconomyConfig = {
@@ -23,13 +24,19 @@ export type EconomyConfig = {
 
 local SaveData = {}
 
-SaveData.VERSION = 1
+SaveData.VERSION = 2
 
 local UPGRADES = { "cone", "sneakers", "cart" }
 
--- Steps from version n to n + 1, run in order on older saves. Version 1 is the first; add steps here, e.g.
--- MIGRATIONS[1] = function(data) data.newField = ... end
-local MIGRATIONS: { [number]: (data: { [string]: any }) -> () } = {}
+-- Steps from version n to n + 1, run in order on older saves.
+local MIGRATIONS: { [number]: (data: { [string]: any }) -> () } = {
+	-- 1 -> 2: the settings menu. An empty table means "all defaults"; DataService fills it in from Config/Settings.
+	[1] = function(data)
+		if type(data.settings) ~= "table" then
+			data.settings = {}
+		end
+	end,
+}
 
 local function isFinite(value: any): boolean
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
@@ -47,6 +54,7 @@ function SaveData.template(): Data
 		flavorServes = {},
 		scoopsServed = 0,
 		bestTower = 0,
+		settings = {},
 	}
 end
 
@@ -108,6 +116,11 @@ function SaveData.migrate(raw: any, economy: EconomyConfig): (Data, boolean)
 			data.flavorServes[flavorId] = count(served)
 			changed = true
 		end
+	end
+
+	if type(data.settings) ~= "table" then
+		data.settings = {}
+		changed = true
 	end
 
 	for _, field in { "scoopsServed", "bestTower" } do

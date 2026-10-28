@@ -1,13 +1,56 @@
 -- Plays the placeholder sounds from Config/Sounds. Catches climb a pentatonic scale so a growing tower sings.
+-- Every sound of the game runs through one of two sound groups, so the settings set effects and music apart; the
+-- background music (Config/Settings.music) loops in the music group.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 
-local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Sounds"))
+local Config = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
+local Sounds = require(Config:WaitForChild("Sounds"))
+local SettingsConfig = require(Config:WaitForChild("Settings"))
+
+local Settings = require(script.Parent:WaitForChild("Settings"))
 
 local Sfx = {}
 
 local cache: { [string]: Sound } = {}
+
+local function group(name: string): SoundGroup
+	local existing = SoundService:FindFirstChild(name)
+	if existing and existing:IsA("SoundGroup") then
+		return existing
+	end
+	local created = Instance.new("SoundGroup")
+	created.Name = name
+	created.Parent = SoundService
+	return created
+end
+
+local effects = group("WobbleEffects")
+local musicGroup = group("WobbleMusic")
+
+local music = Instance.new("Sound")
+music.Name = "BackgroundMusic"
+music.SoundId = SettingsConfig.music.id
+music.Volume = SettingsConfig.music.volume
+music.Looped = true
+music.SoundGroup = musicGroup
+music.Parent = SoundService
+
+Settings.onChanged(function(settings)
+	effects.Volume = settings.sfxVolume
+	musicGroup.Volume = settings.musicVolume
+	if settings.musicVolume > 0 and not music.IsPlaying then
+		music:Play()
+	elseif settings.musicVolume <= 0 and music.IsPlaying then
+		music:Stop()
+	end
+end)
+
+-- The group for any other effect sound of the game (the dash model's sounds), so the effects volume covers it.
+function Sfx.effectsGroup(): SoundGroup
+	return effects
+end
 
 local function sound(name: string): Sound?
 	local existing = cache[name]
@@ -22,6 +65,7 @@ local function sound(name: string): Sound?
 	instance.Name = name
 	instance.SoundId = id
 	instance.Volume = 0.6
+	instance.SoundGroup = effects
 	instance.Parent = SoundService
 	cache[name] = instance
 	return instance

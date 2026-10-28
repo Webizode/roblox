@@ -15,6 +15,8 @@ local UserInputService = game:GetService("UserInputService")
 local CombatConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Combat"))
 local Look = CombatConfig.camera
 
+local Settings = require(script.Parent:WaitForChild("Settings"))
+
 local CombatCamera = {}
 
 local STEP = "WobbleCombatCamera"
@@ -145,7 +147,8 @@ function CombatCamera.start()
 	end
 	active = true
 	local camera = workspace.CurrentCamera
-	own = UserInputService.MouseEnabled or UserInputService.GamepadEnabled
+	-- the input chosen in the settings (or the one in use): touch keeps Roblox's camera, mouse and gamepad get ours
+	own = Settings.inputKind() ~= "touch"
 	if own and camera then
 		local look = camera.CFrame.LookVector
 		yaw = math.atan2(-look.X, -look.Z)
@@ -196,7 +199,7 @@ end
 
 -- A throw is being aimed (charged) or not: the camera eases back by aimZoom, or returns. Ignored outside combat mode.
 function CombatCamera.setAiming(on: boolean)
-	zoomTarget = if on and active then Look.aimZoom else 0
+	zoomTarget = if on and active and Settings.effective().motionEffects then Look.aimZoom else 0
 end
 
 return CombatCamera

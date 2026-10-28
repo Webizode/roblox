@@ -31,6 +31,7 @@ local DEFINITIONS = {
 	LootRemoved = "RemoteEvent", -- server -> all: id, catcher (Player or nil), reason ("caught", "gone", "water", "room")
 	LootClaim = "RemoteEvent", -- client -> server: id (the local player walked over a free scoop)
 	LootRejected = "RemoteEvent", -- server -> claimant: id (the scoop stays on the ground)
+	SaveSettings = "RemoteEvent", -- client -> server: the settings table (DataService checks and saves it)
 }
 
 local remotes = {}

@@ -8,6 +8,7 @@
 -- In Studio the data goes to its own store (Config/Save.studioSuffix). Without "Enable Studio Access to API
 -- Services" ProfileStore keeps it in memory only and says so in the output.
 
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -15,9 +16,12 @@ local TextChatService = game:GetService("TextChatService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
+local Remotes = require(Shared:WaitForChild("Remotes"))
 local SaveData = require(Shared:WaitForChild("SaveData"))
+local SettingsRules = require(Shared:WaitForChild("SettingsRules"))
 local SaveConfig = require(Config:WaitForChild("Save"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
+local SettingsConfig = require(Config:WaitForChild("Settings"))
 local ProfileStore = require(script.Parent.Parent:WaitForChild("Packages"):WaitForChild("ProfileStore"))
 
 local DataService = {}
@@ -25,6 +29,8 @@ local DataService = {}
 local store
 local profiles: { [Player]: any } = {}
 local loadedCallbacks: { (player: Player, data: SaveData.Data) -> () } = {}
+local lastSettingsAt: { [Player]: number } = {}
+local pendingSettings: { [Player]: any } = {} -- the newest settings waiting for the rate limit
 
 local function storeName(): string
 	return SaveConfig.storeName .. (if RunService:IsStudio() then SaveConfig.studioSuffix else "")
@@ -37,9 +43,13 @@ local function publish(player: Player, data: SaveData.Data)
 	player:SetAttribute("CartLevel", data.upgrades.cart)
 	player:SetAttribute("ScoopsServed", data.scoopsServed)
 	player:SetAttribute("FlavorsCollected", SaveData.flavorsCollected(data))
+	-- the settings as JSON: the own client applies them (a table cannot be an attribute)
+	player:SetAttribute("Settings", HttpService:JSONEncode(data.settings))
 end
 
 local function loaded(player: Player, data: SaveData.Data)
+	-- every known setting, checked; missing ones (a version 1 save, a new setting) get their default
+	data.settings = SettingsRules.sanitize(data.settings, SettingsConfig)
 	publish(player, data)
 	player:SetAttribute("SaveState", "loaded")
 	for _, callback in loadedCallbacks do
@@ -84,6 +94,38 @@ local function onPlayer(player: Player)
 	loaded(player, profile.Data)
 end
 
+local function applySettings(player: Player)
+	local raw = pendingSettings[player]
+	pendingSettings[player] = nil
+	local data = DataService.data(player)
+	if raw == nil or not data then
+		return
+	end
+	lastSettingsAt[player] = os.clock()
+	data.settings = SettingsRules.sanitize(raw, SettingsConfig)
+	player:SetAttribute("Settings", HttpService:JSONEncode(data.settings))
+end
+
+-- The client's settings menu: every value checked (SettingsRules), then saved with the profile. At most one update
+-- per serverInterval; a quicker one waits for the interval, and only the newest waiting one is kept. Nothing is
+-- answered; the Settings attribute shows what was stored.
+local function onSaveSettings(player: Player, raw: any)
+	if type(raw) ~= "table" then
+		return
+	end
+	local waiting = pendingSettings[player] ~= nil
+	pendingSettings[player] = raw
+	if waiting then
+		return -- the scheduled apply takes this newer one
+	end
+	local wait = SettingsConfig.serverInterval - (os.clock() - (lastSettingsAt[player] or -math.huge))
+	if wait <= 0 then
+		applySettings(player)
+	else
+		task.delay(wait, applySettings, player)
+	end
+end
+
 local function isAdmin(userId: number): boolean
 	return table.find(SaveConfig.admins, userId) ~= nil
 end
@@ -122,13 +164,16 @@ function DataService.Start()
 		task.spawn(onPlayer, player)
 	end
 	Players.PlayerRemoving:Connect(function(player)
+		applySettings(player) -- settings still waiting for the rate limit go into the last save
 		local profile = profiles[player]
 		profiles[player] = nil
+		lastSettingsAt[player] = nil
 		if profile then
 			profile:EndSession()
 		end
 	end)
 	setUpResetCommand()
+	Remotes.SaveSettings.OnServerEvent:Connect(onSaveSettings)
 
 	task.spawn(function()
 		while ProfileStore.DataStoreState == "NotReady" do

@@ -13,6 +13,8 @@ local CombatConfig = require(Config:WaitForChild("Combat"))
 local Features = require(Config:WaitForChild("Features"))
 local Palette = require(Config:WaitForChild("Palette"))
 
+local Settings = require(script.Parent:WaitForChild("Settings"))
+
 local BallVisual = {}
 
 local reported = false
@@ -92,7 +94,7 @@ local DEEP = Color3.fromHex(Palette.sea)
 local function sparkles(parent: Instance, rate: number, lifetime: number, size: number): ParticleEmitter
 	local emitter = Instance.new("ParticleEmitter") -- Roblox's built-in sparkle texture
 	emitter.Name = "IceSparkles"
-	emitter.Rate = rate
+	emitter.Rate = rate * Settings.effective().particleScale -- fewer at a lower VFX quality
 	emitter.Lifetime = NumberRange.new(lifetime * 0.6, lifetime)
 	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, size), NumberSequenceKeypoint.new(1, 0) })
 	emitter.Transparency = NumberSequence.new(0.1, 1)
@@ -114,6 +116,8 @@ local function glow(parent: Instance, brightness: number, range: number): PointL
 	light.Brightness = brightness
 	light.Range = range
 	light.Shadows = false
+	-- the lights go at the low VFX quality and in the performance mode: lights cost the most on weak phones
+	light.Enabled = Settings.effective().heavyDashEffects
 	light.Parent = parent
 	return light
 end
@@ -136,7 +140,7 @@ function BallVisual.setFrost(frost: Frost, on: boolean)
 	if frost.on ~= on then
 		frost.on = on
 		frost.emitter.Enabled = on
-		frost.light.Enabled = on
+		frost.light.Enabled = on and Settings.effective().heavyDashEffects
 	end
 end
 
