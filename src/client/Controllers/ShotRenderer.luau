@@ -30,6 +30,7 @@ local Look = require(Config:WaitForChild("TowerScoops"))
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local ScoopModel = require(client:WaitForChild("ScoopModel"))
+local ScoopSign = require(client:WaitForChild("ScoopSign"))
 local BigSwirlArms = require(client:WaitForChild("BigSwirlArms"))
 local Settings = require(client:WaitForChild("Settings"))
 
@@ -206,6 +207,7 @@ local function onShotFired(
 	end
 	local scoop = ScoopModel.new(TowerVisual.root(), flavorId)
 	scoop:setScale(Vector3.one * FLIGHT_SCALE * (if arm then ArmConfig.scoopInCupScale else 1))
+	scoop:setSign(ScoopSign.new(flavorId, false)) -- golden scoops come with Features.goldenScoops
 	scoop.part.CFrame = scoop:at(CFrame.new(from))
 
 	local circle = makePart()
@@ -240,12 +242,15 @@ local function onShotFired(
 	}
 	if arm then
 		scoop:setTransparency(1) -- shows once it is scooped
+		if scoop.sign then
+			scoop.sign.Enabled = false
+		end
 	else
 		setTrail(trail, true)
 	end
 end
 
-local function onShotResolved(id: number, catcher: Player?)
+local function onShotResolved(id: number, catcher: Player?, landed: boolean?)
 	local shot = shots[id]
 	if not shot then
 		return
@@ -254,7 +259,7 @@ local function onShotResolved(id: number, catcher: Player?)
 		if shot.claimed and Features.debugCatch then
 			print(string.format("[Catch] claim for shot %d was not accepted (reason in the server output)", id))
 		end
-		if catcher == nil then
+		if catcher == nil and not landed then -- splashed into the water; a landed one lies on as a free scoop
 			splat(shot)
 		end
 	end
@@ -293,6 +298,7 @@ end
 
 local function claim(id: number, shot: Shot, alpha: number, tiltX: number, tiltZ: number)
 	shot.claimed = true
+	shot.scoop:setSign(nil) -- it is a tower scoop now: those carry no sign
 	shot.circle.Transparency = 1
 	local _, axis, angle, spin = flying(shot, alpha, workspace:GetServerTimeNow())
 	shot.claimedAt, shot.claimAxis, shot.claimAngle, shot.claimSpin = os.clock(), axis, angle, spin
@@ -322,6 +328,9 @@ local function onRenderStep()
 			local bone = BigSwirlArms.cup(arm)
 			local scooped = now >= (shot.scoopAt or shot.t0)
 			scoop:setTransparency(if scooped and bone then 0 else 1)
+			if scoop.sign then
+				scoop.sign.Enabled = scooped and bone ~= nil
+			end
 			if bone then
 				local position = (bone.TransformedWorldCFrame * SCOOP_OFFSET).Position
 				part.CFrame = scoop:at(CFrame.new(position) * CFrame.Angles(0, shot.spin0, 0))
@@ -354,11 +363,20 @@ local function onRenderStep()
 			continue
 		end
 
-		local position, axis, angle, spin = flying(shot, alpha, now)
-		part.CFrame = scoop:at(CFrame.new(position) * turned(axis, angle, spin))
-		moveTrail(shot.trail, position)
-		local size = CIRCLE_SIZE * (1 - 0.6 * math.clamp(alpha, 0, 1))
-		shot.circle.Size = Vector3.new(0.2, size, size)
+		if alpha >= 1 then
+			-- down on its landing point: it lies there upright until the server says what became of it (a free scoop
+			-- takes over, LootRenderer, or it splashed). A touch just after landing still counts (catchWindowEnd).
+			part.CFrame =
+				scoop:at(CFrame.new(shot.to + Vector3.new(0, scoop:restHeight(), 0)) * CFrame.Angles(0, shot.spin0, 0))
+			moveTrail(shot.trail, shot.to)
+			shot.circle.Transparency = 1
+		else
+			local position, axis, angle, spin = flying(shot, alpha, now)
+			part.CFrame = scoop:at(CFrame.new(position) * turned(axis, angle, spin))
+			moveTrail(shot.trail, position)
+			local size = CIRCLE_SIZE * (1 - 0.6 * math.clamp(alpha, 0, 1))
+			shot.circle.Size = Vector3.new(0.2, size, size)
+		end
 
 		if column then
 			local from = math.max(shot.lastAlpha, shot.apexAlpha - Tuning.apexSlack)

@@ -9,7 +9,9 @@ local DEFINITIONS = {
 	-- server -> all: id, flavorId, from, to, apex, t0 (server time the scoop leaves), flight, and with the arm rig the arm
 	-- (1-6), scoopAt (server time the scoop shows in its cup) and speed (the arm cycle's play speed); nil for the Nozzle
 	ShotFired = "RemoteEvent",
-	ShotResolved = "RemoteEvent", -- server -> all: id, catcher (Player or nil when it splats)
+	-- server -> all: id, catcher (Player or nil), landed (true: nobody caught it and it lies on the ground as a free
+	-- scoop, LootSpawned came first; false with no catcher: it splashed into the water)
+	ShotResolved = "RemoteEvent",
 	CatchClaim = "RemoteEvent", -- client -> server: id, claimTime (server time), tiltX, tiltZ
 	TowerChanged = "RemoteEvent", -- server -> owner: scoops (bottom to top), reason
 	TowerToppled = "RemoteEvent", -- client -> server

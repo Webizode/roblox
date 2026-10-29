@@ -58,6 +58,7 @@ for _, name in
 		"SettingsRules",
 		"LaunchArms",
 		"ScoopFlight",
+		"ScoopLabel",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")
@@ -91,7 +92,9 @@ do
 	expectInstance({ "ServerScriptService", "Server", "Services", name }, "ModuleScript")
 end
 expectInstance({ "ServerScriptService", "Server", "Packages", "ProfileStore" }, "ModuleScript")
-for _, name in { "TowerVisual", "BallVisual", "Sfx", "Ui", "CombatCamera", "Settings", "BigSwirlArms", "ScoopModel" } do
+for _, name in
+	{ "TowerVisual", "BallVisual", "Sfx", "Ui", "CombatCamera", "Settings", "BigSwirlArms", "ScoopModel", "ScoopSign" }
+do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", name }, "ModuleScript")
 end
 for _, name in

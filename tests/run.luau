@@ -22,6 +22,7 @@ require("./SaveData.spec")
 require("./LaunchArms.spec")
 require("./SettingsRules.spec")
 require("./ScoopFlight.spec")
+require("./LandedLabel.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

@@ -106,7 +106,10 @@ local function resolve(shot: Shot, catcher: Player?)
 	end
 	shot.resolved = true
 	shots[shot.id] = nil
-	Remotes.ShotResolved:FireAllClients(shot.id, catcher)
+	-- nobody caught it: it lies where it came down for a few seconds (LootService.landed), unless that is the water.
+	-- The free scoop is announced first, so clients swap the shot for it without a gap.
+	local landed = catcher == nil and registry.LootService.landed(shot.flavorId, shot.to, shot.t0 + shot.flight)
+	Remotes.ShotResolved:FireAllClients(shot.id, catcher, landed)
 end
 
 -- interval: seconds until the next shot, which sets how fast the arms play

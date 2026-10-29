@@ -271,4 +271,13 @@ end
 return {
 	list = list,
 	byId = byId,
+	-- the colour of a rarity, e.g. for the name over a scoop in flight or on the ground (ScoopLabel); golden its own
+	rarityColors = {
+		common = "#FFFFFF",
+		uncommon = "#7CE07C",
+		rare = "#5DB4FF",
+		epic = "#C77DFF",
+		legendary = "#FF9F1C",
+		golden = "#FFD23F",
+	},
 }

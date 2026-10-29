@@ -2,6 +2,8 @@
 -- sinks, who may pick it up and when it disappears. Clients only draw them (LootRenderer) and claim the ones their
 -- player walks over; a claim is checked like a catch (Loot.inReach with the catch tolerances) and lands on the
 -- claimant's tower through TowerService.addScoop.
+-- Scoops from the Big Swirl that nobody caught (LootService.landed) lie on the ground the same way for a few seconds,
+-- free for anybody.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35,6 +37,7 @@ type Free = {
 	expiresAt: number,
 	endAt: number, -- expiresAt, or earlier when it rolls into the water
 	sinks: boolean,
+	landed: boolean, -- from the Big Swirl, nobody caught it (Loot.landed); otherwise spilled from a tower
 }
 
 -- how far below the tower base the server looks for ground under a scoop
@@ -86,6 +89,7 @@ local function wire(scoop: Free)
 		ownerUntil = scoop.ownerUntil,
 		endAt = scoop.endAt,
 		sinks = scoop.sinks,
+		landed = scoop.landed,
 	}
 end
 
@@ -172,15 +176,31 @@ local function onClaim(player: Player, id: any)
 	if not registry.TowerService.addScoop(player, scoop.path.flavorId) then
 		return reject(player, id, "cone is full")
 	end
-	registry.KillTestLog.pickup(player, scoop.owner)
+	if not scoop.landed then
+		registry.KillTestLog.pickup(player, scoop.owner) -- the kill test counts spilled scoops taken back or stolen
+	end
 	remove(id, player, "caught")
 end
 
 -- Drops the oldest free scoops until everything fits and the newest are never lost.
+-- The ids of the free scoops of one kind (landed from the Big Swirl, or spilled), oldest first.
+local function ofKind(landed: boolean): { number }
+	local ids = {}
+	for _, id in order do
+		if free[id].landed == landed then
+			table.insert(ids, id)
+		end
+	end
+	return ids
+end
+
+-- Drops the oldest spilled scoops until everything fits and the newest are never lost. Landed scoops have their own
+-- limit (LootService.landed) and are not counted here.
 local function makeRoom(incoming: number): number
-	local excess, kept = Loot.makeRoom(#order, incoming, LootConfig)
-	for _ = 1, excess do
-		remove(order[1], nil, "room")
+	local spilled = ofKind(false)
+	local excess, kept = Loot.makeRoom(#spilled, incoming, LootConfig)
+	for index = 1, excess do
+		remove(spilled[index], nil, "room")
 	end
 	return kept
 end
@@ -190,7 +210,7 @@ local function expire()
 	for index = #order, 1, -1 do
 		local scoop = free[order[index]]
 		if scoop and time >= scoop.endAt then
-			remove(scoop.id, nil, if scoop.sinks then "water" else "gone")
+			remove(scoop.id, nil, if scoop.sinks then "water" elseif scoop.landed then "puff" else "gone")
 		end
 	end
 end
@@ -285,6 +305,7 @@ function LootService.spill(player: Player, flavorIds: { string }, keep: number, 
 			expiresAt = time + LootConfig.lifetime,
 			endAt = endAt,
 			sinks = sinks,
+			landed = false,
 		}
 		free[scoop.id] = scoop
 		table.insert(order, scoop.id)
@@ -293,6 +314,44 @@ function LootService.spill(player: Player, flavorIds: { string }, keep: number, 
 	if #list > 0 then
 		Remotes.LootSpawned:FireAllClients(list)
 	end
+end
+
+-- A scoop from the Big Swirl came down at `position` (its landing point) at server time `landedAt` and nobody caught
+-- it: it lies there for landedLifetime seconds, anybody may pick it up (Loot.landed). Returns false when there is no
+-- ground under it (the water): then it is simply gone.
+function LootService.landed(flavorId: string, position: Vector3, landedAt: number): boolean
+	local groundY = groundAt(position.X, position.Y + 2, position.Z)
+	if not groundY then
+		return false
+	end
+	local landed = ofKind(true)
+	for index = 1, Loot.landedRoom(#landed, LootConfig) do
+		remove(landed[index], nil, "room")
+	end
+	local made = Loot.landed(flavorId, landedAt, groundY, LootConfig)
+	nextId += 1
+	local scoop: Free = {
+		id = nextId,
+		ownerPlayer = nil,
+		owner = made.rule.owner,
+		path = made.path,
+		baseX = position.X,
+		baseY = groundY,
+		baseZ = position.Z,
+		groundY = groundY,
+		profile = made.profile,
+		t0 = made.t0,
+		landedAt = made.rule.landedAt,
+		ownerUntil = made.rule.ownerUntil,
+		expiresAt = made.rule.expiresAt,
+		endAt = made.endAt,
+		sinks = false,
+		landed = true,
+	}
+	free[scoop.id] = scoop
+	table.insert(order, scoop.id)
+	Remotes.LootSpawned:FireAllClients({ wire(scoop) })
+	return true
 end
 
 -- The player was knocked down until `downUntil`: their head start on their own spilled scoops only begins after it.

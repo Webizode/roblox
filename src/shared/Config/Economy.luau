@@ -3,6 +3,7 @@
 
 return {
 	heightFactor = 0.04, -- value = sum(scoop values) * (1 + heightFactor * scoops)^2
+	goldenMultiplier = 5, -- a golden scoop is worth this many times its flavor (concept: Golden Glow)
 
 	keepOnToppleFraction = 0.3, -- the bottom 30 % stay on the cone
 	keepOnToppleMin = 2,

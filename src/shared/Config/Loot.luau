@@ -10,6 +10,13 @@ return {
 	blinkSeconds = 2, -- it blinks for this long before it disappears
 	maxFree = 40, -- free scoops per server; a new spill pushes the oldest ones out
 
+	-- A scoop from the Big Swirl that nobody caught lies where it landed for landedLifetime seconds and anybody may pick
+	-- it up (no owner), blinks for the last landedBlinkSeconds and goes with a puff. One that lands in the water is
+	-- gone at once. These never push spilled scoops out: they have their own limit.
+	landedLifetime = 3,
+	landedBlinkSeconds = 1,
+	maxLanded = 16,
+
 	-- the way down: from where the scoop sat in the toppled tower to the ground, then a short roll away from it
 	fallTime = 0.35, -- seconds; picking up starts once it landed
 	rollMin = 2, -- studs

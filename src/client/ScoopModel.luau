@@ -29,6 +29,7 @@ export type ScoopModel = typeof(setmetatable(
 		farLift: number,
 		farSize: Vector3?,
 		scale: Vector3,
+		sign: BillboardGui?, -- the name sign (ScoopSign), kept on the shown part
 	},
 	ScoopModel
 ))
@@ -131,6 +132,9 @@ function ScoopModel:updateLod(distance: number): BasePart
 		to.Parent = from.Parent
 		from.Parent = nil
 		self.part, self.isFar = to, wantFar
+		if self.sign then
+			self.sign.Adornee = to
+		end
 	end
 	return self.part
 end
@@ -166,7 +170,19 @@ function ScoopModel:setParent(parent: Instance)
 	self.part.Parent = parent
 end
 
+-- Puts a name sign (ScoopSign) over the scoop, or takes it away with nil; it follows the model that shows.
+function ScoopModel:setSign(sign: BillboardGui?)
+	if self.sign and self.sign ~= sign then
+		self.sign:Destroy()
+	end
+	self.sign = sign
+	if sign then
+		sign.Adornee = self.part
+	end
+end
+
 function ScoopModel:destroy()
+	self:setSign(nil)
 	self.near:Destroy()
 	if self.far then
 		self.far:Destroy()

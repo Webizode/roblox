@@ -114,6 +114,18 @@ function Ui.circle(size: number, token: string, props: { [string]: any }?): Fram
 	return frame
 end
 
+-- The coin, the game's currency symbol (the HUD's coin counter, the name signs over scoops): a lemon disc with a waffle
+-- rim and an inner ring, `size` pixels across.
+function Ui.coinIcon(size: number, props: { [string]: any }?): Frame
+	local coin = Ui.circle(size, "lemon", props)
+	Ui.stroke(coin, "waffle", math.max(1, size / 14))
+	local inner =
+		Ui.circle(size / 2, "lemon", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+	Ui.stroke(inner, "waffle", math.max(1, size / 14), 0.35)
+	inner.Parent = coin
+	return coin
+end
+
 -- Scales a cluster with the screen: smaller on phones (short viewports), a little larger on big monitors. The
 -- scale works around the cluster's anchor point, so a cluster pinned to an edge stays on that edge.
 function Ui.autoScale(target: GuiObject)

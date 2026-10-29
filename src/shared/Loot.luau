@@ -4,12 +4,17 @@
 --
 -- A spilled scoop starts where it sat in the toppled tower, falls to the ground below that point in fallTime and
 -- rolls a few studs further, slowing down. Offsets are in studs relative to the tower base, world-axis aligned.
+-- A landed scoop (Loot.landed) is one from the Big Swirl that nobody caught: it lies where it came down, no fall, no
+-- roll, nobody's, for landedLifetime seconds.
 
 export type Config = {
 	ownerSeconds: number,
 	lifetime: number,
 	blinkSeconds: number,
 	maxFree: number,
+	landedLifetime: number,
+	landedBlinkSeconds: number,
+	maxLanded: number,
 	fallTime: number,
 	rollMin: number,
 	rollMax: number,
@@ -219,6 +224,42 @@ function Loot.inReach(dx: any, dy: any, dz: any, speed: number, tolerant: boolea
 		radius += config.serverTolerance + math.max(0, speed) * config.serverSpeedLead
 	end
 	return dx * dx + dz * dz <= radius * radius and math.abs(dy) <= config.pickupHeight
+end
+
+export type Landed = {
+	path: Path,
+	profile: Profile,
+	rule: Scoop,
+	t0: number, -- the time its path starts: landed right away (Loot.position puts it on the ground)
+	endAt: number,
+}
+
+-- A scoop from the Big Swirl that came down at `landedAt` on ground of height `groundY` without anybody catching it:
+-- it lies there, its path relative to the landing point all zero, anybody may pick it up (owner 0, no head start), and
+-- it is gone landedLifetime seconds after landing.
+function Loot.landed(flavorId: string, landedAt: number, groundY: number, config: Config): Landed
+	local expiresAt = landedAt + config.landedLifetime
+	return {
+		path = { flavorId = flavorId, sx = 0, sy = 0, sz = 0, lx = 0, lz = 0, rx = 0, rz = 0 },
+		profile = { shares = { 0 }, heights = { groundY }, stopShare = 1, sinkAt = nil },
+		rule = { owner = 0, landedAt = landedAt, ownerUntil = landedAt, expiresAt = expiresAt },
+		t0 = landedAt - config.fallTime,
+		endAt = expiresAt,
+	}
+end
+
+-- Whether a free scoop that is gone at `endAt` blinks at `now`: for the last blinkSeconds (landedBlinkSeconds for a
+-- landed one). One that sinks in the water does not blink, it just goes under.
+function Loot.blinks(endAt: number, now: number, landed: boolean, sinks: boolean, config: Config): boolean
+	if sinks or now >= endAt then
+		return false
+	end
+	return now > endAt - (if landed then config.landedBlinkSeconds else config.blinkSeconds)
+end
+
+-- How many landed scoops have to go (the oldest first) so that one more fits under maxLanded.
+function Loot.landedRoom(current: number, config: Config): number
+	return math.max(0, current + 1 - config.maxLanded)
 end
 
 -- How many of the free scoops already lying around have to go (the oldest first) so that `incoming` new ones fit,

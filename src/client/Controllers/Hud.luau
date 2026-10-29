@@ -97,12 +97,7 @@ local function dot(order: number): Frame
 end
 
 local function coinIcon(): Frame
-	local coin = Ui.circle(28, "lemon", { Name = "CoinIcon", LayoutOrder = 1 })
-	Ui.stroke(coin, "waffle", 2)
-	local inner = Ui.circle(14, "lemon", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
-	Ui.stroke(inner, "waffle", 2, 0.35)
-	inner.Parent = coin
-	return coin
+	return Ui.coinIcon(28, { Name = "CoinIcon", LayoutOrder = 1 })
 end
 
 -- two scoops on a waffle tip

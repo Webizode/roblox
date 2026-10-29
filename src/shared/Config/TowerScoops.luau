@@ -13,6 +13,10 @@ return {
 	-- every scoop on a tower is turned a little further about its own axis than the one below it, so the lobes of a
 	-- stack do not line up into stripes
 	stackTwist = math.rad(37),
+
+	-- The name and value over a scoop in flight or lying on the ground (not on a tower): readable up to maxDistance
+	-- studs, a fixed size on screen, so it stays readable on a phone. height: studs above the scoop's centre.
+	label = { maxDistance = 40, height = 1.7, textSize = 20, iconSize = 18 },
 	-- how far the lowest drip is below the scoop's centre in the models (the same for every flavor: build_scoops.py
 	-- base shape). The importer centres a mesh on its bounding box; from the bottom of that box this finds the scoop's
 	-- centre, also for a flavor with something on top (the lemon slice)
