@@ -117,3 +117,34 @@ describe("Big Swirl arms: the motion", function()
 		expect(s2).toBeCloseTo(s1, 0.01)
 	end)
 end)
+
+describe("Big Swirl arms: in step with the Blender bake", function()
+	-- the tests run from the repo root (lune run tests/run.luau)
+	local fs = require("@lune/fs")
+	local serde = require("@lune/serde")
+	local bake = serde.decode("json", fs.readFile("assets/BigSwirl/arm_cycle.json"))
+
+	it("the cycle length and the markers are the bake's", function()
+		expect(Config.cycleLength).toBeCloseTo(bake.length, 0.001)
+		expect(Config.scoopedAt).toBeCloseTo(bake.markers.Scooped, 0.001)
+		expect(Config.releaseAt).toBeCloseTo(bake.markers.Release, 0.001)
+	end)
+
+	it("every arm releases where the bake says", function()
+		for arm, point in Config.releasePoints do
+			local baked = bake.releasePoints[tostring(arm)]
+			for axis = 1, 3 do
+				expect(point[axis]).toBeCloseTo(baked[axis], 0.001)
+			end
+		end
+	end)
+
+	it("the generated frames are the bake's (else run scripts/bigswirl-cycle)", function()
+		expect(Cycle.fps).toBe(bake.fps)
+		expect(#Cycle.shoulder).toBe(#bake.frames)
+		for i, frame in bake.frames do
+			expect(Cycle.shoulder[i]).toBeCloseTo(frame.shoulder, 0.006)
+			expect(Cycle.wrist[i]).toBeCloseTo(frame.wrist, 0.006)
+		end
+	end)
+end)
