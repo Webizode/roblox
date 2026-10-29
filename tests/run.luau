@@ -23,6 +23,7 @@ require("./LaunchArms.spec")
 require("./SettingsRules.spec")
 require("./ScoopFlight.spec")
 require("./LandedLabel.spec")
+require("./TargetRules.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

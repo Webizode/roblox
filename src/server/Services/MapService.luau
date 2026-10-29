@@ -204,14 +204,22 @@ function MapService.groundAt(x: number, fromY: number, z: number, reach: number)
 	return MapQuery.ground(x, fromY, z, reach, characters())
 end
 
--- Any landing spot, all equally likely.
-function MapService.randomLanding(rng: Random): Vector3?
+-- the landing spots within a radius of the machine, worked out once per radius
+local within: { [number]: { number } } = {}
+
+-- A random landing spot within `radius` studs of the machine (Config/Launcher randomRadius: the arena and the inner
+-- ring), all equally likely.
+function MapService.landingWithin(radius: number, rng: Random): Vector3?
 	local spots = MapService.landingSpots
-	local count = #spots // 3
-	if count == 0 then
+	local near = within[radius]
+	if not near then
+		near = MapRules.spotsNear(spots, MapService.center.X, MapService.center.Z, radius)
+		within[radius] = near
+	end
+	if #near == 0 then
 		return nil
 	end
-	local index = rng:NextInteger(1, count)
+	local index = near[rng:NextInteger(1, #near)]
 	return Vector3.new(spots[index * 3 - 2], spots[index * 3 - 1], spots[index * 3])
 end
 

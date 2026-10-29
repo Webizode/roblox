@@ -5,8 +5,16 @@ return {
 	baseInterval = 1.5, -- seconds between shots with one player
 	minInterval = 0.45,
 
-	targetPlayerChance = 0.6, -- otherwise a random spot on the pier
-	playerOffset = 9, -- max studs from the targeted player
+	-- Where scoops land (TargetRules): most at a random spot in the arena and the inner ring, so nobody gets scoops
+	-- thrown at them just for standing around; nearPlayerShare of them near a player who is on the move. A player who
+	-- has stayed within idleRadius studs for idleSeconds counts as standing still and gets none aimed at them.
+	nearPlayerShare = 0.2,
+	-- studs from the machine for the random spots: the plaza (the arena, out to 62) and the light path ring round it
+	-- (out to the river at 68); the river, the sand ring and the stands only get scoops aimed near a player
+	randomRadius = 68,
+	playerOffset = 9, -- max studs from the player a near shot lands
+	idleSeconds = 4,
+	idleRadius = 2,
 	tutorialShots = 3, -- first shots aim right at a new player
 	tutorialOffset = 1.5,
 	-- random targets stay inside this circle around the machine; it reaches past the spawns in front of the stands

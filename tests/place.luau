@@ -59,6 +59,7 @@ for _, name in
 		"LaunchArms",
 		"ScoopFlight",
 		"ScoopLabel",
+		"TargetRules",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")

@@ -8,6 +8,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -16,6 +17,7 @@ local ShotMath = require(Shared:WaitForChild("ShotMath"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local CatchRules = require(Shared:WaitForChild("CatchRules"))
 local LaunchArms = require(Shared:WaitForChild("LaunchArms"))
+local TargetRules = require(Shared:WaitForChild("TargetRules"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local Tuning = require(Config:WaitForChild("Launcher"))
 local ArmConfig = require(Config:WaitForChild("BigSwirl"))
@@ -47,6 +49,7 @@ local map
 local shots: { [number]: Shot } = {}
 local nextId = 0
 local tutorialLeft: { [Player]: number } = {}
+local tracks: { [Player]: TargetRules.Track } = {} -- where each player last moved, for the near shots
 local lastCatchAt: { [Player]: number } = {}
 local lastRejectLog: { [Player]: number } = {}
 local rng = Random.new()
@@ -76,11 +79,24 @@ local function rootOf(player: Player): BasePart?
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
--- Every target is one of the map's landing spots (MapService): ground a player can stand on inside the landing
--- circle, never water, a roof, a palm or a railing. Near a player means a spot within `radius` of them, or the
--- nearest spot when they stand where nothing may land.
+-- Keeps every player's track (TargetRules): where they last moved to and since when they stand still.
+local function trackPlayers()
+	local now = workspace:GetServerTimeNow()
+	for _, player in Players:GetPlayers() do
+		local root = rootOf(player)
+		if root then
+			tracks[player] = TargetRules.track(tracks[player], root.Position.X, root.Position.Z, now, Tuning)
+		end
+	end
+end
+
+-- Every target is one of the map's landing spots (MapService): ground a player can stand on, never water, a roof, a
+-- palm or a railing. A new player's first shots land right at them (tutorial). Otherwise most go to a random spot in
+-- the arena and the inner ring and nearPlayerShare near a player who is on the move (TargetRules): a spot within
+-- playerOffset of them, or the nearest spot when they stand where nothing may land.
 local function pickTarget(): Vector3?
-	local candidates = {}
+	local now = workspace:GetServerTimeNow()
+	local moving = {}
 	for _, player in Players:GetPlayers() do
 		local root = rootOf(player)
 		if root then
@@ -88,16 +104,19 @@ local function pickTarget(): Vector3?
 				tutorialLeft[player] -= 1
 				return map.landingNear(root.Position.X, root.Position.Z, Tuning.tutorialOffset, rng)
 			end
-			table.insert(candidates, root)
+			local track = tracks[player]
+			if track and not TargetRules.isIdle(track, now, Tuning) then
+				table.insert(moving, root)
+			end
 		end
 	end
 
-	if #candidates > 0 and rng:NextNumber() < Tuning.targetPlayerChance then
-		local root = candidates[rng:NextInteger(1, #candidates)]
+	local index = TargetRules.choose(rng:NextNumber(), rng:NextNumber(), #moving, Tuning)
+	if index then
+		local root = moving[index]
 		return map.landingNear(root.Position.X, root.Position.Z, Tuning.playerOffset, rng)
 	end
-
-	return map.randomLanding(rng)
+	return map.landingWithin(Tuning.randomRadius, rng)
 end
 
 local function resolve(shot: Shot, catcher: Player?)
@@ -284,9 +303,11 @@ function LauncherService.Start()
 		tutorialLeft[player] = nil
 		lastCatchAt[player] = nil
 		lastRejectLog[player] = nil
+		tracks[player] = nil
 	end)
 
 	Remotes.CatchClaim.OnServerEvent:Connect(onCatchClaim)
+	RunService.Heartbeat:Connect(trackPlayers)
 
 	arms = setUpArms()
 	print(

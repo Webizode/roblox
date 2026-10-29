@@ -35,6 +35,7 @@ local CombatController = {}
 local THROW_ACTION = "WobbleThrow"
 local MODE_ACTION = "WobbleCombatMode"
 local BLOCK_SHIFT_LOCK_ACTION = "WobbleCombatBlockShiftLock"
+local BLOCK_CAMERA_PAN_ACTION = "WobbleCombatBlockCameraPan"
 local MOUSE_STEP = "WobbleCombatMouse"
 local RELEASE_STEP = "WobbleCombatMouseRelease"
 -- after leaving combat mode the mouse is kept free this long, against a late lock from anything that still
@@ -428,17 +429,21 @@ local function onAimStep()
 	)
 end
 
--- Holds the mouse in the middle of the screen while combat mode is on. Runs after the camera scripts every frame,
--- because they set the mouse behaviour themselves (for example after a right-click camera pan).
+-- Holds the mouse in the middle of the screen and keeps the cursor hidden (the crosshair is the cursor) while combat
+-- mode is on. Runs after the camera scripts every frame, because they set the mouse behaviour and the cursor
+-- themselves (a held right mouse button pans Roblox's camera and shows the cursor).
 local function onMouseStep()
 	if UserInputService.MouseEnabled and UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 	end
+	if UserInputService.MouseIconEnabled then
+		UserInputService.MouseIconEnabled = false
+	end
 end
 
--- Shift lock (Ctrl) stays blocked while combat mode holds the mouse, so the mouse state saved on entry is still
--- the right one to restore.
-local function blockShiftLock(): Enum.ContextActionResult
+-- Swallows an input while combat mode holds the mouse: shift lock (Ctrl), so the mouse state saved on entry is still
+-- the right one to restore, and the right mouse button, which would pan Roblox's camera and show the cursor.
+local function swallow(): Enum.ContextActionResult
 	return Enum.ContextActionResult.Sink
 end
 
@@ -481,11 +486,18 @@ local function enterCombatMode()
 	RunService:BindToRenderStep(MOUSE_STEP, Enum.RenderPriority.Camera.Value + 1, onMouseStep)
 	ContextActionService:BindActionAtPriority(
 		BLOCK_SHIFT_LOCK_ACTION,
-		blockShiftLock,
+		swallow,
 		false,
 		ACTION_PRIORITY,
 		Enum.KeyCode.LeftControl,
 		Enum.KeyCode.RightControl
+	)
+	ContextActionService:BindActionAtPriority(
+		BLOCK_CAMERA_PAN_ACTION,
+		swallow,
+		false,
+		ACTION_PRIORITY,
+		Enum.UserInputType.MouseButton2
 	)
 	ContextActionService:BindActionAtPriority(
 		THROW_ACTION,
@@ -510,6 +522,7 @@ local function exitCombatMode()
 	combatMode = false
 	ContextActionService:UnbindAction(THROW_ACTION)
 	ContextActionService:UnbindAction(BLOCK_SHIFT_LOCK_ACTION)
+	ContextActionService:UnbindAction(BLOCK_CAMERA_PAN_ACTION)
 	RunService:UnbindFromRenderStep(MOUSE_STEP)
 	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	UserInputService.MouseIconEnabled = true
