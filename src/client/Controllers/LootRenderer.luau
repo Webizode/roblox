@@ -20,6 +20,7 @@ local Palette = require(Config:WaitForChild("Palette"))
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
+local ScoopModel = require(client:WaitForChild("ScoopModel"))
 
 local LootRenderer = {}
 
@@ -46,7 +47,9 @@ type Drawn = {
 	path: Loot.Path,
 	profile: Loot.Profile,
 	rule: Loot.Scoop,
-	part: Part,
+	model: ScoopModel.ScoopModel, -- the tower scoop model (the plain ball for a flavor without one)
+	part: BasePart, -- its part (free scoops always show the close one)
+	centre: Vector3, -- where the scoop's centre is drawn
 	ring: Part?,
 	settled: boolean, -- done rolling, the part no longer moves
 	claimedAt: number?, -- os.clock of the claim; the scoop flies to the own tower until the server answers
@@ -91,10 +94,16 @@ end
 local function worldPosition(scoop: Drawn, elapsed: number): Vector3
 	local wire, path = scoop.wire, scoop.path
 	local x, y, z = Loot.position(path, elapsed, LootConfig, scoop.profile.stopShare)
-	local restY = groundAt(scoop, elapsed) + LootConfig.scoopRadius
+	local restY = groundAt(scoop, elapsed) + scoop.model:restHeight() -- its drips on the ground
 	local fall = if path.sy > 1e-3 then y / path.sy else 0
 	local startY = wire.base.Y + path.sy
 	return Vector3.new(wire.base.X + x, restY + (startY - restY) * fall, wire.base.Z + z)
+end
+
+-- Draws the scoop with its centre at `centre`, upright and turned its own way (each one a little differently).
+local function place(scoop: Drawn, centre: Vector3)
+	scoop.centre = centre
+	scoop.part.CFrame = scoop.model:at(CFrame.new(centre) * CFrame.Angles(0, scoop.wire.id * 1.3, 0))
 end
 
 local function updateRing(scoop: Drawn, now: number)
@@ -123,11 +132,11 @@ local function add(wire: Wire)
 	if drawn[wire.id] then
 		return
 	end
-	local part = makePart()
+	local model = ScoopModel.new(TowerVisual.root(), wire.flavorId)
+	model:setScale(Vector3.one * LootConfig.scoopRadius * 2 / ScoopModel.SIZE) -- a little smaller than on a tower
+	local part = model.part
 	part.Name = "FreeScoop"
-	part.Shape = Enum.PartType.Ball
-	part.Size = Vector3.one * LootConfig.scoopRadius * 2
-	TowerVisual.applyFlavor(part, wire.flavorId)
+	part.CastShadow = false
 	local scoop: Drawn = {
 		wire = wire,
 		path = {
@@ -152,14 +161,16 @@ local function add(wire: Wire)
 			ownerUntil = wire.ownerUntil,
 			expiresAt = wire.endAt,
 		},
+		model = model,
 		part = part,
+		centre = wire.start,
 		ring = nil,
 		settled = false,
 		claimedAt = nil,
 		retryAt = 0,
 		blinking = false,
 	}
-	part.CFrame = CFrame.new(worldPosition(scoop, workspace:GetServerTimeNow() - wire.t0))
+	place(scoop, worldPosition(scoop, workspace:GetServerTimeNow() - wire.t0))
 	drawn[wire.id] = scoop
 end
 
@@ -317,10 +328,10 @@ local function onRenderStep(dt: number)
 				onRejected(scoop.wire.id) -- no answer: it lies where it was
 			elseif top then
 				local blend = 1 - math.exp(-FLY_RESPONSE * dt)
-				scoop.part.CFrame = CFrame.new(scoop.part.Position:Lerp(top, blend))
+				place(scoop, scoop.centre:Lerp(top, blend))
 			end
 		elseif not scoop.settled then
-			scoop.part.CFrame = CFrame.new(worldPosition(scoop, elapsed))
+			place(scoop, worldPosition(scoop, elapsed))
 			scoop.settled = elapsed > LootConfig.fallTime + SETTLE
 		end
 

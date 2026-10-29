@@ -429,6 +429,34 @@ function TowerService.Start()
 	RunService.Heartbeat:Connect(advanceStances)
 	Remotes.SetSprint.OnServerEvent:Connect(onSprint)
 	Remotes.Dash.OnServerEvent:Connect(onDash)
+
+	-- Studio only: ServerStorage.StudioTowerTest lets a playtest (Studio MCP, command bar) set a player's tower to
+	-- given flavors ("set", player, { ids }) or spill it all as free scoops ("spill", player), to look at towers and
+	-- loot without catching. ServerStorage is never seen by clients; outside Studio it does not exist.
+	if RunService:IsStudio() then
+		local test = Instance.new("BindableFunction")
+		test.Name = "StudioTowerTest"
+		test.OnInvoke = function(action: string, player: Player, ids: { string }?)
+			local state = states[player]
+			if not state then
+				return false
+			end
+			if action == "set" and ids then
+				table.clear(state.scoops)
+				for _, id in ids do
+					table.insert(state.scoops, id)
+				end
+				publish(player, state, "spawn")
+			elseif action == "spill" then
+				-- like a topple: the free scoops first, then the empty tower (onToppled)
+				registry.LootService.spill(player, table.clone(state.scoops), 0, 0.3, 0)
+				table.clear(state.scoops)
+				publish(player, state, "topple")
+			end
+			return #state.scoops
+		end
+		test.Parent = game:GetService("ServerStorage")
+	end
 end
 
 -- Whether the player holds the steady stance.

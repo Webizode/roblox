@@ -21,6 +21,7 @@ require("./MapRules.spec")
 require("./SaveData.spec")
 require("./LaunchArms.spec")
 require("./SettingsRules.spec")
+require("./ScoopFlight.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

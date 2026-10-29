@@ -162,6 +162,6 @@ describe("Flavors", function()
 			expect(flavor.mass).toBeGreaterThan(0)
 			expect(string.match(flavor.color, "^#%x%x%x%x%x%x$") ~= nil).toBe(true)
 		end
-		expect(#Flavors.list).toBe(10)
+		expect(#Flavors.list).toBe(17) -- 11 commons (since 29.10.2026) and 6 rarer ones
 	end)
 end)

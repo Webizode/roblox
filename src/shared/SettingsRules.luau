@@ -3,6 +3,7 @@
 -- server (before saving) and the Lune tests use the same checks.
 
 export type Effective = {
+	vfxQuality: string, -- "high", "medium" or "low"; the performance mode counts as "low"
 	particleScale: number, -- multiplies particle counts
 	heavyDashEffects: boolean, -- afterimages and limb trails
 	shadows: boolean,
@@ -81,6 +82,7 @@ function SettingsRules.effective(settings: { [string]: any }, config: any): Effe
 	local performance = settings.performanceMode == true
 	local quality = if performance then "low" else settings.vfxQuality
 	return {
+		vfxQuality = quality,
 		particleScale = config.particleScale[quality] or 1,
 		heavyDashEffects = quality ~= "low",
 		shadows = not performance,

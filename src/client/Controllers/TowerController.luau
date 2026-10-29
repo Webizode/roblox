@@ -241,11 +241,11 @@ end
 local function updateFade(dt: number)
 	local camera = workspace.CurrentCamera
 	local blend = 1 - math.exp(-FADE_RESPONSE * dt)
-	for index, part in visual.scoops do
+	for index, scoop in visual.scoops do
 		local covers = false
 		if camera then
 			local look = camera.CFrame.LookVector
-			local offset = part.Position - camera.CFrame.Position
+			local offset = scoop.part.Position - camera.CFrame.Position
 			local along = math.clamp(offset:Dot(look), 0, FADE_RAY)
 			local distance = (offset - look * along).Magnitude
 			covers = distance < SCOOP_RADIUS + (if covering[index] then FADE_OUT else FADE_IN)

@@ -61,8 +61,33 @@ Die Idee "der Turm schreit beim Kippen" (20 Kugeln schauen gleichzeitig panisch)
 
 ### Material und Farbe
 
-- Grundmaterial SmoothPlastic, in Blender als Principled BSDF mit Roughness ca. 0,45 vorbereitet. Farbe pro Sorte aus der Palette, keine Textur.
-- Sorten-Unterschiede über Form und Material nach `concept.md` (Rocky Road klumpig, Mochi flach, Jelly aus Glass usw.). Der Prototyp ist Vanilla `#FFF3D6`.
+- Grundmaterial SmoothPlastic, Farbe pro Sorte aus der Palette (`Config/Flavors`), gesetzt als Farbe des MeshParts.
+- Seit dem 29.10.2026 (vom Nutzer freigegeben) darf jede Sorte ein kleines **Detailbild** tragen, z. B. die Vanille-Punkte: eine `SurfaceAppearance` im Overlay-Modus. Das Bild ist bis auf die Details durchsichtig, darunter zeigt sich die Sortenfarbe. Bei ca. 450 Dreiecken gehen solche Details nicht als Geometrie.
+- Sorten-Unterschiede über Form und Material nach `concept.md` (Rocky Road klumpig, Mochi flach, Jelly aus Glass usw.). Die erste Sorte ist Vanilla `#F9DCA8` (seit 29.10.2026, vom Nutzer freigegeben): Der Palette-Token `vanilla` `#FFF3D6` wirkt im Licht der Insel fast weiß mit Minzstich, im Spiel verglichen mit `#FFE7C0` und `#F9DCA8`. Der Token selbst bleibt, er ist der fast weiße Ton der Eis-Effekte (Frost, Dash, Eiswölkchen).
+
+### Turm-Kugel-Modell (Stand 29.10.2026)
+
+Gebaut per Skript: `assets/TowerScoops/build_scoops.py` (Blender, alles parametrisch), Vorschau `preview_scoops.py` (nah, aus 30 Studs, Turm mit 10 Kugeln, Bilder in `assets/TowerScoops/renders`), Export `export_scoops.py`, Einrichtung in Studio `studio_setup.luau`. Arbeitsdatei `assets/TowerScoops/TowerScoops.blend`. Referenz: das Vanilla-Scoop-Bild des Nutzers (Kuppel, Tropfrand, hohle Unterseite).
+
+- **Grundform für alle Sorten:** runde Kuppel (Kugel mit Radius 0,92 bis 1,0 Stud über dem Mittelpunkt), Einschnürung, Wulst mit 7 runden Lappen (einer vorne mittig, links und rechts symmetrisch, Tropfenlänge vorne lang, schräg vorne kurz, Seite lang, hinten mittel), hohle Unterseite. Eine Sorte ist ein Eintrag in `FLAVORS` (Farbe, Lappen, Kuppel, Glanz) plus optional ihre Funktion `details_<id>` für das Detailbild. Golden baut auf derselben Form auf.
+- **Maße:** 2,08 × 2,06 × 1,84 Studs, Ursprung im Kugelmittelpunkt, wie `TowerShape` die Kugeln setzt. Die Unterseite sitzt mit dem Stapelabstand 1,5 über der Kuppel darunter, ohne in sie hineinzuschneiden. Die Lappen hängen über die untere Kugel.
+- **Zwei Stufen:** LOD0 mit 448 Dreiecken für die Nähe, LOD1 mit 112 Dreiecken ab ca. 40 Studs Abstand zur Kamera. Der Client tauscht sie selbst (`ScoopModel`, `Config/TowerScoops` `farDistance`, mit 4 Studs Hysterese). Vergleich 308 gegen 448 Dreiecke: Mit 448 wird der Umriss der Kuppel sichtbar weicher, deshalb 448.
+- **Umriss:** wie die Big Swirl in `#5A2E1A`, als **ein Highlight pro Turm** (Roblox zeigt höchstens 31 Highlights gleichzeitig). Beim Ächzen färbt es sich rot (`Palette.awning`). Fliegende Kugeln haben keinen Umriss, dafür eine Spur.
+- **Im Turm** ist jede Kugel um 37° weiter gedreht als die darunter, damit die Lappen keine Streifen bilden.
+- **Sorten-Details** (seit 29.10.2026): Jede Sorte muss auch ohne Farbe erkennbar sein. Die Details sind Muster im Detailbild (`details_<id>` in `build_scoops.py`, gemalt mit `blob`, `scatter`, `rim_band`), keine eigenen 3D-Teile. Einzige Ausnahme ist ein kleines Extra-Teil im selben Mesh (Zitronenscheibe, `extra_lemon_slice`), dessen Bild in einer eigenen Ecke über dem Bereich der Kugel liegt (`uv_top`). Raue oder extra glänzende Sorten bekommen zusätzlich eine RoughnessMap (`surface_roughness`).
+  - Vanilla: feine Vanille-Punkte
+  - Lemon (`#FFD84A`, kräftiger als zuerst, damit sie sich aus der Ferne von Vanilla abhebt): kurze Schalen-Streifen an der Seite und eine Zitronenscheibe oben (im Turm von der Kugel darüber verdeckt, die Streifen bleiben sichtbar)
+  - Pistachio: große Nussstücke in zwei Grüntönen, hell und mit brauner Haut, leicht rau
+  - Watermelon: schwarze Kerne, grüne Schale auf Rand und Tropfen mit heller Linie darüber
+  - Chocolate: dunklerer Rand und Tropfen, extra glänzend
+  - Strawberry: große rote Erdbeerstücke
+  - Mint: dunkle, eckige Schoko-Splitter
+  - Bubblegum: bunte Kaugummi-Kugeln mit Glanzpunkt
+  - Cookie: eckige, dunkle Keksstücke und Krümel auf dunklerem Hellbraun. Abgrenzung zu Cookie Dough (uncommon): dort heller Teig mit runden Klumpen und Schoko-Chips
+  - Mango: Mangowürfel mit heller Oberkante; gegen Lemon: Würfel statt Schalen-Streifen und Scheibe, Orange statt Gelb
+  - Stracciatella: feine Schoko-Streifen rund um die Kugel (Vanilla hat Punkte)
+- **Gleiche Form, kein Import:** Alle Sorten ohne Extra-Teil haben exakt die Grundform, Roblox legt dafür ohnehin nur ein Mesh an. `studio_setup.luau` übernimmt mit `SHAPE = "vanilla"` die Meshes von Vanilla und setzt nur Farbe und Detailbild. Importieren muss man nur eine Sorte mit eigener Form (Lemon).
+- **Abstand zur Kugel darüber:** Die Unterkante der Tropfen liegt bei allen Sorten 0,86 unter dem Kugelmittelpunkt (`Config/TowerScoops` `dripDepth`). Daraus setzt das Spiel jede Kugel richtig, auch wenn oben etwas hinzukommt.
 
 ### Prototyp (Stand 23.10.2026)
 
@@ -112,7 +137,7 @@ Form: rund aus jeder Richtung, weil die Kugel im Flug rotiert. Weicher Randwulst
 
 Gesicht: größere, leicht ovale Augen, eine kräftige, hochgezogene Braue (selbstbewusst), Grinsen mit hochgezogenem rechtem Mundwinkel (frech). Aus 10,5 Studs lesbar. Es entspricht noch dem alten, sparsamen Ink-Stil, nicht dem neuen Attack-Scoop-Stil.
 
-Materialien: `WSB_Vanilla` `#FFE7C0`, Roughness 0,42; `WSB_Ink` `#2B2D42`, Roughness 0,26. Das wärmere Creme weicht vom Palette-Token `vanilla` `#FFF3D6` ab, der im Licht fast weiß wirkt. Ob der Token angepasst wird, ist offen.
+Materialien: `WSB_Vanilla` `#FFE7C0`, Roughness 0,42; `WSB_Ink` `#2B2D42`, Roughness 0,26. Das wärmere Creme weicht vom Palette-Token `vanilla` `#FFF3D6` ab, der im Licht fast weiß wirkt. Die Turm-Kugel Vanilla nutzt seit dem 29.10.2026 `#F9DCA8`, der Token bleibt für die Eis-Effekte (siehe oben).
 
 Für den Prototyp gilt: Eine Kollisionskugel mit Radius 0,6 bleibt die Trefferform, das Mesh ist nur Optik. Das gilt auch für das finale Modell.
 
@@ -122,7 +147,8 @@ Für den Prototyp gilt: Eine Kollisionskugel mit Radius 0,6 bleibt die Trefferfo
 - 1 Blender-Einheit = 1 Stud. Die Import-Skalierung (FBX nach Roblox) beim ersten Export prüfen und hier festhalten.
 - Ursprung jeder Kugel im Kugelmittelpunkt, wie im Spiel (`TowerVisual`).
 - Modifier so lange wie möglich nicht anwenden, damit die Form editierbar bleibt.
-- Polybudget pro Turm-Kugel: ca. 1.500 Dreiecke, da bis zu 40 pro Turm und 10 Türme pro Server. Die verfeinerte Wobble-Form liegt bei ca. 2.060, weil runde Lappen und eine weiche Randfalte mehr Ringe brauchen. Für Türme ist eine LOD-Stufe mit ca. 800 Dreiecken nötig (gleiche Segmentzahl halbieren).
+- Polybudget pro Turm-Kugel (seit 29.10.2026): ca. 450 Dreiecke nah, ca. 100 fern (ab ca. 40 Studs). Die früheren Prototypen mit 1.500 bis 2.060 Dreiecken sind dafür zu schwer.
+- Turm-Kugeln: Collection `TowerScoop_<sorte>`, Objekte `TS_<Sorte>_LOD0`/`_LOD1`, Materialien `TS_<sorte>`. FBX-Export mit denselben Einstellungen wie die Big Swirl (`FBX_SCALE_UNITS`, vorne -Z, oben Y), ohne Modifier (der Umriss in der Vorschau ist ein Modifier und kommt nicht mit).
 
 ## KI-Bilder
 
@@ -132,7 +158,6 @@ Für den Prototyp gilt: Eine Kollisionskugel mit Radius 0,6 bleibt die Trefferfo
 
 - Attack-Scoop-Modell vom externen Modeler: Lieferung abwarten, dann abnehmen und einbinden.
 - Spätere Option "der Turm schreit beim Kippen": Turm-Kugeln bekommen nur in diesem Moment ein kurzes Panik-Gesicht oder einen anderen Panik-Effekt (Clip-Moment). Widerspricht derzeit "Turm-Kugeln ohne Gesicht" und braucht deshalb eine eigene Entscheidung.
-- Import-Skalierung und Export-Einstellungen der Turm-Kugel nach Roblox.
-- Varianten der Turm-Kugel für die übrigen Sorten erst nach Abnahme der Vanilla-Form.
-- Für den Export der Turm-Kugel: Modifier anwenden (auf einer Kopie), Gesicht weglassen.
-- Ob der Palette-Token `vanilla` an das wärmere Creme angepasst wird.
+- Import-Skalierung der Turm-Kugel nach Roblox: beim ersten Import von `vanilla_LOD0.fbx` prüfen (erwartet 2,08 × 1,84 × 2,06 Studs) und hier festhalten.
+- Die übrigen 9 Sorten und Golden auf der Vanilla-Grundform (`FLAVORS` in `build_scoops.py`).
+- Ob die Wurfkugel (`WSB_Vanilla` `#FFE7C0`) an das Creme der Turm-Kugel `#F9DCA8` angeglichen wird.
