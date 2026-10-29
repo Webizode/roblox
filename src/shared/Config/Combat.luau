@@ -10,16 +10,67 @@ return {
 	reloadTime = 4, -- seconds
 	throwInterval = 0.4, -- seconds between two throws, so a macro cannot fire a whole load at once
 
-	-- throw strength: holding the throw button charges a bar that runs from 0 up to 1 in chargeRise seconds, back
-	-- down in the same time, and so on while held. Releasing throws with the bar's value: 0 is the weakest throw,
-	-- 1 the strongest. The server measures the hold itself and only accepts a bar value that fits it.
-	chargeRise = 0.45, -- seconds
-	-- seconds of network jitter between the server's measured hold and the client's bar; with a faster bar every
-	-- second of slack is worth more charge, so it stays a little tighter than typical jitter allows for comfort
+	-- throw strength (Combat.strength): a tap throws at once at strength 0; holding raises it to 1 by perfect.rise
+	-- seconds (speed from minSpeed to maxSpeed, hit power factor from powerAtMinCharge to 1) and it stays 1. While held,
+	-- the crosshair's inner circle grows from the middle to the outer circle in perfect.rise and shrinks back in the
+	-- same time, again and again (Combat.pulse). Letting go when it reaches the outer circle, within perfect.window
+	-- around that moment, is a perfect throw: full strength at perfect.speed, faster but no harder. The server times
+	-- the hold itself and accepts the client's strength and perfect claim only as far as its own timing allows.
+	perfect = {
+		rise = 0.5, -- seconds from the middle to the outer circle
+		window = 0.12, -- seconds round each moment it touches the outer circle: doable on a phone and a pad
+		speed = 110, -- studs/s at release
+	},
+	-- seconds of network jitter between the server's measured hold and the client's
 	chargeTolerance = 0.08,
-	minSpeed = 55, -- studs/s at release with the bar at 0
+	minSpeed = 55, -- studs/s at release at strength 0 (a tap)
 	maxSpeed = 90, -- and at 1
-	powerAtMinCharge = 0.6, -- hit power factor of an uncharged throw; a full charge hits with factor 1
+	powerAtMinCharge = 0.6, -- hit power factor of a tap; full strength (and a perfect throw) hits with factor 1
+
+	-- The crosshair (AimHud, AimRules): a thin circle fixed in the middle of the screen, where every throw aims. Its
+	-- radius in pixels (times the crosshair size setting) grows while moving, sprinting, after a dash and right after a
+	-- throw, and shrinks a little while a throw is held. Purely a display: throws never scatter. While held, a small
+	-- inner circle pulses inside it (perfect); both turn perfectColor while letting go would be a perfect throw.
+	crosshair = {
+		radius = 14,
+		walk = 4, -- added while moving
+		sprint = 9, -- added while sprinting
+		dash = 14, -- added right after a dash, gone after dashTime
+		dashTime = 0.5,
+		throw = 10, -- added right after a throw, gone after throwTime
+		throwTime = 0.35,
+		holdShrink = 0.25, -- share it shrinks by at full strength while holding
+		response = 14, -- 1/s: how fast it follows (eases towards its size)
+		thickness = 1.5, -- pixels
+		perfectColor = "#3DDC84", -- green
+	},
+	-- Aim help in the combat camera (CombatCamera, AimRules), its strength by the input in use (Settings.inputKind,
+	-- not the platform). A rival within maxAngle degrees of the crosshair, at most maxRange studs away, in plain sight
+	-- (no wall between) and not in their cart's safe zone slows the turning down there (friction: share of the turn
+	-- taken off) and draws the camera gently towards them (pull: per second, the share of the way closed). Both fade
+	-- to nothing towards maxAngle, so nothing snaps, and nobody behind or beside the crosshair is ever picked. Purely
+	-- the camera: the server checks hits as always.
+	aimAssist = {
+		maxAngle = 8, -- degrees from the crosshair
+		maxRange = 120, -- studs
+		aimHeight = 1, -- studs above the HumanoidRootPart the camera is drawn to (the chest)
+		devices = {
+			keyboard = { friction = 0.15, pull = 0.4 }, -- mouse: hardly felt
+			gamepad = { friction = 0.35, pull = 1.6 },
+			touch = { friction = 0.5, pull = 3 },
+		},
+	},
+	-- what the thrower sees of a hit (HitFeedback): a red X on the crosshair, the scoops the victim lost rising over
+	-- them, a line in the feed at the bottom. A topple counts as the thrower's when their hit came at most
+	-- creditSeconds before it.
+	feedback = {
+		markTime = 0.3, -- seconds the X shows
+		creditSeconds = 4,
+		numberTime = 1.2, -- seconds the number rises and fades
+		numberRise = 3, -- studs it rises
+		feedTime = 2.5, -- seconds a feed line stays
+		feedLines = 3, -- at most this many at once, the newest at the bottom
+	},
 
 	-- aiming: the ball leaves the right hand and flies on an arc through the point under the crosshair
 	aimDistance = 400, -- studs the client looks for that point along the crosshair ray
@@ -35,6 +86,7 @@ return {
 		pitchMax = math.rad(55),
 		mouseSpeed = math.rad(0.4), -- per pixel of mouse movement at Roblox's mouse sensitivity 1
 		gamepadSpeed = math.rad(220), -- per second with the right stick fully out
+		touchSpeed = math.rad(0.35), -- per pixel a finger drags over the screen
 		-- while a throw is charged (the wind-up and the held aim) the camera pulls back this much further and comes back
 		-- after the release or a dropped charge; it eases there over about zoomTime
 		aimZoom = 3, -- studs
@@ -158,8 +210,10 @@ return {
 	stanceDrain = 0.25,
 
 	-- knockdown: every hit adds its power to a stagger value that drains by staggerDecay per second. A single hit
-	-- (power <= 1) never reaches knockdownAt; two solid, well-charged hits in quick succession do.
-	staggerDecay = 0.6,
+	-- (power <= 1) never reaches knockdownAt; two full-strength hits on the middle do, and so do three taps on the middle
+	-- (0.6 each) of one load, even 0.6 s apart. Two taps, or three grazing ones, do not. (Since 29.10.2026; it was 0.6,
+	-- which with taps never added up.)
+	staggerDecay = 0.2,
 	knockdownAt = 1.5,
 	knockdownTime = 1.5, -- seconds on the ground; no further hits land meanwhile
 	knockdownBoost = 1.5, -- knockback and tower kick multiplier for the hit that knocks down

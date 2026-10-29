@@ -31,18 +31,18 @@ describe("Settings: checking values", function()
 		expect(SettingsRules.value("fov", 0 / 0, Config)).toBe(Config.defaults.fov)
 		expect(SettingsRules.value("fov", math.huge, Config)).toBe(Config.defaults.fov)
 		expect(SettingsRules.value("vfxQuality", "ultra", Config)).toBe(Config.defaults.vfxQuality)
-		expect(SettingsRules.value("crosshairColor", 3, Config)).toBe(Config.defaults.crosshairColor)
+		expect(SettingsRules.value("inputMode", 3, Config)).toBe(Config.defaults.inputMode)
 		expect(SettingsRules.value("cameraShake", "yes", Config)).toBe(Config.defaults.cameraShake)
 	end)
 
 	it("keeps valid values and drops unknown keys", function()
 		local clean = SettingsRules.sanitize(
-			{ vfxQuality = "low", cameraShake = false, crosshairColor = "mint", hacked = 1 },
+			{ vfxQuality = "low", cameraShake = false, inputMode = "gamepad", hacked = 1 },
 			Config
 		)
 		expect(clean.vfxQuality).toBe("low")
 		expect(clean.cameraShake).toBe(false)
-		expect(clean.crosshairColor).toBe("mint")
+		expect(clean.inputMode).toBe("gamepad")
 		expect(clean.hacked).toBeNil()
 		expect(SettingsRules.value("hacked", 1, Config)).toBeNil()
 	end)
@@ -110,5 +110,49 @@ describe("Settings: input", function()
 	it("a chosen input wins when the device has it, otherwise the detected one", function()
 		expect(SettingsRules.inputKind("touch", all, "keyboard")).toBe("touch")
 		expect(SettingsRules.inputKind("gamepad", { touch = true }, "touch")).toBe("touch")
+	end)
+end)
+
+describe("Settings: camera sensitivity", function()
+	local KEYS = { "mouseSensitivity", "touchSensitivity", "gamepadSensitivity" }
+
+	it("one for mouse, touch and controller each, 1 by default, an old save without them gets 1", function()
+		local clean = SettingsRules.sanitize({ fov = 90 }, Config)
+		for _, key in KEYS do
+			expect(Config.defaults[key]).toBe(1)
+			expect(clean[key]).toBe(1)
+		end
+	end)
+
+	it("stays within 0.3 and 3 (300 %) in tenths, and broken values fall back to the default", function()
+		for _, key in KEYS do
+			expect(SettingsRules.value(key, 10, Config)).toBe(3)
+			expect(SettingsRules.value(key, 2.5, Config)).toBeCloseTo(2.5, 1e-9)
+			expect(SettingsRules.value(key, 0, Config)).toBe(0.3)
+			expect(SettingsRules.value(key, 1.23, Config)).toBeCloseTo(1.2, 1e-9)
+			expect(SettingsRules.value(key, 0 / 0, Config)).toBe(1)
+			expect(SettingsRules.value(key, "fast", Config)).toBe(1)
+		end
+	end)
+
+	it("the menu moves it a tenth at a time and stops at the ends", function()
+		expect(SettingsRules.step("mouseSensitivity", 1, 1, Config)).toBeCloseTo(1.1, 1e-9)
+		expect(SettingsRules.step("touchSensitivity", 3, 1, Config)).toBe(3)
+		expect(SettingsRules.step("gamepadSensitivity", 0.3, -1, Config)).toBe(0.3)
+	end)
+end)
+
+describe("Settings: the crosshair is fixed", function()
+	it("an old save with crosshair values still loads; the values are simply dropped", function()
+		local clean = SettingsRules.sanitize(
+			{ crosshairStyle = "cross", crosshairSize = 1.75, crosshairColor = "mint", fov = 95 },
+			Config
+		)
+		expect(clean.crosshairStyle).toBeNil()
+		expect(clean.crosshairSize).toBeNil()
+		expect(clean.crosshairColor).toBeNil()
+		expect(clean.fov).toBe(95) -- everything else is kept
+		expect(Config.defaults.crosshairSize).toBeNil()
+		expect(Config.defaults.crosshairColor).toBeNil()
 	end)
 end)

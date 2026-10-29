@@ -1,5 +1,5 @@
 -- Ice-ball throws, the only normal attack. The server owns everything that matters: ammo and reload, the charge
--- (it times the hold itself and only accepts a bar value that fits it), where a ball starts and how it flies
+-- (it times the hold itself and accepts the strength and a perfect throw only as far as that timing allows), where a ball starts and how it flies
 -- (simulated here every frame), what it hits, the hit power, the knockdown decision and who may be hit. Clients only draw the ball and play the reaction the server announces; the victim's client
 -- applies the knockback and the tower shove, like every other tower force.
 
@@ -10,6 +10,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
+local AimRules = require(Shared:WaitForChild("AimRules"))
 local Loot = require(Shared:WaitForChild("Loot"))
 local MapQuery = require(Shared:WaitForChild("MapQuery"))
 local Config = require(Shared:WaitForChild("Config"):WaitForChild("Combat"))
@@ -45,7 +46,8 @@ type Ball = {
 	t0: number,
 	lastT: number,
 	speed: number, -- at release
-	charge: number,
+	strength: number, -- Combat.strength, as the server accepted it
+	perfect: boolean,
 }
 
 -- without a usable right hand the ball leaves a little in front of the chest
@@ -57,6 +59,8 @@ local CHARGE_INTERVAL = 0.05
 -- keyed by Player, not by character: a respawn keeps ammo, reload and stagger
 local states: { [Player]: PlayerState } = {}
 local balls: { Ball } = {}
+-- the last hit each player took that did harm, so a topple soon after it is credited to its thrower
+local lastHitBy: { [Player]: { thrower: Player, at: number } } = {}
 local nextId = 0
 
 local function now(): number
@@ -169,9 +173,10 @@ local function releasePoint(character: Model, root: BasePart): Vector3
 	return if blocked then root.Position:Lerp(blocked.Position, 0.8) else point
 end
 
--- Release: the charge is the client's bar value as far as the server's own timing of the hold allows, the ball
--- flies from the hand through the aim point at the speed that charge gives.
-local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedCharge: any)
+-- Release: the strength and a perfect throw are the client's claims as far as the server's own timing of the hold
+-- allows (Combat.validateStrength, validatePerfect); the ball flies from the hand through the aim point at the speed
+-- they give. A perfect throw is full strength at perfect.speed.
+local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedStrength: any, claimedPerfect: any)
 	local state = states[player]
 	if not state then
 		return
@@ -204,8 +209,15 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 		return
 	end
 	local held = if startedAt then time - startedAt else 0
-	local charge = Combat.validateCharge(if type(claimedCharge) == "number" then claimedCharge else 0, held, Config)
-	local speed = Combat.throwSpeed(charge, Config)
+	local perfect = Combat.validatePerfect(claimedPerfect == true, held, Config)
+	local strength = if perfect
+		then 1
+		else Combat.validateStrength(
+			if type(claimedStrength) == "number" then claimedStrength else 0,
+			held,
+			Config
+		)
+	local speed = Combat.throwSpeed(strength, perfect, Config)
 	local origin = releasePoint(root.Parent :: Model, root)
 	local ok, vx, vy, vz = Combat.aimVelocity(origin.X, origin.Y, origin.Z, aimX, aimY, aimZ, speed, Config)
 	if not ok then
@@ -225,10 +237,11 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 	end
 	debugLog(
 		string.format(
-			"%s throws: charge %.2f (claimed %s, held %.2f s), %.0f studs/s from %s to aim %s (%.1f studs away)",
+			"%s throws: strength %.2f%s (claimed %s, held %.2f s), %.0f studs/s from %s to aim %s (%.1f studs away)",
 			player.Name,
-			charge,
-			tostring(claimedCharge),
+			strength,
+			if perfect then ", perfect" else "",
+			tostring(claimedStrength),
 			held,
 			speed,
 			tostring(origin),
@@ -255,10 +268,18 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedC
 		t0 = time + Config.releaseDelay,
 		lastT = 0,
 		speed = speed,
-		charge = charge,
+		strength = strength,
+		perfect = perfect,
 	})
 	-- told right away, so every client starts the throw animation now and the ball with its t0
-	Remotes.IceBallThrown:FireAllClients(nextId, player, origin, Vector3.new(vx, vy, vz), time + Config.releaseDelay)
+	Remotes.IceBallThrown:FireAllClients(
+		nextId,
+		player,
+		origin,
+		Vector3.new(vx, vy, vz),
+		time + Config.releaseDelay,
+		perfect
+	)
 end
 
 local function resolve(
@@ -290,16 +311,38 @@ local function hitPlayer(ball: Ball, victim: Player, position: Vector3, distance
 	-- at the own cart a hit lands but does no harm: no power, no stagger, no knockdown (design rule 4)
 	local root = rootOf(victim)
 	if state and root and Loot.isShielded(cartDistance(victim, root), time, state.unshieldedUntil, LootConfig) then
+		debugLog(`{victim.Name} hit by {ball.thrower.Name} in their cart's safe zone: no harm`)
 		resolve(ball, victim, position, 0, false, true)
 		return
 	end
-	local power = Combat.hitPower(distance, speed, ball.speed, ball.charge, Config)
+	local power = Combat.hitPower(distance, speed, ball.speed, ball.strength, Config)
 	local knockdown = false
 	if state then
+		local before = math.max(0, state.stagger - Config.staggerDecay * math.max(0, time - state.lastHitAt))
 		state.stagger, knockdown = Combat.addHit(state.stagger, state.lastHitAt, time, power, Config)
+		debugLog(
+			string.format(
+				"%s hit by %s: power %.2f (%.2f studs off the axis, %.0f of %.0f studs/s, strength %.2f%s), stagger %.2f + %.2f %s %.1f%s",
+				victim.Name,
+				ball.thrower.Name,
+				power,
+				distance,
+				speed,
+				ball.speed,
+				ball.strength,
+				if ball.perfect then ", perfect" else "",
+				before,
+				power,
+				if knockdown then ">=" else "<",
+				Config.knockdownAt,
+				if knockdown then ": KNOCKDOWN" else ""
+			)
+		)
 		state.lastHitAt = time
 		registry.TowerService.hitStance(victim, power)
+		lastHitBy[victim] = { thrower = ball.thrower, at = time }
 		if knockdown then
+			Remotes.HitFeedback:FireClient(ball.thrower, "knockdown", victim, 0)
 			state.downUntil = time + Config.knockdownTime
 			-- a knockdown drops the charge, ends combat mode and the steady stance; the player switches them on again
 			-- after getting up
@@ -360,7 +403,25 @@ local function step()
 			local hitT = ball.lastT + (t - ball.lastT) * bestS
 			local speed = Vector3.new(ball.vx, ball.vy - Config.gravity * hitT, ball.vz).Magnitude
 			debugLog(string.format("#%d hit %s after %.2f s", ball.id, bestVictim.Name, hitT))
-			hitPlayer(ball, bestVictim, from:Lerp(to, bestS), bestDistance, speed)
+			-- how centred: the closest its path comes to the axis on through the body, not where it entered the reach
+			local p = (rootOf(bestVictim) :: BasePart).Position
+			local centred = math.min(
+				bestDistance,
+				Combat.passDistance(
+					ball.ox,
+					ball.oy,
+					ball.oz,
+					ball.vx,
+					ball.vy,
+					ball.vz,
+					ball.lastT,
+					p.X,
+					p.Y,
+					p.Z,
+					Config
+				)
+			)
+			hitPlayer(ball, bestVictim, from:Lerp(to, bestS), centred, speed)
 		elseif worldHit then
 			debugLog(
 				string.format(
@@ -407,6 +468,16 @@ function CombatService.inCombatMode(player: Player): boolean
 	return state ~= nil and state.combatMode
 end
 
+-- The player's tower toppled and `lost` scoops fell off it (TowerService). If a hit of someone else came shortly
+-- before (AimRules.credited), that thrower is told: it was their doing.
+function CombatService.toppled(victim: Player, lost: number)
+	local hit = lastHitBy[victim]
+	lastHitBy[victim] = nil
+	if lost > 0 and hit and hit.thrower.Parent and AimRules.credited(hit.at, now(), Config) then
+		Remotes.HitFeedback:FireClient(hit.thrower, "toppled", victim, lost)
+	end
+end
+
 function CombatService.Start()
 	local function onPlayer(player: Player)
 		local state: PlayerState = {
@@ -436,6 +507,12 @@ function CombatService.Start()
 	Players.PlayerRemoving:Connect(function(player)
 		states[player] = nil
 		lastRejectLog[player] = nil
+		lastHitBy[player] = nil
+		for victim, hit in lastHitBy do
+			if hit.thrower == player then
+				lastHitBy[victim] = nil
+			end
+		end
 	end)
 
 	Remotes.SetCombatMode.OnServerEvent:Connect(onSetCombatMode)

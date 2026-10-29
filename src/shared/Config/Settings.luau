@@ -11,10 +11,12 @@ return {
 		cameraShake = true,
 		fov = 80,
 		motionEffects = true, -- FOV kick on sprint and dash, the zoom while charging a throw
-		crosshairStyle = "ring",
-		crosshairSize = 1,
-		crosshairColor = "vanilla",
 		inputMode = "auto",
+		-- how fast the camera turns in combat mode only (outside it Roblox's own camera and settings apply), per input;
+		-- 1 = as tuned in Config/Combat camera, up to 3 (300 %)
+		mouseSensitivity = 1,
+		touchSensitivity = 1,
+		gamepadSensitivity = 1,
 		controlsHint = true,
 	},
 
@@ -23,14 +25,14 @@ return {
 		sfxVolume = { 0, 1, 0.1 },
 		musicVolume = { 0, 1, 0.1 },
 		fov = { 70, 110, 5 },
-		crosshairSize = { 0.5, 2, 0.25 },
+		mouseSensitivity = { 0.3, 3, 0.1 },
+		touchSensitivity = { 0.3, 3, 0.1 },
+		gamepadSensitivity = { 0.3, 3, 0.1 },
 	},
 
 	-- choices, in the order the menu's arrows cycle through them
 	choices = {
 		vfxQuality = { "high", "medium", "low" },
-		crosshairStyle = { "ring", "dot", "cross" },
-		crosshairColor = { "vanilla", "lemon", "mint", "strawberry", "skyTop" }, -- Palette tokens
 		inputMode = { "auto", "touch", "keyboard", "gamepad" },
 	},
 

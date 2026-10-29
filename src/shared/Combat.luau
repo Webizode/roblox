@@ -7,7 +7,7 @@ export type Config = {
 	ammo: number,
 	reloadTime: number,
 	throwInterval: number,
-	chargeRise: number,
+	perfect: { rise: number, window: number, speed: number },
 	chargeTolerance: number,
 	minSpeed: number,
 	maxSpeed: number,
@@ -49,46 +49,69 @@ function Combat.position(
 	return ox + vx * t, oy + vy * t - 0.5 * gravity * t * t, oz + vz * t
 end
 
--- The charge bar after holding the throw button for `held` seconds: up from 0 to 1 in chargeRise, back down to 0
--- in the same time, and again while held.
-function Combat.charge(held: number, config: Config): number
+-- The throw's strength after holding the button for `held` seconds: 0 for a tap, rising to 1 at perfect.rise, and 1
+-- from then on.
+function Combat.strength(held: number, config: Config): number
 	if not isFinite(held) or held <= 0 then
 		return 0
 	end
-	local phase = held % (2 * config.chargeRise)
-	return if phase <= config.chargeRise then phase / config.chargeRise else 2 - phase / config.chargeRise
+	return math.min(1, held / config.perfect.rise)
 end
 
--- The charge the server accepts for a throw: the client's bar value if some hold within chargeTolerance of the
--- server's own measured hold gives it, otherwise the nearest value such a hold gives. So a client can never claim
--- more than the hold it really made allows, and network jitter does not cost an honest player anything.
-function Combat.validateCharge(claimed: number, held: number, config: Config): number
+-- The crosshair's inner circle after holding for `held` seconds, as a share of the outer circle: from 0 (the middle)
+-- up to 1 (touching the outer circle) in perfect.rise, back down in the same time, and again while held.
+function Combat.pulse(held: number, config: Config): number
+	if not isFinite(held) or held <= 0 then
+		return 0
+	end
+	local rise = config.perfect.rise
+	local phase = held % (2 * rise)
+	return if phase <= rise then phase / rise else 2 - phase / rise
+end
+
+-- How far (seconds) `held` is from the nearest moment the inner circle touches the outer one (rise, 3 rise, ...).
+local function fromTouch(held: number, config: Config): number
+	local rise = config.perfect.rise
+	local k = math.max(0, math.floor((held - rise) / (2 * rise) + 0.5))
+	return math.abs(held - (rise + 2 * rise * k))
+end
+
+-- Whether letting go after `held` seconds is a perfect throw: within perfect.window around a moment the inner circle
+-- touches the outer one.
+function Combat.isPerfect(held: number, config: Config): boolean
+	return isFinite(held) and held > 0 and fromTouch(held, config) <= config.perfect.window / 2
+end
+
+-- The strength the server accepts: the client's claim as far as a hold within chargeTolerance of the server's own
+-- measured one gives it, otherwise the nearest such value. A client can never claim more than its real hold allows,
+-- and network jitter costs an honest player nothing.
+function Combat.validateStrength(claimed: number, held: number, config: Config): number
 	if not isFinite(held) or held < 0 then
 		held = 0
 	end
-	local from, to = math.max(0, held - config.chargeTolerance), held + config.chargeTolerance
-	local period = 2 * config.chargeRise
-	local low, high = 0, 1
-	if to - from < period then
-		local a, b = Combat.charge(from, config), Combat.charge(to, config)
-		low, high = math.min(a, b), math.max(a, b)
-		-- a peak (1) lies at chargeRise + k * period, a trough (0) at k * period
-		if math.floor((to - config.chargeRise) / period) > math.floor((from - config.chargeRise) / period) then
-			high = 1
-		end
-		if math.floor(to / period) > math.floor(from / period) then
-			low = 0
-		end
-	end
+	local low = Combat.strength(held - config.chargeTolerance, config)
+	local high = Combat.strength(held + config.chargeTolerance, config)
 	if not isFinite(claimed) then
-		return Combat.charge(held, config)
+		return Combat.strength(held, config)
 	end
 	return math.clamp(claimed, low, high)
 end
 
--- Release speed for a charge in [0, 1].
-function Combat.throwSpeed(charge: number, config: Config): number
-	return config.minSpeed + (config.maxSpeed - config.minSpeed) * math.clamp(charge, 0, 1)
+-- Whether the server accepts a claimed perfect throw: only if some hold within chargeTolerance of its own measured
+-- one is perfect.
+function Combat.validatePerfect(claimed: boolean, held: number, config: Config): boolean
+	if claimed ~= true or not isFinite(held) or held < 0 then
+		return false
+	end
+	return fromTouch(held, config) <= config.perfect.window / 2 + config.chargeTolerance
+end
+
+-- Release speed at `strength` in [0, 1]; a perfect throw goes at perfect.speed.
+function Combat.throwSpeed(strength: number, perfect: boolean, config: Config): number
+	if perfect then
+		return config.perfect.speed
+	end
+	return config.minSpeed + (config.maxSpeed - config.minSpeed) * math.clamp(strength, 0, 1)
 end
 
 -- Launch velocity from the release point (ox, oy, oz) through the aim point (tx, ty, tz) at `speed`: the flat arc
@@ -176,21 +199,55 @@ function Combat.closestToCapsule(
 	return math.sqrt(dx * dx + dy * dy + dz * dz), s
 end
 
--- Hit power, at most 1: a centred hit (distance 0) of a fully charged ball that has not slowed down yet is
--- strongest; grazing, slowed-down (impact speed below its release speed) and less charged ones are weaker.
+-- How centred a hit is: the closest the ball's path comes to the axis of the capsule centred at (cx, cy, cz), from
+-- `fromT` (the moment it touched the capsule) on through the capsule. The frame step that finds a hit only sees the
+-- short piece of path where the ball entered, always near the edge of the reach, so its distance there would make every
+-- hit look grazing; this follows the arc on through the body in fine steps instead.
+function Combat.passDistance(
+	ox: number,
+	oy: number,
+	oz: number,
+	vx: number,
+	vy: number,
+	vz: number,
+	fromT: number,
+	cx: number,
+	cy: number,
+	cz: number,
+	config: Config
+): number
+	local reach = config.hitRadius + config.ballRadius
+	local speed = math.max(math.sqrt(vx * vx + (vy - config.gravity * fromT) ^ 2 + vz * vz), 1)
+	local span = 2 * reach / speed -- long enough to cross the whole capsule
+	local steps = 24
+	local px, py, pz = Combat.position(ox, oy, oz, vx, vy, vz, config.gravity, fromT)
+	local best = math.huge
+	for step = 1, steps do
+		local t = fromT + span * step / steps
+		local qx, qy, qz = Combat.position(ox, oy, oz, vx, vy, vz, config.gravity, t)
+		local distance = Combat.closestToCapsule(px, py, pz, qx, qy, qz, cx, cy, cz, config.hitHalfHeight)
+		best = math.min(best, distance)
+		px, py, pz = qx, qy, qz
+	end
+	return best
+end
+
+-- Hit power, at most 1: a centred hit (distance 0) of a full-strength ball that has not slowed down yet is
+-- strongest; grazing, slowed-down (impact speed below its release speed) and weaker (tapped) ones are less. A
+-- perfect throw is full strength: faster, so it slows down less, but no harder.
 function Combat.hitPower(
 	distance: number,
 	impactSpeed: number,
 	releaseSpeed: number,
-	charge: number,
+	strength: number,
 	config: Config
 ): number
 	local reach = config.hitRadius + config.ballRadius
 	local centred = math.clamp(1 - distance / reach, 0, 1)
 	local speedFactor = math.clamp(impactSpeed / math.max(releaseSpeed, 1e-6), 0.6, 1)
-	local chargeFactor = config.powerAtMinCharge + (1 - config.powerAtMinCharge) * math.clamp(charge, 0, 1)
+	local strengthFactor = config.powerAtMinCharge + (1 - config.powerAtMinCharge) * math.clamp(strength, 0, 1)
 	local floor = config.minPower * 0.6 * config.powerAtMinCharge
-	return math.clamp(speedFactor * chargeFactor * (config.minPower + (1 - config.minPower) * centred), floor, 1)
+	return math.clamp(speedFactor * strengthFactor * (config.minPower + (1 - config.minPower) * centred), floor, 1)
 end
 
 -- Adds a hit to the victim's stagger. Returns the new stagger and whether this hit knocks them down (which

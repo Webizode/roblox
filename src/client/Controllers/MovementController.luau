@@ -836,6 +836,18 @@ function MovementController.setSprinting(on: boolean)
 	fovTween:Play()
 end
 
+-- Local player: whether they sprint, and os.clock of their last dash start (-math.huge before any), for the
+-- crosshair's spread (AimHud).
+function MovementController.isSprinting(): boolean
+	return sprintingNow
+end
+
+function MovementController.lastDash(): number
+	local character = Players.LocalPlayer.Character
+	local pose = character and poseFor(character)
+	return if pose then pose.dashStart else -math.huge
+end
+
 function MovementController.Start()
 	-- a changed FOV setting (or motion effects switched off) shows at once
 	Settings.onChanged(function()

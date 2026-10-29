@@ -8,6 +8,7 @@ local ORDER = {
 	"TowerController",
 	"AimHud",
 	"CombatController",
+	"HitFeedback",
 	"Backpacks",
 	"HeldBalls",
 	"ThrowAnimator",

@@ -1,5 +1,5 @@
 -- The settings menu: a gear button top left (touch and mouse), the D-pad up on a gamepad. Five tabs (audio, graphics,
--- camera, crosshair, controls); every value changes with big - / + or arrow buttons, which work the same with a
+-- camera, controls); every value changes with big - / + or arrow buttons, which work the same with a
 -- thumb, a mouse and a gamepad. Changes apply at once (Settings) and are saved with the player's save.
 --
 -- Also here, because nothing else owns them: the performance mode's local lighting (no shadows, bloom or sun rays on
@@ -56,17 +56,12 @@ local TABS: { { title: string, rows: { Row } } } = {
 		},
 	},
 	{
-		title = "Crosshair",
-		rows = {
-			{ key = "crosshairStyle", label = "Style" },
-			{ key = "crosshairSize", label = "Size" },
-			{ key = "crosshairColor", label = "Color" },
-		},
-	},
-	{
 		title = "Controls",
 		rows = {
 			{ key = "inputMode", label = "Input" },
+			{ key = "mouseSensitivity", label = "Mouse sensitivity" },
+			{ key = "touchSensitivity", label = "Touch sensitivity" },
+			{ key = "gamepadSensitivity", label = "Controller sensitivity" },
 			{ key = "controlsHint", label = "Show controls in combat" },
 		},
 	},
@@ -118,7 +113,13 @@ local function ink(): Color3
 end
 
 local function display(key: string, value: any): string
-	if key == "sfxVolume" or key == "musicVolume" or key == "crosshairSize" then
+	if
+		key == "sfxVolume"
+		or key == "musicVolume"
+		or key == "mouseSensitivity"
+		or key == "touchSensitivity"
+		or key == "gamepadSensitivity"
+	then
 		return string.format("%d%%", math.floor(value * 100 + 0.5))
 	elseif key == "fov" then
 		return tostring(value)
@@ -196,11 +197,6 @@ local function makeRow(row: Row, order: number): Frame
 		Parent = control,
 	})
 	local more = smallButton(if isChoice then ">" else "+", control, 3)
-	local swatch: Frame? = nil
-	if row.key == "crosshairColor" then
-		swatch = Ui.circle(18, "vanilla", { LayoutOrder = 0, Parent = control })
-		Ui.stroke(swatch :: Frame, "ink", 2)
-	end
 	less.Activated:Connect(function()
 		Settings.set(row.key, SettingsRules.step(row.key, Settings.get()[row.key], -1, SettingsConfig))
 	end)
@@ -210,9 +206,6 @@ local function makeRow(row: Row, order: number): Frame
 	table.insert(refreshers, function()
 		local current = Settings.get()[row.key]
 		value.Text = display(row.key, current)
-		if swatch then
-			swatch.BackgroundColor3 = Ui.color(current)
-		end
 	end)
 	return frame
 end

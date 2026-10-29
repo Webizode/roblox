@@ -24,6 +24,7 @@ require("./SettingsRules.spec")
 require("./ScoopFlight.spec")
 require("./LandedLabel.spec")
 require("./TargetRules.spec")
+require("./AimRules.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

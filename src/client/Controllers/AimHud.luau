@@ -1,63 +1,65 @@
--- The crosshair in the middle of the screen, only in combat mode, and, while the throw button is held, the charge
--- bar under it. The
--- crosshair marks where a throw goes (CombatController aims through the screen centre); the bar shows how strong
--- the next throw will be, weak to strong from left to right, with the maximum marked at its right end. Both stay
--- small and below the aim point, so they never cover what the player aims at.
+-- The crosshair, only in combat mode: one clean thin circle fixed in the middle of the screen, where every throw aims.
+-- Its size comes from AimRules (bigger while moving, sprinting, after a dash and right after a throw, a little smaller
+-- while a throw is held). While the throw button is held a small inner circle grows from the middle to the outer
+-- circle and shrinks back, again and again (Combat.pulse); while letting go would be a perfect throw both turn green.
+-- A hit of the local player flashes a red X in it. It is fixed: white, its size from Config/Combat crosshair, no settings.
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Combat = require(Shared:WaitForChild("Combat"))
+local CombatConfig = require(Shared:WaitForChild("Config"):WaitForChild("Combat"))
 
 local client = script.Parent.Parent
 local Ui = require(client:WaitForChild("Ui"))
-local Settings = require(client:WaitForChild("Settings"))
 
 local AimHud = {}
 
-local BAR_WIDTH = 120
-local BAR_HEIGHT = 10
-local BAR_GAP = 28 -- pixels from the screen centre down to the bar
-local MAX_AT = 0.97 -- from this charge on the maximum point lights up
-local MAX_SIZE, MAX_SIZE_LIT = 12, 18
+local Look = CombatConfig.crosshair
+local PERFECT = Color3.fromHex(Look.perfectColor)
+local MARK = Ui.color("awning")
 
-local COLORS = {
-	ink = Ui.color("ink"),
-	lemon = Ui.color("lemon"),
-}
+local holder: Frame
+local outer: Frame
+local outerStroke: UIStroke
+local inner: Frame
+local innerStroke: UIStroke
+local mark: Frame
+local COLOR = Ui.color("white") -- fixed: the crosshair is not a setting
+local markUntil = 0
 
-local crosshair: Frame
-local ring: UIStroke
-local dot: Frame
-local dotStroke: UIStroke
-local crossBars: { Frame } = {}
-local crossScale: UIScale
-local bar: Frame
-local fill: Frame
-local maxPoint: Frame
-local shownReady: boolean? = nil
-local shownLit: boolean? = nil
-
-local function centred(props: { [string]: any }?): { [string]: any }
-	local result = { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) }
-	for key, value in props or {} do
-		result[key] = value
-	end
-	return result
+-- A thin ring centred on the holder: a light line with a faint dark edge, so it reads on sky, sand and ice cream.
+local function ring(name: string): (Frame, UIStroke)
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Position = UDim2.fromScale(0.5, 0.5)
+	frame.BackgroundTransparency = 1
+	Ui.corner(frame, UDim.new(0.5, 0))
+	local line = Ui.stroke(frame, "white", Look.thickness, 0.05)
+	local edge = Instance.new("Frame")
+	edge.Name = "Edge"
+	edge.AnchorPoint = Vector2.new(0.5, 0.5)
+	edge.Position = UDim2.fromScale(0.5, 0.5)
+	edge.Size = UDim2.new(1, Look.thickness * 2, 1, Look.thickness * 2)
+	edge.BackgroundTransparency = 1
+	Ui.corner(edge, UDim.new(0.5, 0))
+	Ui.stroke(edge, "ink", 1, 0.7)
+	edge.Parent = frame
+	frame.Parent = holder
+	return frame, line
 end
 
--- The crosshair as the settings want it: ring (ring and dot), dot (a bigger dot) or cross (four bars and the
--- dot), in the chosen palette colour and size.
-local function restyle(settings: { [string]: any })
-	local color = Ui.color(settings.crosshairColor)
-	local style = settings.crosshairStyle
-	crossScale.Scale = settings.crosshairSize
-	ring.Color = color
-	ring.Enabled = style == "ring"
-	dot.BackgroundColor3 = color
-	dot.Size = if style == "dot" then UDim2.fromOffset(9, 9) else UDim2.fromOffset(6, 6)
-	dotStroke.Enabled = true
-	for _, bar in crossBars do
-		bar.BackgroundColor3 = color
-		bar.Visible = style == "cross"
-	end
+local function bar(rotation: number): Frame
+	local line = Instance.new("Frame")
+	line.AnchorPoint = Vector2.new(0.5, 0.5)
+	line.Position = UDim2.fromScale(0.5, 0.5)
+	line.Size = UDim2.new(1, 0, 0, 2)
+	line.Rotation = rotation
+	line.BackgroundColor3 = MARK
+	line.BorderSizePixel = 0
+	return line
 end
 
 function AimHud.Init()
@@ -68,104 +70,60 @@ function AimHud.Init()
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
-	-- a thin ring around a dot: easy to see on any background, too small to hide a target
-	crosshair = Ui.circle(22, "ink", centred({ Name = "Crosshair", BackgroundTransparency = 1, Visible = false }))
-	ring = Ui.stroke(crosshair, "vanilla", 2, 0.25)
-	crosshair.Parent = gui
-	dot = Ui.circle(6, "vanilla", centred({ Name = "Dot" }))
-	dotStroke = Ui.stroke(dot, "ink", 1.5, 0.2)
-	dot.Parent = crosshair
-	-- the cross style: four short bars around the centre, hidden in the other styles
-	for index = 0, 3 do
-		local angle = index * math.pi / 2
-		local bar = Instance.new("Frame")
-		bar.Name = "Cross"
-		bar.AnchorPoint = Vector2.new(0.5, 0.5)
-		bar.Position = UDim2.new(0.5, math.cos(angle) * 9, 0.5, math.sin(angle) * 9)
-		bar.Size = if index % 2 == 0 then UDim2.fromOffset(8, 3) else UDim2.fromOffset(3, 8)
-		bar.BorderSizePixel = 0
-		bar.Visible = false
-		Ui.stroke(bar, "ink", 1, 0.3)
-		bar.Parent = crosshair
-		table.insert(crossBars, bar)
-	end
-	crossScale = Instance.new("UIScale")
-	crossScale.Parent = crosshair
-	Settings.onChanged(restyle)
+	holder = Instance.new("Frame")
+	holder.Name = "Crosshair"
+	holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	holder.Position = UDim2.fromScale(0.5, 0.5)
+	holder.Size = UDim2.fromOffset(0, 0)
+	holder.BackgroundTransparency = 1
+	holder.Visible = false
+	holder.Parent = gui
 
-	bar = Instance.new("Frame")
-	bar.Name = "Charge"
-	bar.AnchorPoint = Vector2.new(0.5, 0)
-	bar.Position = UDim2.new(0.5, 0, 0.5, BAR_GAP)
-	bar.Size = UDim2.fromOffset(BAR_WIDTH, BAR_HEIGHT)
-	bar.BackgroundColor3 = COLORS.ink
-	bar.BackgroundTransparency = 0.35
-	bar.BorderSizePixel = 0
-	bar.Visible = false
-	Ui.corner(bar, UDim.new(0.5, 0))
-	Ui.stroke(bar, "vanilla", 1.5, 0.5)
-	bar.Parent = gui
+	outer, outerStroke = ring("Outer")
+	inner, innerStroke = ring("Inner")
+	inner.Visible = false
 
-	-- the fill clips a full-width gradient, so every colour stays at its place: weak on the left, strong on the right
-	fill = Instance.new("Frame")
-	fill.Name = "Fill"
-	fill.Size = UDim2.fromScale(0, 1)
-	fill.BackgroundTransparency = 1
-	fill.ClipsDescendants = true
-	fill.Parent = bar
-	local strip = Instance.new("Frame")
-	strip.Name = "Gradient"
-	strip.Size = UDim2.fromOffset(BAR_WIDTH, BAR_HEIGHT)
-	strip.BackgroundColor3 = Color3.new(1, 1, 1)
-	strip.BorderSizePixel = 0
-	Ui.corner(strip, UDim.new(0.5, 0))
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Ui.color("mint")),
-		ColorSequenceKeypoint.new(0.55, Ui.color("lemon")),
-		ColorSequenceKeypoint.new(1, Ui.color("awning")),
-	})
-	gradient.Parent = strip
-	strip.Parent = fill
-
-	-- the maximum: always visible at the right end, lit while the bar is at the top
-	maxPoint = Ui.circle(MAX_SIZE, "ink", {
-		Name = "Max",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(1, 0.5),
-		ZIndex = 2,
-	})
-	Ui.stroke(maxPoint, "lemon", 2, 0)
-	maxPoint.Parent = bar
+	mark = Instance.new("Frame")
+	mark.Name = "HitMark"
+	mark.AnchorPoint = Vector2.new(0.5, 0.5)
+	mark.Position = UDim2.fromScale(0.5, 0.5)
+	mark.BackgroundTransparency = 1
+	mark.Size = UDim2.fromOffset(14, 14)
+	mark.Visible = false
+	bar(45).Parent = mark
+	bar(-45).Parent = mark
+	mark.Parent = holder
 end
 
--- Called every frame: `active` shows the crosshair (combat mode), `ready` dims it while no throw is possible
--- (empty load); `charge` is the bar value while the throw button is held, nil hides the bar.
-function AimHud.set(active: boolean, ready: boolean, charge: number?)
-	crosshair.Visible = active
+-- The local player's throw hit somebody: the red X flashes in the crosshair.
+function AimHud.mark()
+	markUntil = os.clock() + CombatConfig.feedback.markTime
+end
+
+-- Called every frame. `active` shows the crosshair (combat mode), `ready` dims it while no throw is possible (empty
+-- load); `radius` is its size (AimRules), `held` the seconds the throw button is held (nil:
+-- not held).
+function AimHud.set(active: boolean, ready: boolean, radius: number, held: number?)
+	holder.Visible = active
 	if not active then
-		bar.Visible = false
 		return
 	end
-	if shownReady ~= ready then
-		shownReady = ready
-		ring.Transparency = if ready then 0.25 else 0.7
-		dot.BackgroundTransparency = if ready then 0 else 0.6
-		for _, cross in crossBars do
-			cross.BackgroundTransparency = dot.BackgroundTransparency
-		end
+	local perfect = held ~= nil and Combat.isPerfect(held, CombatConfig)
+	local tint = if perfect then PERFECT else COLOR
+	local r = radius
+	outer.Size = UDim2.fromOffset(r * 2, r * 2)
+	outerStroke.Color = tint
+	outerStroke.Transparency = if ready then 0.05 else 0.6
+
+	inner.Visible = held ~= nil
+	if held then
+		local share = Combat.pulse(held, CombatConfig)
+		local ri = math.max(1, r * share)
+		inner.Size = UDim2.fromOffset(ri * 2, ri * 2)
+		innerStroke.Color = tint
 	end
-	bar.Visible = charge ~= nil
-	if not charge then
-		return
-	end
-	fill.Size = UDim2.fromScale(math.clamp(charge, 0, 1), 1)
-	local lit = charge >= MAX_AT
-	if shownLit ~= lit then
-		shownLit = lit
-		maxPoint.BackgroundColor3 = if lit then COLORS.lemon else COLORS.ink
-		maxPoint.Size = UDim2.fromOffset(if lit then MAX_SIZE_LIT else MAX_SIZE, if lit then MAX_SIZE_LIT else MAX_SIZE)
-	end
+
+	mark.Visible = os.clock() < markUntil
 end
 
 return AimHud

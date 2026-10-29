@@ -186,6 +186,7 @@ local function onToppled(player: Player)
 
 	registry.KillTestLog.topple(player, state.controls, count, "self")
 	publish(player, state, "topple")
+	registry.CombatService.toppled(player, count - keep) -- the thrower whose hit did it hears about it
 end
 
 local function onServe(player: Player, steadyClaim: any)

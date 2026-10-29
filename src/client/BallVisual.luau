@@ -176,6 +176,21 @@ function BallVisual.addFlight(part: BasePart, radius: number): Flight
 	}
 end
 
+-- A perfect throw (Config/Combat perfect): its streak runs from white to gold, twice the twinkles sparkle gold and
+-- the glow is warm, so everybody sees the fast one coming.
+function BallVisual.perfect(flight: Flight)
+	local gold = Color3.fromHex(Palette.lemon)
+	flight.trail.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, WHITE),
+		ColorSequenceKeypoint.new(0.35, gold),
+		ColorSequenceKeypoint.new(1, Color3.fromHex(Palette.waffle)),
+	})
+	flight.trail.Lifetime *= 1.4
+	flight.emitter.Color = ColorSequence.new(WHITE, gold)
+	flight.emitter.Rate *= 2
+	flight.light.Color = gold
+end
+
 -- The ball is gone: its streak and twinkles stay where it ended and fade out there instead of vanishing with it.
 function BallVisual.leaveFlight(flight: Flight, where: CFrame)
 	local holder = Instance.new("Part")

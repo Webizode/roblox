@@ -1,10 +1,12 @@
 -- Ice-ball throws on the client. R (Y on a gamepad, the Combat button on touch screens) switches combat mode on and
 -- off; only in it are the crosshair and the throw button there, and the mouse is caught in the middle of the screen
--- so it aims. Holding the throw button (left mouse button, the Throw button on touch screens, R2 on a gamepad)
--- charges the bar under the crosshair (AimHud), releasing asks the server to throw at the point under the crosshair
--- with that charge. It draws every ball on the curve the server simulates and plays the
--- reaction the server announces. The server decides everything: the charge it accepts, ammo, flight, hits, power
--- and knockdowns. The victim's own client
+-- so it aims. A tap on the throw button (left mouse button, the Throw button on touch screens, R2 on a gamepad)
+-- throws at once; holding it builds the strength while a small circle pulses inside the crosshair (AimHud), and
+-- letting go when it touches the outer circle is a faster perfect throw (Combat.strength, pulse, isPerfect). The
+-- crosshair is fixed in the middle of the screen and every throw aims through it; the aim help is the combat
+-- camera's (CombatCamera). It draws every ball on the curve the server simulates and plays the
+-- reaction the server announces. The server decides everything: the strength and perfect throw it accepts, ammo,
+-- flight, hits, power and knockdowns. The victim's own client
 -- applies the knockback and the tower shove, like every other force on the local character and tower.
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -18,6 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
+local AimRules = require(Shared:WaitForChild("AimRules"))
 local BallMotion = require(Shared:WaitForChild("BallMotion"))
 local MapQuery = require(Shared:WaitForChild("MapQuery"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
@@ -63,6 +66,8 @@ local INTERVAL_MARGIN = 0.05
 local wantCharge = false -- the throw button is down
 local charging = false -- the bar runs; the server got the matching ChargeIceBall
 local chargeStartedAt = 0 -- os.clock()
+local lastThrowAt = -math.huge -- os.clock() of the local player's last throw, for the crosshair's spread
+local crosshairRadius = CombatConfig.crosshair.radius -- eased (AimRules.ease)
 local combatMode = false
 local modeChangedAt = -math.huge
 local releaseUntil = 0 -- os.clock() until which the release guard keeps the mouse free
@@ -101,7 +106,7 @@ local function destroyBall(ball: Ball)
 	end
 end
 
-local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: Vector3, t0: number)
+local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: Vector3, t0: number, perfect: boolean?)
 	-- still in the hand until t0, the throw animation's release
 	local model = BallVisual.new("IceBall", CombatConfig.ballRadius * 2)
 	local part: BasePart
@@ -118,6 +123,9 @@ local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: 
 	local flight = BallVisual.addFlight(part, CombatConfig.ballRadius)
 	flight.emitter.Enabled = false
 	flight.light.Enabled = false
+	if perfect then
+		BallVisual.perfect(flight) -- a perfect throw sparkles gold for everybody
+	end
 	local flat = Vector3.new(velocity.X, 0, velocity.Z)
 	balls[id] = {
 		part = part,
@@ -364,20 +372,25 @@ local function tryStartCharge()
 	end
 end
 
--- The world point under the crosshair (the screen centre), or a point far along that ray. The ray ignores the own
--- character, everything the ball would fly through anyway (parts without collision and the thin decoration of
--- Config/Map, MapQuery.throwRaycast), and
+-- The world point the throw aims at: under `screen` (viewport pixels), or a point far along that ray. The ray
+-- ignores the own character, the own tower and every drawn scoop and ball (LocalVisuals), everything the ball would
+-- fly through anyway (parts without collision and the thin
+-- decoration of Config/Map, MapQuery.throwRaycast), and
 -- everything between the camera and the character, so only what lies ahead of the player can be the target.
-local function aimPoint(): Vector3
+local function aimPoint(screen: Vector2): Vector3
 	local camera = workspace.CurrentCamera
-	local ray = camera:ViewportPointToRay(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+	local ray = camera:ViewportPointToRay(screen.X, screen.Y)
 	local origin, unit = ray.Origin, ray.Direction.Unit
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then
 		origin += unit * math.max(0, (root.Position - origin):Dot(unit))
 	end
-	local ignore: { Instance } = if character then { character } else {}
+	-- the own tower, every scoop and ball and the free scoops are drawn in LocalVisuals: none of them is a target
+	local ignore: { Instance } = { TowerVisual.root() }
+	if character then
+		table.insert(ignore, character)
+	end
 	local direction = unit * CombatConfig.aimDistance
 	local result = MapQuery.throwRaycast(origin, direction, ignore)
 	return if result then result.Position else origin + direction
@@ -391,18 +404,26 @@ local function requestThrow(_: string, inputState: Enum.UserInputState): Enum.Co
 		tryStartCharge()
 	elseif inputState == Enum.UserInputState.End then
 		if charging and canThrow() then
-			local charge = Combat.charge(os.clock() - chargeStartedAt, CombatConfig)
-			local aim = aimPoint()
+			local held = os.clock() - chargeStartedAt
+			local strength = Combat.strength(held, CombatConfig)
+			local perfect = Combat.isPerfect(held, CombatConfig)
+			local camera = workspace.CurrentCamera
+			local aim = aimPoint(camera.ViewportSize / 2) -- always through the middle of the screen
 			lastRequestAt = os.clock()
-			Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z, charge)
+			lastThrowAt = os.clock()
+			Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z, strength, perfect)
+			if perfect then
+				Sfx.play("perfectThrow", 1.4) -- the thrower hears it at once; everybody sees its sparkle (onThrown)
+			end
 			registry.TowerController.interruptStance() -- after the request, so the server locks its stance too
 			registry.ThrowAnimator.release() -- the throw animation starts with the button-up, like the server's clock
 			local character = player.Character
 			local hand = character and character:FindFirstChild("RightHand") :: BasePart?
 			debugLog(
 				string.format(
-					"release: charge %.2f, aim %s, %.1f studs from the hand",
-					charge,
+					"release: strength %.2f%s, aim %s, %.1f studs from the hand",
+					strength,
+					if perfect then " (perfect)" else "",
 					tostring(aim),
 					if hand then (aim - hand.Position).Magnitude else -1
 				)
@@ -417,16 +438,23 @@ local function requestThrow(_: string, inputState: Enum.UserInputState): Enum.Co
 	return Enum.ContextActionResult.Sink
 end
 
-local function onAimStep()
+local function onAimStep(dt: number)
 	if charging and not canThrow() then
 		cancelCharge(false) -- knocked down or died mid-charge
 	end
 	tryStartCharge()
-	registry.AimHud.set(
-		combatMode,
-		canThrow(),
-		if charging then Combat.charge(os.clock() - chargeStartedAt, CombatConfig) else nil
-	)
+	-- the crosshair stays in the middle of the screen; nothing in the world moves it
+	local held = if charging then os.clock() - chargeStartedAt else nil
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	local target = AimRules.radius({
+		moving = humanoid ~= nil and humanoid.MoveDirection.Magnitude > 0.1,
+		sprinting = registry.MovementController.isSprinting(),
+		sinceDash = os.clock() - registry.MovementController.lastDash(),
+		sinceThrow = os.clock() - lastThrowAt,
+		strength = if held then Combat.strength(held, CombatConfig) else nil,
+	}, CombatConfig)
+	crosshairRadius = AimRules.ease(crosshairRadius, target, dt, CombatConfig)
+	registry.AimHud.set(combatMode, canThrow(), crosshairRadius, held)
 end
 
 -- Holds the mouse in the middle of the screen and keeps the cursor hidden (the crosshair is the cursor) while combat

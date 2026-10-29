@@ -10,9 +10,15 @@ local Tuning = require("../src/shared/Config/Tower")
 local DT = 1 / 60
 
 describe("Ice-ball flight and hits", function()
-	it("flies through the aim point at every charge, from the hand, within its flight time", function()
-		for _, charge in { 0, 0.5, 1 } do
-			local speed = Combat.throwSpeed(charge, Config)
+	it("flies through the aim point at every strength and perfect, from the hand, within its flight time", function()
+		for _, speed in
+			{
+				Combat.throwSpeed(0, false, Config),
+				Combat.throwSpeed(0.5, false, Config),
+				Combat.throwSpeed(1, false, Config),
+				Combat.throwSpeed(1, true, Config),
+			}
+		do
 			for _, target in { { 0, 0, 20 }, { 15, -3, 30 }, { -10, 6, 25 }, { 0, -4, 5 } } do
 				local ok, vx, vy, vz = Combat.aimVelocity(0, 4, 0, target[1], 4 + target[2], target[3], speed, Config)
 				expect(ok).toBe(true)
@@ -29,7 +35,7 @@ describe("Ice-ball flight and hits", function()
 	end)
 
 	it("aims straight with a little lift at points out of reach, and stronger throws reach further", function()
-		local weak, strong = Combat.throwSpeed(0, Config), Combat.throwSpeed(1, Config)
+		local weak, strong = Combat.throwSpeed(0, false, Config), Combat.throwSpeed(1, false, Config)
 		expect(strong).toBeGreaterThan(weak)
 		-- just out of a weak throw's reach (its best range is speed^2 / gravity), well inside a strong one's
 		local distance = weak * weak / Config.gravity + 5
@@ -88,67 +94,120 @@ describe("Ice-ball flight and hits", function()
 	)
 end)
 
-describe("Charging a throw", function()
-	it("runs the bar up to its maximum, back down to its minimum, and again", function()
-		local rise = Config.chargeRise
-		expect(Combat.charge(0, Config)).toBe(0)
-		expect(Combat.charge(rise / 2, Config)).toBeCloseTo(0.5, 1e-9)
-		expect(Combat.charge(rise, Config)).toBeCloseTo(1, 1e-9)
-		expect(Combat.charge(rise * 1.5, Config)).toBeCloseTo(0.5, 1e-9)
-		expect(Combat.charge(rise * 2, Config)).toBeCloseTo(0, 1e-9)
-		expect(Combat.charge(rise * 3, Config)).toBeCloseTo(1, 1e-9)
-		expect(Combat.charge(-1, Config)).toBe(0)
-		expect(Combat.charge(0 / 0, Config)).toBe(0)
-		for held = 0, 10, 0.037 do
-			local value = Combat.charge(held, Config)
+describe("Holding a throw", function()
+	it("a tap is strength 0, holding raises it to full in perfect.rise, and it stays full", function()
+		local rise = Config.perfect.rise
+		expect(Combat.strength(0, Config)).toBe(0)
+		expect(Combat.strength(rise / 2, Config)).toBeCloseTo(0.5, 1e-9)
+		expect(Combat.strength(rise, Config)).toBe(1)
+		expect(Combat.strength(rise * 4, Config)).toBe(1)
+		expect(Combat.strength(-1, Config)).toBe(0)
+		expect(Combat.strength(0 / 0, Config)).toBe(0)
+		local last = 0
+		for held = 0, 3, 0.013 do
+			local value = Combat.strength(held, Config)
+			expect(value >= last).toBe(true)
+			last = value
+		end
+	end)
+
+	it("the inner circle grows to the outer one, shrinks back and again, as long as it is held", function()
+		local rise = Config.perfect.rise
+		expect(Combat.pulse(0, Config)).toBe(0)
+		expect(Combat.pulse(rise / 2, Config)).toBeCloseTo(0.5, 1e-9)
+		expect(Combat.pulse(rise, Config)).toBeCloseTo(1, 1e-9)
+		expect(Combat.pulse(rise * 1.5, Config)).toBeCloseTo(0.5, 1e-9)
+		expect(Combat.pulse(rise * 2, Config)).toBeCloseTo(0, 1e-9)
+		expect(Combat.pulse(rise * 3, Config)).toBeCloseTo(1, 1e-9)
+		expect(Combat.pulse(0 / 0, Config)).toBe(0)
+		for held = 0, 5, 0.017 do
+			local value = Combat.pulse(held, Config)
 			expect(value >= 0 and value <= 1).toBe(true)
 		end
 	end)
 
-	it("accepts an honest bar within the network jitter", function()
-		local rise, tolerance = Config.chargeRise, Config.chargeTolerance
-		for held = 0, 4, 0.05 do
+	it("perfect exactly when it touches the outer circle, each time, faster and no harder", function()
+		local p = Config.perfect
+		for _, touch in { p.rise, 3 * p.rise, 5 * p.rise } do
+			expect(Combat.isPerfect(touch, Config)).toBe(true)
+			expect(Combat.isPerfect(touch - p.window / 2 + 0.001, Config)).toBe(true)
+			expect(Combat.isPerfect(touch + p.window / 2 - 0.001, Config)).toBe(true)
+			expect(Combat.isPerfect(touch - p.window / 2 - 0.01, Config)).toBe(false)
+			expect(Combat.isPerfect(touch + p.window / 2 + 0.01, Config)).toBe(false)
+			-- and only there: the inner circle is (nearly) the outer one
+			expect(Combat.pulse(touch, Config)).toBeCloseTo(1, 1e-9)
+		end
+		expect(Combat.isPerfect(0, Config)).toBe(false)
+		expect(Combat.isPerfect(2 * p.rise, Config)).toBe(false) -- back in the middle
+		expect(Combat.isPerfect(0 / 0, Config)).toBe(false)
+		expect(Combat.throwSpeed(1, true, Config)).toBe(p.speed)
+		expect(p.speed).toBeGreaterThan(Config.maxSpeed)
+		local full = Combat.hitPower(0, Config.maxSpeed, Config.maxSpeed, 1, Config)
+		local perfect = Combat.hitPower(0, p.speed, p.speed, 1, Config)
+		expect(perfect).toBeCloseTo(full, 1e-9)
+		expect(p.window >= 0.1).toBe(true) -- doable with a thumb or a trigger
+	end)
+
+	it("accepts an honest strength and perfect throw within the network jitter", function()
+		local tolerance = Config.chargeTolerance
+		for held = 0, 3, 0.03 do
 			for _, jitter in { -tolerance, -tolerance / 2, 0, tolerance / 2, tolerance } do
 				local clientHeld = math.max(0, held + jitter)
-				local bar = Combat.charge(clientHeld, Config)
-				expect(Combat.validateCharge(bar, held, Config)).toBeCloseTo(bar, 1e-9)
+				local strength = Combat.strength(clientHeld, Config)
+				expect(Combat.validateStrength(strength, held, Config)).toBeCloseTo(strength, 1e-9)
+				if Combat.isPerfect(clientHeld, Config) then
+					expect(Combat.validatePerfect(true, held, Config)).toBe(true)
+				end
 			end
 		end
-		-- releasing right at the top: the full bar counts even if the server measured a little past the peak
-		expect(Combat.validateCharge(1, rise + tolerance * 0.9, Config)).toBe(1)
 	end)
 
 	it("never gives more than the measured hold allows", function()
-		local rise, tolerance = Config.chargeRise, Config.chargeTolerance
-		-- a tap claiming a full bar
-		local tap = Combat.validateCharge(1, 0.05, Config)
-		expect(tap).toBeCloseTo(Combat.charge(0.05 + tolerance, Config), 1e-9)
+		local p, tolerance = Config.perfect, Config.chargeTolerance
+		local tap = Combat.validateStrength(1, 0.05, Config)
+		expect(tap).toBeCloseTo(Combat.strength(0.05 + tolerance, Config), 1e-9)
 		expect(tap).toBeLessThan(0.5)
-		-- no hold at all (the start message never came): the weakest throw plus the jitter allowance
-		expect(Combat.validateCharge(1, 0, Config)).toBeCloseTo(tolerance / rise, 1e-9)
-		-- held to the bottom of the second swing, claiming the top
-		expect(Combat.validateCharge(1, 2 * rise, Config)).toBeCloseTo(tolerance / rise, 1e-9)
-		-- out of range and broken claims
-		expect(Combat.validateCharge(5, rise, Config)).toBe(1)
-		expect(Combat.validateCharge(-3, 2 * rise, Config)).toBe(0)
-		expect(Combat.validateCharge(0 / 0, rise / 2, Config)).toBeCloseTo(0.5, 1e-9)
-		expect(Combat.validateCharge(1, 0 / 0, Config)).toBeCloseTo(tolerance / rise, 1e-9)
+		expect(Combat.validateStrength(1, 0, Config)).toBeCloseTo(tolerance / p.rise, 1e-9)
+		-- a perfect claim for a tap, or with the inner circle back in the middle, is turned down
+		expect(Combat.validatePerfect(true, 0.05, Config)).toBe(false)
+		expect(Combat.validatePerfect(true, 2 * p.rise, Config)).toBe(false)
+		expect(Combat.validatePerfect(true, p.rise - p.window / 2 - tolerance - 0.02, Config)).toBe(false)
+		-- just outside the window but within the jitter still counts
+		expect(Combat.validatePerfect(true, p.rise + p.window / 2 + tolerance * 0.9, Config)).toBe(true)
+		expect(Combat.validatePerfect("yes" :: any, p.rise, Config)).toBe(false)
+		expect(Combat.validatePerfect(true, 0 / 0, Config)).toBe(false)
+		expect(Combat.validateStrength(5, p.rise, Config)).toBe(1)
+		expect(Combat.validateStrength(0 / 0, p.rise / 2, Config)).toBeCloseTo(0.5, 1e-9)
 	end)
 
-	it("needs charged throws for a knockdown: weak hits in a row never knock down, two strong ones do", function()
-		local weak = Combat.hitPower(0, Config.minSpeed, Config.minSpeed, 0, Config)
-		local stagger, lastHitAt, down = 0, 0, false
-		for index = 0, Config.ammo - 1 do
-			local time = index * Config.throwInterval
-			stagger, down = Combat.addHit(stagger, lastHitAt, time, weak, Config)
-			lastHitAt = time
-			expect(down).toBe(false)
+	it(
+		"three taps on the middle knock down at the third, two do not, grazing taps never; two strong ones do",
+		function()
+			-- a whole load at a realistic pace: the throw interval, a short hold and the network on top
+			local pace = Config.throwInterval + 0.2
+			local function load(power: number): number?
+				local stagger, lastHitAt = 0, -math.huge
+				for index = 1, Config.ammo do
+					local time = (index - 1) * pace
+					local down
+					stagger, down = Combat.addHit(stagger, lastHitAt, time, power, Config)
+					lastHitAt = time
+					if down then
+						return index
+					end
+				end
+				return nil
+			end
+			local tap = Combat.hitPower(0, Config.minSpeed, Config.minSpeed, 0, Config)
+			expect(load(tap)).toBe(3)
+			local grazingTap = Combat.hitPower(2, Config.minSpeed, Config.minSpeed, 0, Config)
+			expect(load(grazingTap)).toBeNil()
+			local strong = Combat.hitPower(0, Config.maxSpeed, Config.maxSpeed, 1, Config)
+			local stagger = Combat.addHit(0, 0, 0, strong, Config)
+			local _, knocked = Combat.addHit(stagger, 0, 0.6, strong, Config)
+			expect(knocked).toBe(true)
 		end
-		local strong = Combat.hitPower(0, Config.maxSpeed, Config.maxSpeed, 1, Config)
-		stagger = Combat.addHit(0, 0, 0, strong, Config)
-		local _, knocked = Combat.addHit(stagger, 0, 0.6, strong, Config)
-		expect(knocked).toBe(true)
-	end)
+	)
 end)
 
 describe("Knockdown threshold", function()
@@ -352,5 +411,65 @@ describe("Tower reaction to a hit", function()
 		TowerModel.hitKick(state, Config, 25, 1, 0, 1)
 		-- the rest of a full bar
 		expect(runWithAssist(state, 25, 3)).toBe(false)
+	end)
+end)
+
+describe("Hits: how centred they count", function()
+	-- a ball thrown flat at the axis of a player 15 studs away, checked frame by frame like the server does
+	local function firstHit(offset: number, strength: number)
+		local speed = Combat.throwSpeed(strength, false, Config)
+		local ox, oy, oz = 0, 5, 0
+		local cx, cy, cz = offset, 5, 15
+		-- aimed straight ahead; the player stands `offset` studs to the side of that line
+		local _, vx, vy, vz = Combat.aimVelocity(ox, oy, oz, 0, 5, 15, speed, Config)
+		local reach = Config.hitRadius + Config.ballRadius
+		local last = 0
+		for frame = 1, 120 do
+			local t = frame / 60
+			local ax, ay, az = Combat.position(ox, oy, oz, vx, vy, vz, Config.gravity, last)
+			local bx, by, bz = Combat.position(ox, oy, oz, vx, vy, vz, Config.gravity, t)
+			local entry = Combat.closestToCapsule(ax, ay, az, bx, by, bz, cx, cy, cz, Config.hitHalfHeight)
+			if entry <= reach then
+				local pass = Combat.passDistance(ox, oy, oz, vx, vy, vz, last, cx, cy, cz, Config)
+				return entry, math.min(entry, pass), speed
+			end
+			last = t
+		end
+		return nil
+	end
+
+	it("a ball aimed at the middle counts as centred, not as the graze where it entered the reach", function()
+		local entry, centred = firstHit(0, 1)
+		-- the frame where it entered is near the edge of the reach: that alone made every hit a graze
+		expect((entry :: number) > 1.5).toBe(true)
+		expect(centred).toBeLessThan(0.5)
+	end)
+
+	it("a ball passing the side still counts as off-centre", function()
+		local _, centred = firstHit(2, 1)
+		expect(centred).toBeCloseTo(2, 0.3)
+	end)
+
+	it("knockdown happens: two full-strength hits on the middle, or three taps on the middle", function()
+		local _, centred, speed = firstHit(0, 1)
+		local strong = Combat.hitPower(centred, speed, speed, 1, Config)
+		expect(strong).toBeGreaterThan(0.9)
+		local stagger, down = Combat.addHit(0, -math.huge, 0, strong, Config)
+		expect(down).toBe(false) -- one hit never knocks down
+		stagger, down = Combat.addHit(stagger, 0, Config.throwInterval + 0.1, strong, Config)
+		expect(down).toBe(true)
+
+		local _, tapCentred, tapSpeed = firstHit(0, 0)
+		local tap = Combat.hitPower(tapCentred, tapSpeed, tapSpeed, 0, Config)
+		expect(tap).toBeGreaterThan(0.55)
+		local s, last, knocked = 0, -math.huge, false
+		for i = 1, Config.ammo do
+			local now = (i - 1) * (Config.throwInterval + 0.1)
+			local kd
+			s, kd = Combat.addHit(s, last, now, tap, Config)
+			last = now
+			knocked = knocked or kd
+		end
+		expect(knocked).toBe(true)
 	end)
 end)

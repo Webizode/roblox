@@ -60,6 +60,7 @@ for _, name in
 		"ScoopFlight",
 		"ScoopLabel",
 		"TargetRules",
+		"AimRules",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")
@@ -105,6 +106,7 @@ for _, name in
 		"TowerController",
 		"AimHud",
 		"CombatController",
+		"HitFeedback",
 		"Backpacks",
 		"HeldBalls",
 		"ThrowAnimator",

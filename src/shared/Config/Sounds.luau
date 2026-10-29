@@ -11,6 +11,7 @@ return {
 	dash = "rbxasset://sounds/swoosh.wav",
 	throw = "rbxasset://sounds/swoosh.wav",
 	hit = "rbxasset://sounds/snap.wav",
+	perfectThrow = "rbxasset://sounds/electronicpingshort.wav", -- a bright ping, played higher (CombatController)
 
 	-- every catch climbs one step of a pentatonic scale so a growing tower "sings"
 	pentatonic = { 0, 2, 4, 7, 9 },

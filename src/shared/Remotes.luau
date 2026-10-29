@@ -25,11 +25,15 @@ local DEFINITIONS = {
 	SetStance = "RemoteEvent", -- client -> server: holding the steady stance (boolean); the server answers with the SteadyStance attribute
 	SetCombatMode = "RemoteEvent", -- client -> server: combat mode on or off (boolean)
 	ChargeIceBall = "RemoteEvent", -- client -> server: the throw button went down; starts the server's charge clock
-	ThrowIceBall = "RemoteEvent", -- client -> server: aimX, aimY, aimZ (point under the crosshair), charge (bar 0..1)
-	IceBallThrown = "RemoteEvent", -- server -> all: id, thrower, origin, velocity, t0 (server time)
+	-- client -> server: aimX, aimY, aimZ (where the throw aims), strength (0..1, Combat.strength), perfect (boolean)
+	ThrowIceBall = "RemoteEvent",
+	IceBallThrown = "RemoteEvent", -- server -> all: id, thrower, origin, velocity, t0 (server time), perfect
 	-- server -> all: id, thrower, victim (nil on a miss), position, dirX, dirZ, power, knockdown, shielded (the victim
 	-- stood in their cart's safe zone: no harm)
 	IceBallResolved = "RemoteEvent",
+	-- server -> the thrower: kind ("knockdown": their hit knocked the victim down; "toppled": the victim's tower fell
+	-- soon after their hit), victim, scoops the victim lost
+	HitFeedback = "RemoteEvent",
 	LootSpawned = "RemoteEvent", -- server -> all (a spill) or one (on join): list of free scoops, see LootService
 	LootUpdated = "RemoteEvent", -- server -> all: ids, ownerUntil (the owner's head start moved, e.g. a knockdown)
 	LootRemoved = "RemoteEvent", -- server -> all: id, catcher (Player or nil), reason ("caught", "gone", "water", "room")

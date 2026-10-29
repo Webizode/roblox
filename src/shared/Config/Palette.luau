@@ -1,5 +1,5 @@
 --!strict
--- The ten color tokens of the pier. Use these instead of ad-hoc colors so the world reads as one style.
+-- The color tokens of the pier. Use these instead of ad-hoc colors so the world reads as one style.
 
 return {
 	vanilla = "#FFF3D6",
@@ -13,6 +13,7 @@ return {
 	lemon = "#FFD23F",
 	awning = "#E5484D",
 	ink = "#2B2D42",
+	white = "#FFFFFF", -- the crosshair's default colour
 
 	-- one per cart (CartService sets it as the PlayerColor attribute): marks what belongs to a player, like the glow
 	-- of their spilled scoops. Bright and far apart, so they read on the deck and on small screens.
