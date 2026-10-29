@@ -6,9 +6,11 @@
 --     them to everyone. The charge animation holds at its "Held" marker, the throw has a "Release" marker at
 --     releaseDelay (checked in the output while Features.debugThrow is on).
 --   * With only the throw id, that one animation carries wind-up and throw: the local player starts it with the
---     charge, it holds releaseDelay before throwRelease, and the button-up lets it swing through so its release meets
---     the server's. It replicates; on every client the procedural pose steps aside while a character plays it and
---     keeps the stance otherwise.
+--     charge, it holds releaseDelay before throwRelease (or at its start, the "Held" pose, when throwRelease is
+--     sooner), and the button-up lets it swing through so its release meets the server's: a swing shorter than
+--     releaseDelay waits out the rest in the held pose. Its "Release" marker is checked like the throw's above. It
+--     replicates; on every client the procedural pose steps aside while a character plays it and keeps the stance
+--     otherwise.
 --   * While the ids are empty, a procedural pose stands in, drawn by every client for every player from the
 --     CombatMode and Charging attributes and the IceBallThrown event. ThrowPose gives the angles; they are written
 --     into the joints' Transform right after Roblox's Animator each frame, so the right arm leaves the walk cycle
@@ -61,6 +63,13 @@ local entries: { [Player]: Entry } = {}
 local reported: { [Model]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local localReleaseAt = -math.huge
 local releasing = false -- THROW_ONLY: the local throw animation runs from the button-up to the release point
+local swingAt = -math.huge -- THROW_ONLY: os.clock() the held throw animation swings on after the button-up
+
+-- THROW_ONLY: where the throw animation holds while charging, releaseDelay before its release point, or its start
+-- (its "Held" pose) when the release comes sooner than that.
+local function holdTime(): number
+	return math.max(0, Animation.throwRelease - CombatConfig.releaseDelay)
+end
 
 local function entryFor(player: Player): Entry
 	local entry = entries[player]
@@ -188,9 +197,11 @@ local function stepThrowTrack()
 	if not THROW_ONLY or not throw or not throw.IsPlaying then
 		return
 	end
-	local holdAt = Animation.throwRelease - CombatConfig.releaseDelay
+	local holdAt = holdTime()
 	if releasing then
-		if throw.TimePosition >= Animation.throwRelease then
+		if throw.Speed == 0 and os.clock() >= swingAt then
+			throw:AdjustSpeed(1) -- waited out the rest of releaseDelay in the wound-up pose
+		elseif throw.TimePosition >= Animation.throwRelease then
 			releasing = false
 			throw:AdjustSpeed(1)
 		end
@@ -272,7 +283,7 @@ local function track(name: string): AnimationTrack?
 		loaded:GetMarkerReachedSignal("Held"):Connect(function()
 			loaded:AdjustSpeed(0) -- hold the full wind-up until the release
 		end)
-	elseif name == "throw" and USE_TRACKS then
+	elseif name == "throw" and (USE_TRACKS or THROW_ONLY) then
 		loaded:GetMarkerReachedSignal("Release"):Connect(function()
 			local late = os.clock() - localReleaseAt - CombatConfig.releaseDelay
 			if Features.debugThrow and math.abs(late) > 0.03 then
@@ -354,7 +365,9 @@ function ThrowAnimator.release()
 			throw:Play(0.03)
 		end
 	elseif THROW_ONLY then
-		-- on to the release point in exactly releaseDelay (faster if the wind-up was cut short), then at its own speed
+		-- on to the release point in exactly releaseDelay, so the hand lets go when the server starts the ball: faster
+		-- if the wind-up was cut short; when the swing to it is shorter than releaseDelay, it waits out the rest in the
+		-- wound-up pose first and then swings at its own speed
 		local throw = track("throw")
 		if throw then
 			if not throw.IsPlaying then
@@ -362,7 +375,13 @@ function ThrowAnimator.release()
 			end
 			local left = Animation.throwRelease - throw.TimePosition
 			releasing = left > 0
-			throw:AdjustSpeed(if left > 0 then math.max(1, left / CombatConfig.releaseDelay) else 1)
+			if left > 0 and left < CombatConfig.releaseDelay then
+				swingAt = clock + CombatConfig.releaseDelay - left
+				throw:AdjustSpeed(0)
+			else
+				swingAt = -math.huge
+				throw:AdjustSpeed(if left > 0 then left / CombatConfig.releaseDelay else 1)
+			end
 		end
 	end
 end

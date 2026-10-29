@@ -156,8 +156,10 @@ return {
 		-- the wind-up in it: it starts with the charge, holds releaseDelay before throwRelease until the button-up and
 		-- then swings through, so the ball leaves the hand when the server starts it; the procedural pose stands in
 		-- for the stance and steps aside while it plays.
-		throw = "rbxassetid://109391766917607", -- "WSB_ThrowFixed", its "Release" marker is at 0.68 s
-		throwRelease = 0.68, -- seconds into the throw animation where the ball leaves the hand (fastest forward swing)
+		-- "R15_WS_Throw" (R15, 0.73 s): "Held" at 0 s (the wound-up pose, held while charging), "Release" at 0.033 s;
+		-- before it "WSB_ThrowFixed" (rbxassetid://109391766917607, release at 0.68 s)
+		throw = "rbxassetid://122799230007876",
+		throwRelease = 0.033, -- seconds into the throw animation where the ball leaves the hand (fastest forward swing)
 		windupTime = 0.15, -- seconds from the stance to the full wind-up
 		followTime = 0.14, -- after the release: the arm swings through
 		recoverTime = 0.22, -- and back to the stance
