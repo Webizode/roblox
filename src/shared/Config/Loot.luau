@@ -8,8 +8,12 @@ return {
 	-- (landing, or the end of a knockdown that is still running); until then only the owner.
 	ownerLock = 2,
 	ownerSeconds = 3,
-	lifetime = 15, -- seconds from the topple until an uncollected scoop disappears
-	blinkSeconds = 2, -- it blinks for this long before it disappears
+	lifetime = 10, -- seconds from the topple until an uncollected scoop disappears with a puff
+	blinkSeconds = 1, -- it blinks for this long before it disappears
+	-- a client that has not heard of the removal this long after the end removes the scoop itself (it can no longer be
+	-- picked up anyway, Loot.canCollect), so no scoop stays lying around for good
+	expireGrace = 1, -- seconds
+	fullNotice = 3, -- seconds between two "cone full" notes while standing on scoops the full cone cannot take
 	maxFree = 40, -- free scoops per server; a new spill pushes the oldest ones out
 
 	-- A scoop from the Big Swirl that nobody caught lies where it landed for landedLifetime seconds and anybody may pick

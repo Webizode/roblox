@@ -79,7 +79,7 @@ local function reversalPeak(count: number, variant): (boolean, number)
 	local peak = 0
 	for _ = 1, 300 do
 		local ax, az
-		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, -speed, 0, smoothing, DT)
+		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, -speed, 0, smoothing, DT, Tuning.turnFactor)
 		TowerModel.step(state, params, { ax = ax, az = az, padX = 0, padZ = 0 }, variant, Tuning, DT)
 		peak = math.max(peak, TowerModel.tilt(state))
 		if state.toppled then
@@ -298,12 +298,35 @@ describe("Pad input (the path the stabiliser and the stance use)", function()
 		local peak = 0
 		for _ = 1, 120 do
 			local ax
-			vx, vz, ax = TowerModel.baseVelocityStep(vx, vz, 18, 0, Tuning.accelSmoothing, DT)
+			vx, vz, ax = TowerModel.baseVelocityStep(vx, vz, 18, 0, Tuning.accelSmoothing, DT, Tuning.turnFactor)
 			peak = math.max(peak, ax)
 		end
 		expect(vx).toBeCloseTo(18, 0.01)
 		expect(vz).toBe(0)
 		expect(peak).toBeLessThan(18 / Tuning.accelSmoothing + 1e-6)
+	end)
+
+	it("feels a turn of the heading at turnFactor, starting and stopping in full", function()
+		expect(Tuning.turnFactor).toBe(0.5)
+		local function step(vx: number, vz: number, tx: number, tz: number, factor: number?)
+			local _, _, ax, az = TowerModel.baseVelocityStep(vx, vz, tx, tz, Tuning.accelSmoothing, DT, factor)
+			return ax, az
+		end
+		-- starting off and stopping: along the velocity (or from standstill), unchanged
+		local fullX = step(0, 0, 18, 0)
+		expect((step(0, 0, 18, 0, Tuning.turnFactor))).toBeCloseTo(fullX, 1e-9)
+		local brakeX = step(18, 0, 0, 0)
+		expect((step(18, 0, 0, 0, Tuning.turnFactor))).toBeCloseTo(brakeX, 1e-9)
+		-- a pure turn (walking +X, now steering +Z): the sideways part at half strength, the braking part in full
+		local ax, az = step(18, 0, 0, 18)
+		local tx, tz = step(18, 0, 0, 18, Tuning.turnFactor)
+		expect(tx).toBeCloseTo(ax, 1e-9)
+		expect(tz).toBeCloseTo(az * Tuning.turnFactor, 1e-9)
+		-- the velocity itself still follows the input in full
+		local nx, nz = TowerModel.baseVelocityStep(18, 0, 0, 18, Tuning.accelSmoothing, DT, Tuning.turnFactor)
+		local ox, oz = TowerModel.baseVelocityStep(18, 0, 0, 18, Tuning.accelSmoothing, DT)
+		expect(nx).toBe(ox)
+		expect(nz).toBe(oz)
 	end)
 
 	it("a full push against the lean brings the tower back without throwing it over the other side", function()
@@ -351,7 +374,15 @@ describe("Pad input (the path the stabiliser and the stance use)", function()
 			for _, leg in legs do
 				for _ = 1, 0.8 / DT do
 					local ax, az
-					vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, leg[1], leg[2], Tuning.accelSmoothing, DT)
+					vx, vz, ax, az = TowerModel.baseVelocityStep(
+						vx,
+						vz,
+						leg[1],
+						leg[2],
+						Tuning.accelSmoothing,
+						DT,
+						Tuning.turnFactor
+					)
 					TowerModel.step(state, params, { ax = ax, az = az, padX = 0, padZ = 0 }, PAD, Tuning, DT)
 					peak = math.max(peak, TowerModel.tilt(state))
 				end
@@ -432,7 +463,7 @@ local function assistedRun(count: number, seed: number, seconds: number, walk: b
 			tx, tz = ({ speed, 0, -speed, 0 })[leg + 1], ({ 0, speed, 0, -speed })[leg + 1]
 		end
 		local ax, az
-		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, tx, tz, Tuning.accelSmoothing, DT)
+		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, tx, tz, Tuning.accelSmoothing, DT, Tuning.turnFactor)
 		local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
 		TowerModel.step(state, params, { ax = ax, az = az, padX = px, padZ = pz }, PAD, Tuning, DT)
 		peak = math.max(peak, TowerModel.tilt(state) / Tuning.tipAngle)
@@ -474,7 +505,9 @@ describe("Automatic stabiliser and steady stance", function()
 	end)
 
 	it("makes walking with tall towers dangerous, and the stance used when it tips buys real time", function()
-		for _, count in { 22, 25, 28 } do
+		-- hard 90 degree turns at full speed; with turnFactor 0.5 they feel half as hard, so the edge lies at about
+		-- 28 scoops (22 with turnFactor 1)
+		for _, count in { 28, 30, 32 } do
 			local without, with = 0, 0
 			for seed = 1, 5 do
 				without += assistedRun(count, seed, 30, true)
@@ -520,7 +553,8 @@ describe("Automatic stabiliser and steady stance", function()
 						({ speed, 0, -speed, 0 })[leg + 1],
 						({ 0, speed, 0, -speed })[leg + 1],
 						Tuning.accelSmoothing,
-						DT
+						DT,
+						Tuning.turnFactor
 					)
 					local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
 					TowerModel.step(state, params, { ax = ax, az = az, padX = px, padZ = pz }, PAD, Tuning, DT)
@@ -609,7 +643,7 @@ local function freeRun(count: number, seed: number, seconds: number, straight: b
 			tx, tz = math.cos(angle) * s, math.sin(angle) * s
 		end
 		local ax, az
-		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, tx, tz, Tuning.accelSmoothing, DT)
+		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, tx, tz, Tuning.accelSmoothing, DT, Tuning.turnFactor)
 		local px, pz = TowerModel.assist(state, params, PAD, Tuning, DT)
 		TowerModel.step(state, params, { ax = ax, az = az, padX = px, padZ = pz }, PAD, Tuning, DT)
 		if state.toppled then

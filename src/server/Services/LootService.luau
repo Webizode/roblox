@@ -212,7 +212,7 @@ local function expire()
 	for index = #order, 1, -1 do
 		local scoop = free[order[index]]
 		if scoop and time >= scoop.endAt then
-			remove(scoop.id, nil, if scoop.sinks then "water" elseif scoop.landed then "puff" else "gone")
+			remove(scoop.id, nil, if scoop.sinks then "water" else "puff")
 		end
 	end
 end

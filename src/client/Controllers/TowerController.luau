@@ -177,8 +177,15 @@ local function simulate(dt: number, humanoid: Humanoid)
 		accumulator -= STEP
 		local target = humanoid.MoveDirection * humanoid.WalkSpeed
 		local ax, az
-		baseVelocityX, baseVelocityZ, ax, az =
-			TowerModel.baseVelocityStep(baseVelocityX, baseVelocityZ, target.X, target.Z, smoothing, STEP)
+		baseVelocityX, baseVelocityZ, ax, az = TowerModel.baseVelocityStep(
+			baseVelocityX,
+			baseVelocityZ,
+			target.X,
+			target.Z,
+			smoothing,
+			STEP,
+			Tuning.turnFactor
+		)
 
 		local padX, padZ = TowerModel.assist(state, params, Tuning.variant, Tuning, STEP)
 		local event = TowerModel.step(state, params, {
@@ -208,7 +215,7 @@ local function updateHud(root: BasePart)
 
 	local steady = TowerModel.steadyBonus(state, Tuning)
 	local value = Economy.serveValue(scoops, Flavors.byId, EconomyConfig, { steadyBonus = steady })
-	registry.Hud.setTower(#scoops, value, steady)
+	registry.Hud.setTower(#scoops, Economy.capacity(coneLevel(), EconomyConfig), value, steady)
 
 	if target and #scoops > 0 and not state.toppled then
 		if distance > EconomyConfig.serveRadius + 1 then
@@ -760,6 +767,11 @@ end
 -- Whether the local tower can take a scoop right now (not toppling, room on the cone): catching and picking up.
 function TowerController.canTake(): boolean
 	return canCatch()
+end
+
+-- Whether the cone holds as many scoops as its level allows (Config/Economy upgrades.cone.capacity).
+function TowerController.isFull(): boolean
+	return #scoops >= Economy.capacity(coneLevel(), EconomyConfig)
 end
 
 -- The free scoops of the own topple arrived (LootRenderer): the stand-ins left where the tower stood can go.

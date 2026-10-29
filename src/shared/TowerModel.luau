@@ -369,18 +369,31 @@ end
 -- One fixed step of the movement smoothing that feeds the tower: the base velocity eases towards the target
 -- (MoveDirection * WalkSpeed) over `smoothing` seconds, and the change is the acceleration the tower feels.
 -- The client and the tests share this, so the tests see the same input limits as players do.
+-- turnFactor (Config/Tower, 1 when omitted) scales the part of that acceleration that only turns the heading (across
+-- the current velocity): starting, stopping and reversing count in full, a curve or a camera sweep while walking
+-- (the walking direction follows the camera) by that share.
 function TowerModel.baseVelocityStep(
 	vx: number,
 	vz: number,
 	targetX: number,
 	targetZ: number,
 	smoothing: number,
-	dt: number
+	dt: number,
+	turnFactor: number?
 ): (number, number, number, number)
 	local alpha = 1 - math.exp(-dt / smoothing)
 	local nextX = vx + (targetX - vx) * alpha
 	local nextZ = vz + (targetZ - vz) * alpha
-	return nextX, nextZ, (nextX - vx) / dt, (nextZ - vz) / dt
+	local ax, az = (nextX - vx) / dt, (nextZ - vz) / dt
+	local speed = math.sqrt(vx * vx + vz * vz)
+	local factor = turnFactor or 1
+	if factor ~= 1 and speed > 1e-3 then
+		local ux, uz = vx / speed, vz / speed
+		local along = ax * ux + az * uz
+		local acrossX, acrossZ = ax - along * ux, az - along * uz
+		ax, az = along * ux + acrossX * factor, along * uz + acrossZ * factor
+	end
+	return nextX, nextZ, ax, az
 end
 
 function TowerModel.step(

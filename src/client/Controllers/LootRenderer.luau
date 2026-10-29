@@ -75,6 +75,7 @@ local registry
 local drawn: { [number]: Drawn } = {}
 local zone: Part?
 local zoneCart: string?
+local lastFullNote = -math.huge -- os.clock of the last "cone full" note
 
 local function makePart(): Part
 	local part = TowerVisual.makePart(TowerVisual.root())
@@ -227,7 +228,7 @@ local function vanish(part: BasePart, seconds: number)
 	end)
 end
 
--- A landed scoop's time is up: it pops in a small cloud of its own colour (a quick swelling ball, a few flecks at a
+-- A free scoop's time is up: it pops in a small cloud of its own colour (a quick swelling ball, a few flecks at a
 -- lower VFX quality fewer).
 local function puff(part: BasePart)
 	local position, color = part.Position, part.Color
@@ -333,22 +334,36 @@ local function onRejected(id: number)
 	end
 end
 
--- The local player walks over a scoop they may take: claim it and let it fly to the tower.
-local function tryClaim(scoop: Drawn, now: number, root: BasePart, humanoid: Humanoid)
-	if scoop.claimedAt or os.clock() < scoop.retryAt then
-		return
-	end
+-- Whether the local player stands on a scoop they may take now.
+local function onScoop(scoop: Drawn, now: number, root: BasePart, humanoid: Humanoid): boolean
 	if not Loot.canCollect(scoop.rule, player.UserId, now) then
-		return
+		return false
 	end
 	local position = scoop.part.Position
 	local feet = root.Position.Y - humanoid.HipHeight - root.Size.Y / 2
 	local ground = groundAt(scoop, now - scoop.wire.t0)
 	local dx, dy, dz = root.Position.X - position.X, feet - ground, root.Position.Z - position.Z
-	if Loot.inReach(dx, dy, dz, 0, false, LootConfig) then
+	return Loot.inReach(dx, dy, dz, 0, false, LootConfig)
+end
+
+-- The local player walks over a scoop they may take: claim it and let it fly to the tower.
+local function tryClaim(scoop: Drawn, now: number, root: BasePart, humanoid: Humanoid)
+	if scoop.claimedAt or os.clock() < scoop.retryAt then
+		return
+	end
+	if onScoop(scoop, now, root, humanoid) then
 		scoop.claimedAt = os.clock()
 		Remotes.LootClaim:FireServer(scoop.wire.id)
 	end
+end
+
+-- The cone is full: the scoop stays where it lies for the others, and the player hears why (now and then).
+local function noteFull(scoop: Drawn, now: number, root: BasePart, humanoid: Humanoid)
+	if os.clock() - lastFullNote < LootConfig.fullNotice or not onScoop(scoop, now, root, humanoid) then
+		return
+	end
+	lastFullNote = os.clock()
+	registry.Hud.toast("CONE FULL! Serve at your cart", Palette.awning)
 end
 
 -- The safe zone around the own cart: a faint disc, fainter while a throw from it has lifted the protection.
@@ -395,10 +410,17 @@ local function onRenderStep(dt: number)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local canTake = root ~= nil and humanoid ~= nil and humanoid.Health > 0 and registry.TowerController.canTake()
+	local alive = root ~= nil and humanoid ~= nil and humanoid.Health > 0
+	local canTake = alive and registry.TowerController.canTake()
+	local full = alive and not canTake and registry.TowerController.isFull()
 	local top = registry.TowerController.topPosition()
 
-	for _, scoop in drawn do
+	for id, scoop in drawn do
+		if now >= scoop.wire.endAt + LootConfig.expireGrace then
+			-- the server's removal never came: its time is up all the same
+			onRemoved(id, nil, if scoop.wire.sinks then "water" else "puff")
+			continue
+		end
 		local elapsed = now - scoop.wire.t0
 		if scoop.claimedAt then
 			if os.clock() - scoop.claimedAt > CLAIM_WAIT then
@@ -427,6 +449,8 @@ local function onRenderStep(dt: number)
 
 		if canTake and root and humanoid then
 			tryClaim(scoop, now, root, humanoid)
+		elseif full and root and humanoid then
+			noteFull(scoop, now, root, humanoid)
 		end
 	end
 end

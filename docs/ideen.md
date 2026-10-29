@@ -43,6 +43,7 @@ Grundregeln für alles hier: Sorten und Gegenstände sind anders, nicht stärker
 ## Offen
 
 - **Feuerrate der Big Swirl** an die Spielerzahl koppeln. Heute 1,5 s Grundtakt, mit mehr Spielern geteilt durch die Wurzel der Spielerzahl, höchstens alle 0,45 s. Mit der größeren Map neu entscheiden; die sechs Arme schaffen eine Kugel alle 0,5 s.
+- **Obere Cone-Stufen (45/55/65 Kugeln):** Simulation vom 29.10.2026 (stehender Turm, nur Auto-Stabilisator, 12 Seeds, 300 s): Stufe 3 hält 45 (Grenze 46), Stufe 4 hält nur bis 47 statt 55, Stufe 5 nur bis 48 statt 65. Darüber fällt der Turm im Stand nach etwa 2 s, auch mit Stance. Damit 55 und 65 im Stand halten, bräuchte die Cone-Steifigkeit mindestens ×2,45 (Stufe 4, heute ×1,45) und ×3,70 (Stufe 5, heute ×1,6). Entscheidung steht aus.
 - **Kippen kleiner Türme:** Seit dem Treffer-Tuning vom 25.10.2026 kippen drei schnelle volle Treffer auch den kleinsten Turm. Gewollt oder nicht?
 - **Wurfkugel und Turm-Kugel Vanilla:** Soll die Wurfkugel (`#FFE7C0`) an das Creme der Turm-Kugel (`#F9DCA8`) angeglichen werden? (Art Bible)
 - **Offene Punkte im Code:**

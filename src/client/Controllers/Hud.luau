@@ -458,11 +458,16 @@ function Hud.Start()
 	update()
 end
 
-function Hud.setTower(count: number, value: number, steady: number)
+-- count scoops of the cone's capacity; a full cone says so in red, since it takes no more until served.
+function Hud.setTower(count: number, capacity: number, value: number, steady: number)
 	towerCount = count
 	towerCard.Visible = count > 0
 	if count > 0 then
-		countText.Text = if count == 1 then "1 scoop" else string.format("%d scoops", count)
+		local full = count >= capacity
+		countText.Text = if full
+			then string.format("%d/%d FULL", count, capacity)
+			else string.format("%d/%d scoops", count, capacity)
+		countText.TextColor3 = if full then COLORS.awning else COLORS.vanilla
 		worthText.Text = string.format("worth %d", math.floor(value))
 		local percent = math.floor(steady * 100 + 0.5)
 		steadyDot.Visible = percent > 0

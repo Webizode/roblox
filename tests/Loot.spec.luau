@@ -248,6 +248,21 @@ describe("Spilled scoops: who may pick up", function()
 		expect(reason).toBe("gone")
 	end)
 
+	it("a spilled scoop lies 10 s, blinks in the last second and is gone for good after it", function()
+		expect(Config.lifetime).toBe(10)
+		expect(Config.blinkSeconds).toBe(1)
+		-- the head starts (owner 2 s, everybody else 3 s) fit well inside it
+		expect(Config.fallTime + Config.ownerSeconds < Config.lifetime - Config.blinkSeconds).toBe(true)
+		local t0 = 100
+		local endAt = t0 + Config.lifetime
+		expect(Loot.blinks(endAt, endAt - 1.1, false, false, Config)).toBe(false)
+		expect(Loot.blinks(endAt, endAt - 0.9, false, false, Config)).toBe(true)
+		-- a client that missed the removal drops it itself, by then nobody may pick it up any more
+		expect(Config.expireGrace > 0 and Config.expireGrace <= 2).toBe(true)
+		local s = scoop(1, t0 + Config.fallTime)
+		expect((Loot.canCollect(s, 2, endAt + Config.expireGrace))).toBe(false)
+	end)
+
 	it("lets an honest player walking over it take it, also with lag, but not from afar", function()
 		-- right on top, at the edge, and at the edge with a lagging root at walking speed
 		expect(Loot.inReach(0, 0, 0, 0, false, Config)).toBe(true)

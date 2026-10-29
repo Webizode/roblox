@@ -46,7 +46,7 @@ describe("Landed scoops from the Big Swirl", function()
 		expect(Loot.blinks(scoop.endAt, landedAt + 3, true, false, LootConfig)).toBe(false)
 	end)
 
-	it("spilled scoops blink as before, sinking ones not at all", function()
+	it("spilled scoops blink in their last second too, sinking ones not at all", function()
 		local endAt = 50
 		expect(Loot.blinks(endAt, endAt - LootConfig.blinkSeconds + 0.1, false, false, LootConfig)).toBe(true)
 		expect(Loot.blinks(endAt, endAt - LootConfig.blinkSeconds - 0.1, false, false, LootConfig)).toBe(false)
@@ -57,8 +57,8 @@ describe("Landed scoops from the Big Swirl", function()
 		expect(Loot.landedRoom(LootConfig.maxLanded - 1, LootConfig)).toBe(0)
 		expect(Loot.landedRoom(LootConfig.maxLanded, LootConfig)).toBe(1)
 		-- spilled scoops keep their own numbers
-		expect(LootConfig.lifetime).toBe(15)
-		expect(LootConfig.blinkSeconds).toBe(2)
+		expect(LootConfig.lifetime).toBe(10)
+		expect(LootConfig.blinkSeconds).toBe(1)
 	end)
 end)
 

@@ -58,6 +58,10 @@ return {
 	},
 
 	accelSmoothing = 0.25, -- seconds, MoveDirection lerp that feeds the tower instead of raw Humanoid velocity
+	-- share of the acceleration that only turns the heading the tower feels (TowerModel.baseVelocityStep): starting,
+	-- stopping and dashes count in full, curves and camera sweeps while walking (in combat mode the character walks
+	-- the way the camera looks) half. Turning on the spot moves nothing and never wobbles the tower.
+	turnFactor = 0.5,
 
 	-- Physics profile. padGain multiplies the pad authority above (the stabiliser and the stance act through it),
 	-- driftScale the random wandering. accelPerInstability makes walking tip unstable towers harder, so moving with
@@ -67,7 +71,9 @@ return {
 	-- Automatic stabiliser (TowerModel.assist), a PD controller on the lean that is deliberately imperfect: it sees
 	-- the lean smoothed over `lag` seconds, uses at most `strength` of the pad, gives up between fadeFrom and fadeTo
 	-- of the tip angle, and gets weaker from fullUntil scoops to `floor` of its strength at zeroAt scoops.
-	-- In simulation (no player input at all, 12 seeds): standing still, towers of up to 44 scoops stay up for 300 s;
+	-- In simulation (no player input at all, 12 seeds): standing still, towers of up to 46 scoops stay up for 300 s
+	-- (47 on cone level 4, 48 on level 5: the 55 and 65 of those cones fall within 2 s, docs/ideen.md);
+	-- the figures for turns below are from before turnFactor 0.5, with it hard 90 degree turns hold about 6 more;
 	-- walking straight ahead (a stop every 3 s, 30 degree changes of heading) holds 25 for 60 s and up to 37 with
 	-- the occasional steady stance. Sprinting holds 21, hard 90 degree turns every 1.5 s 24 (sprinting 21); at 25
 	-- scoops a sprint topples after about 9 s, hard turns after 11 s, sprinted turns after 3 s. Dashes topple from
