@@ -6,7 +6,7 @@ return {
 	-- who may pick up: for ownerSeconds only the owner, counted from the moment the owner can act again (landing,
 	-- or the end of a knockdown that is still running), then everybody
 	ownerSeconds = 3,
-	lifetime = 12, -- seconds from the topple until an uncollected scoop disappears
+	lifetime = 15, -- seconds from the topple until an uncollected scoop disappears
 	blinkSeconds = 2, -- it blinks for this long before it disappears
 	maxFree = 40, -- free scoops per server; a new spill pushes the oldest ones out
 
