@@ -42,9 +42,18 @@ return {
 	-- "low". The performance mode is "low" plus no shadows, bloom or sun rays on this device.
 	particleScale = { high = 1, medium = 0.5, low = 0.2 },
 
-	-- background music, looped in the Music sound group. Placeholder from Roblox's licensed APM library.
+	-- background music: a playlist in the Music sound group (MusicPlaylist, Sfx). The songs take turns in random order,
+	-- never the same one twice in a row, with pauseMin to pauseMax seconds of quiet between them. An entry with an
+	-- empty id is a placeholder and is skipped until it gets one. The musicVolume setting covers every song.
 	music = {
-		id = "rbxassetid://1839029058", -- "Happyland", APMOfficial
+		tracks = {
+			"rbxassetid://1839029058", -- placeholder: "Happyland", APMOfficial (Roblox's licensed APM library)
+			"", -- placeholder, the user's audio id follows
+			"", -- placeholder
+			"", -- placeholder
+		},
+		pauseMin = 60, -- seconds of quiet between two songs
+		pauseMax = 120,
 		volume = 0.5, -- multiplied by the musicVolume setting
 	},
 

@@ -3,8 +3,10 @@
 -- The server owns all of it (LootService); clients draw the scoops with the same numbers (Loot.position).
 
 return {
-	-- who may pick up: for ownerSeconds only the owner, counted from the moment the owner can act again (landing,
-	-- or the end of a knockdown that is still running), then everybody
+	-- who may pick up: nobody at once, so shooting a tower down is worth it. The owner may from ownerLock seconds
+	-- after the landing on, everybody else from ownerSeconds on, counted from the moment the owner can act again
+	-- (landing, or the end of a knockdown that is still running); until then only the owner.
+	ownerLock = 2,
 	ownerSeconds = 3,
 	lifetime = 15, -- seconds from the topple until an uncollected scoop disappears
 	blinkSeconds = 2, -- it blinks for this long before it disappears
@@ -19,8 +21,9 @@ return {
 
 	-- the way down: from where the scoop sat in the toppled tower to the ground, then a short roll away from it
 	fallTime = 0.35, -- seconds; picking up starts once it landed
-	rollMin = 2, -- studs
-	rollMax = 4,
+	-- spread out round the toppled tower, so the owner cannot gather everything from where they stand
+	rollMin = 4, -- studs
+	rollMax = 8,
 	rollSpread = math.rad(50), -- the roll leaves along the lean, give or take this much
 	rollDecay = 4, -- 1/s; the roll slows down exponentially, 98 % done after a second
 	waterSamples = 4, -- points along the roll the server checks for ground, so a scoop rolling into the sea sinks
@@ -37,6 +40,9 @@ return {
 
 	scoopRadius = 1, -- drawn scoop, a little smaller than one on a tower
 	ringSize = 3.2, -- the owner's glow under a reserved scoop
+	-- the moment a scoop may be picked up by the local player it pops and a light ring flashes under it
+	readyPop = 1.3, -- times its size at the top of the pop
+	readyTime = 0.35, -- seconds
 
 	-- the safe zone around the own cart: ice-ball hits there do no harm. A player who throws from inside it loses the
 	-- protection for unshieldSeconds, so nobody camps at the cart and shoots out of it.

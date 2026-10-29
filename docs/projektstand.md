@@ -26,7 +26,7 @@ Roblox-PvP-Spiel auf einem offenen Pier. Die Eismaschine **Big Swirl** schießt 
 | Server-Modell | **Offener Server**, kein Matchmaking, keine Lobby |
 | Arena-Gefühl | **Kurze Events** (ca. 3 Min.) alle paar Minuten, z. B. „Scoop Rush“, „höchster Turm gewinnt“ |
 | Einsatz | Getragener Turm ist ungesichert, Servieren sichert |
-| Beute | Verschüttete Kugeln anderer können eingesammelt werden (noch nicht gebaut) |
+| Beute | Verschüttete Kugeln anderer können eingesammelt werden (gebaut, `LootService`) |
 | Führende | Große Türme leuchten (Golden Glow) und werden zum Ziel |
 | Fairness | 30 % (mind. 2) bleiben beim Kippen, 3 s Vorrang auf eigene Kugeln, Türme unter 5 Kugeln und Wagenbereich geschützt |
 | Angriff | Einzige Angriffsaktion: Werfen. Kein Nahkampf |
@@ -135,6 +135,8 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
 - **Knockdown-Fix** (seit 29.10.2026): Treffer zählten fast immer als Streifschuss, weil der Server als Abstand zur Körperachse den Punkt nahm, an dem der Ball in die Trefferzone eintrat (immer am Rand, ca. 2,4 von 2,8 Studs). Jetzt zählt die nächste Stelle der Flugbahn durch den Körper (`Combat.passDistance`). Dazu baut sich das Taumeln langsamer ab (`staggerDecay` 0,2 statt 0,6). Ergebnis, im Test mit 2 Spielern gemessen: zwei voll gehaltene Treffer auf die Mitte werfen um (Stärke 1,00 je Treffer), drei mittige Antipper ebenfalls beim dritten (0,60 je Treffer); ein einzelner Treffer, zwei Antipper oder seitliche Antipper nicht. Jeder Treffer wird mit `Features.debugThrow` auf dem Server protokolliert (Stärke, Abstand, Tempo, Taumeln)
 - **Kamera-Empfindlichkeit** (seit 29.10.2026): im Einstellungsmenü unter Steuerung getrennt für Maus, Touch und Controller, 30–300 %, Standard 100 %, gespeichert und vom Server geprüft wie die anderen Einstellungen. Wirkt nur im Kampfmodus; die Kampfkamera dreht dafür jetzt auch auf Touch selbst (Wischen außerhalb von Schaltflächen). Außerhalb dreht Roblox' Kamera mit Roblox' eigener Einstellung
 - **Zielhilfe** (seit 29.10.2026): in der Kampfkamera, Stärke nach dem gerade benutzten Gerät: Maus kaum spürbar, Controller mittel, Touch deutlich. Ist ein Gegner nah am Fadenkreuz (bis 8°, bis 120 Studs, sichtbar, nicht in seiner Schutzzone am Stand), dreht die Kamera dort langsamer und zieht sanft zu ihm hin; beides wird zum Rand hin schwächer, kein Einrasten, niemand hinter oder neben dem Fadenkreuz. Der Server prüft Treffer wie bisher. Werte in `Config/Combat` `aimAssist`, Logik in `AimRules`
+- **Musik-Playlist** (seit 29.10.2026): 3 bis 5 Lieder in zufälliger Reihenfolge, nie dasselbe zweimal hintereinander, dazwischen 60 bis 120 s Stille (`Config/Settings` `music`: `tracks`, `pauseMin`, `pauseMax`; Logik `MusicPlaylist`). Der Musik-Regler gilt für alle Lieder. Bis die Audio-IDs des Nutzers da sind: „Happyland“ als Platzhalter, leere Einträge werden übersprungen
+- **Sperrzeit für verschüttete Kugeln** (seit 29.10.2026): Niemand hebt sofort auf. Der Besitzer darf nach 2 s (`Config/Loot` `ownerLock`), alle anderen nach 3 s (`ownerSeconds`, nach einem Knockdown des Besitzers ab dem Aufstehen). Die Kugeln rollen 4 bis 8 Studs weit (vorher 2 bis 4). Wird eine Kugel für einen Spieler aufhebbar, ploppt sie kurz und ein heller Ring blitzt. Der Server entscheidet (`Loot.canCollect`)
 - Offen (UI): Ein Designer baut das neue Hauptmenü und Einstellungsmenü. Mit seiner Datei wird das Menü neu gebaut (Design übernehmen, Script sauberer und flüssiger, alle Funktionen des alten Menüs). Bis dahin am Menü nichts umbauen
 - Offen (Sorten): eigene seltenere Sorten des Nutzers (uncommon bis legendary) entwerfen, bauen und hinzufügen, mit eigener Form, Werten, Physik und Rezepten; dazu Golden. Die goldene Spur mit Glitzer ist fertig, der Launcher meldet goldene Kugeln aber erst mit `Features.goldenScoops`
 - Hinweis Spielstand: Alte Spielstände können noch servierte Kugeln der entfernten Sorten enthalten (`flavorServes`). Sie bleiben gültig; ein späteres Sammelbuch muss unbekannte IDs überspringen
@@ -149,7 +151,7 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
 
 1. Lokalen Stand pushen
 2. **Kill-Test** mit 2–3 Spielern gleichzeitig
-3. Beute: verschüttete Kugeln anderer einsammeln
+3. Beute: verschüttete Kugeln anderer einsammeln (erledigt)
 4. Golden Glow für große Türme
 5. Emotionssystem mit Vanille
 6. Erdbeere, Minze, Chili
@@ -182,3 +184,9 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
 - Keine automatischen Commits
 - `lune run scripts/check` muss grün bleiben
 - Neue Werte in die Configs, nicht hart in den Code
+
+---
+
+## 11. Ideen für später
+
+Der Ideen-Pool steht in `docs/ideen.md` (geplant, Idee, offen). Dort ist nichts beschlossen; was gebaut wird, steht hier.

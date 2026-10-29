@@ -8,6 +8,7 @@
 -- roll, nobody's, for landedLifetime seconds.
 
 export type Config = {
+	ownerLock: number,
 	ownerSeconds: number,
 	lifetime: number,
 	blinkSeconds: number,
@@ -50,6 +51,7 @@ export type Path = {
 export type Scoop = {
 	owner: number,
 	landedAt: number,
+	ownerFrom: number, -- the owner may pick it up from then on (Loot.ownerFrom)
 	ownerUntil: number,
 	expiresAt: number,
 }
@@ -201,16 +203,30 @@ function Loot.ownerUntil(landedAt: number, ownerDownUntil: number, config: Confi
 	return math.max(landedAt, ownerDownUntil) + config.ownerSeconds
 end
 
+-- From when the owner may pick up their own scoop that landed at `landedAt`: ownerLock later, so a toppled tower
+-- is not simply gathered up again on the spot.
+function Loot.ownerFrom(landedAt: number, config: Config): number
+	return landedAt + config.ownerLock
+end
+
 -- Whether `userId` may pick the scoop up at `now`, and why not.
 function Loot.canCollect(scoop: Scoop, userId: number, now: number): (boolean, string)
 	if now < scoop.landedAt then
 		return false, "still falling"
 	elseif now >= scoop.expiresAt then
 		return false, "gone"
+	elseif userId == scoop.owner and now < scoop.ownerFrom then
+		return false, "not yet for the owner"
 	elseif userId ~= scoop.owner and now < scoop.ownerUntil then
 		return false, "the owner's turn"
 	end
 	return true, "ok"
+end
+
+-- From when `userId` may pick the scoop up (as long as it is there): what the client lights up for.
+function Loot.collectableFrom(scoop: Scoop, userId: number): number
+	local from = if userId == scoop.owner then scoop.ownerFrom else scoop.ownerUntil
+	return math.max(scoop.landedAt, from)
 end
 
 -- Whether a character at (dx, dy, dz) from the scoop (dy: root height above the scoop's ground point) reaches it.
@@ -242,7 +258,7 @@ function Loot.landed(flavorId: string, landedAt: number, groundY: number, config
 	return {
 		path = { flavorId = flavorId, sx = 0, sy = 0, sz = 0, lx = 0, lz = 0, rx = 0, rz = 0 },
 		profile = { shares = { 0 }, heights = { groundY }, stopShare = 1, sinkAt = nil },
-		rule = { owner = 0, landedAt = landedAt, ownerUntil = landedAt, expiresAt = expiresAt },
+		rule = { owner = 0, landedAt = landedAt, ownerFrom = landedAt, ownerUntil = landedAt, expiresAt = expiresAt },
 		t0 = landedAt - config.fallTime,
 		endAt = expiresAt,
 	}

@@ -61,6 +61,7 @@ for _, name in
 		"ScoopLabel",
 		"TargetRules",
 		"AimRules",
+		"MusicPlaylist",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")

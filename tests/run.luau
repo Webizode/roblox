@@ -25,6 +25,7 @@ require("./ScoopFlight.spec")
 require("./LandedLabel.spec")
 require("./TargetRules.spec")
 require("./AimRules.spec")
+require("./MusicPlaylist.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

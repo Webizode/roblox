@@ -1,6 +1,7 @@
 -- Plays the placeholder sounds from Config/Sounds. Catches climb a pentatonic scale so a growing tower sings.
 -- Every sound of the game runs through one of two sound groups, so the settings set effects and music apart; the
--- background music (Config/Settings.music) loops in the music group.
+-- background music (Config/Settings.music) plays as a playlist in the music group: songs in random order with quiet
+-- between them (MusicPlaylist).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
@@ -8,6 +9,7 @@ local SoundService = game:GetService("SoundService")
 local Config = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
 local Sounds = require(Config:WaitForChild("Sounds"))
 local SettingsConfig = require(Config:WaitForChild("Settings"))
+local MusicPlaylist = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("MusicPlaylist"))
 
 local Settings = require(script.Parent:WaitForChild("Settings"))
 
@@ -31,21 +33,54 @@ local musicGroup = group("WobbleMusic")
 
 local music = Instance.new("Sound")
 music.Name = "BackgroundMusic"
-music.SoundId = SettingsConfig.music.id
 music.Volume = SettingsConfig.music.volume
-music.Looped = true
+music.Looped = false
 music.SoundGroup = musicGroup
 music.Parent = SoundService
+
+local musicOn = false -- the music slider is above 0
+-- a song that does not load or never ends is given up after this long, so the playlist never hangs
+local LONGEST_SONG = 600 -- seconds
+
+-- The playlist (MusicPlaylist): a song, then pauseMin to pauseMax seconds of quiet, then another one, never the same
+-- twice in a row. The music slider at 0 stops it; turned up again it goes on with the next song.
+local function playlist()
+	local songs = MusicPlaylist.songs(SettingsConfig)
+	local rng = Random.new()
+	local last: number? = nil
+	while true do
+		while not musicOn do
+			task.wait(0.5)
+		end
+		local index = MusicPlaylist.next(#songs, last, rng:NextNumber())
+		if not index then
+			return -- only placeholders so far
+		end
+		last = index
+		music.SoundId = songs[index]
+		music.TimePosition = 0
+		music:Play()
+		local playing = 0
+		while musicOn and music.IsPlaying and playing < LONGEST_SONG do
+			playing += task.wait(0.5)
+		end
+		music:Stop()
+		local pause, waited = MusicPlaylist.pause(rng:NextNumber(), SettingsConfig), 0
+		while musicOn and waited < pause do
+			waited += task.wait(0.5)
+		end
+	end
+end
 
 Settings.onChanged(function(settings)
 	effects.Volume = settings.sfxVolume
 	musicGroup.Volume = settings.musicVolume
-	if settings.musicVolume > 0 and not music.IsPlaying then
-		music:Play()
-	elseif settings.musicVolume <= 0 and music.IsPlaying then
+	musicOn = settings.musicVolume > 0
+	if not musicOn and music.IsPlaying then
 		music:Stop()
 	end
 end)
+task.spawn(playlist)
 
 -- The group for any other effect sound of the game (the dash model's sounds), so the effects volume covers it.
 function Sfx.effectsGroup(): SoundGroup

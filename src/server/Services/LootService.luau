@@ -33,6 +33,7 @@ type Free = {
 	profile: Loot.Profile, -- the ground along the roll, and where the roll stops or sinks
 	t0: number, -- server time of the topple
 	landedAt: number,
+	ownerFrom: number, -- the owner may pick it up from then on
 	ownerUntil: number,
 	expiresAt: number,
 	endAt: number, -- expiresAt, or earlier when it rolls into the water
@@ -86,6 +87,7 @@ local function wire(scoop: Free)
 		land = Vector3.new(path.lx, 0, path.lz),
 		roll = Vector3.new(path.rx, 0, path.rz),
 		t0 = scoop.t0,
+		ownerFrom = scoop.ownerFrom,
 		ownerUntil = scoop.ownerUntil,
 		endAt = scoop.endAt,
 		sinks = scoop.sinks,
@@ -301,6 +303,7 @@ function LootService.spill(player: Player, flavorIds: { string }, keep: number, 
 			profile = profile,
 			t0 = time,
 			landedAt = landedAt,
+			ownerFrom = Loot.ownerFrom(landedAt, LootConfig),
 			ownerUntil = ownerUntil,
 			expiresAt = time + LootConfig.lifetime,
 			endAt = endAt,
@@ -342,6 +345,7 @@ function LootService.landed(flavorId: string, position: Vector3, landedAt: numbe
 		profile = made.profile,
 		t0 = made.t0,
 		landedAt = made.rule.landedAt,
+		ownerFrom = made.rule.ownerFrom,
 		ownerUntil = made.rule.ownerUntil,
 		expiresAt = made.rule.expiresAt,
 		endAt = made.endAt,

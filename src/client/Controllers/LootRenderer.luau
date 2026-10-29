@@ -39,6 +39,7 @@ type Wire = {
 	land: Vector3,
 	roll: Vector3,
 	t0: number,
+	ownerFrom: number,
 	ownerUntil: number,
 	endAt: number,
 	sinks: boolean,
@@ -58,6 +59,7 @@ type Drawn = {
 	claimedAt: number?, -- os.clock of the claim; the scoop flies to the own tower until the server answers
 	retryAt: number, -- os.clock; after a refused claim, not again before this
 	blinking: boolean,
+	readyShown: boolean, -- the flash that it may be picked up now has played
 }
 
 local FLAT = CFrame.Angles(0, 0, math.rad(90)) -- cylinders run along X
@@ -107,6 +109,36 @@ end
 local function place(scoop: Drawn, centre: Vector3)
 	scoop.centre = centre
 	scoop.part.CFrame = scoop.model:at(CFrame.new(centre) * CFrame.Angles(0, scoop.wire.id * 1.3, 0))
+end
+
+-- The scoop may be picked up by the local player from now on: it pops up a little and a light ring flashes under it.
+local function flashReady(scoop: Drawn)
+	local part = scoop.part
+	if not part.Parent then
+		return
+	end
+	local size = part.Size
+	TweenService:Create(
+		part,
+		TweenInfo.new(LootConfig.readyTime / 2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true),
+		{ Size = size * LootConfig.readyPop }
+	):Play()
+	local ring = makePart()
+	ring.Name = "LootReady"
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Material = Enum.Material.Neon
+	ring.Color = Color3.new(1, 1, 1)
+	ring.Transparency = 0.2
+	ring.Size = Vector3.new(0.12, 1.5, 1.5)
+	local ground = groundAt(scoop, workspace:GetServerTimeNow() - scoop.wire.t0)
+	ring.CFrame = CFrame.new(part.Position.X, ground + 0.12, part.Position.Z) * FLAT
+	TweenService:Create(ring, TweenInfo.new(LootConfig.readyTime), {
+		Size = Vector3.new(0.12, 4.5, 4.5),
+		Transparency = 1,
+	}):Play()
+	task.delay(LootConfig.readyTime, function()
+		ring:Destroy()
+	end)
 end
 
 local function updateRing(scoop: Drawn, now: number)
@@ -162,6 +194,7 @@ local function add(wire: Wire)
 		rule = {
 			owner = wire.owner,
 			landedAt = wire.t0 + LootConfig.fallTime,
+			ownerFrom = wire.ownerFrom,
 			ownerUntil = wire.ownerUntil,
 			expiresAt = wire.endAt,
 		},
@@ -173,6 +206,7 @@ local function add(wire: Wire)
 		claimedAt = nil,
 		retryAt = 0,
 		blinking = false,
+		readyShown = false,
 	}
 	place(scoop, worldPosition(scoop, workspace:GetServerTimeNow() - wire.t0))
 	drawn[wire.id] = scoop
@@ -386,6 +420,10 @@ local function onRenderStep(dt: number)
 		end
 		scoop.blinking = blinking
 		updateRing(scoop, now)
+		if not scoop.readyShown and now >= Loot.collectableFrom(scoop.rule, player.UserId) then
+			scoop.readyShown = true
+			flashReady(scoop)
+		end
 
 		if canTake and root and humanoid then
 			tryClaim(scoop, now, root, humanoid)
