@@ -63,7 +63,7 @@ Die Idee "der Turm schreit beim Kippen" (20 Kugeln schauen gleichzeitig panisch)
 
 - Grundmaterial SmoothPlastic, Farbe pro Sorte aus der Palette (`Config/Flavors`), gesetzt als Farbe des MeshParts.
 - Seit dem 29.10.2026 (vom Nutzer freigegeben) darf jede Sorte ein kleines **Detailbild** tragen, z. B. die Vanille-Punkte: eine `SurfaceAppearance` im Overlay-Modus. Das Bild ist bis auf die Details durchsichtig, darunter zeigt sich die Sortenfarbe. Bei ca. 450 Dreiecken gehen solche Details nicht als Geometrie.
-- Sorten-Unterschiede über Form und Material nach `concept.md` (Rocky Road klumpig, Mochi flach, Jelly aus Glass usw.). Die erste Sorte ist Vanilla `#F9DCA8` (seit 29.10.2026, vom Nutzer freigegeben): Der Palette-Token `vanilla` `#FFF3D6` wirkt im Licht der Insel fast weiß mit Minzstich, im Spiel verglichen mit `#FFE7C0` und `#F9DCA8`. Der Token selbst bleibt, er ist der fast weiße Ton der Eis-Effekte (Frost, Dash, Eiswölkchen).
+- Sorten-Unterschiede über Form und Material nach `concept.md` (seltenere Sorten bekommen eigene Formen und Materialien). Die erste Sorte ist Vanilla `#F9DCA8` (seit 29.10.2026, vom Nutzer freigegeben): Der Palette-Token `vanilla` `#FFF3D6` wirkt im Licht der Insel fast weiß mit Minzstich, im Spiel verglichen mit `#FFE7C0` und `#F9DCA8`. Der Token selbst bleibt, er ist der fast weiße Ton der Eis-Effekte (Frost, Dash, Eiswölkchen).
 
 ### Turm-Kugel-Modell (Stand 29.10.2026)
 
@@ -83,7 +83,7 @@ Gebaut per Skript: `assets/TowerScoops/build_scoops.py` (Blender, alles parametr
   - Strawberry: große rote Erdbeerstücke
   - Mint: dunkle, eckige Schoko-Splitter
   - Bubblegum: bunte Kaugummi-Kugeln mit Glanzpunkt
-  - Cookie: eckige, dunkle Keksstücke und Krümel auf dunklerem Hellbraun. Abgrenzung zu Cookie Dough (uncommon): dort heller Teig mit runden Klumpen und Schoko-Chips
+  - Cookie: eckige, dunkle Keksstücke und Krümel auf dunklerem Hellbraun
   - Mango: Mangowürfel mit heller Oberkante; gegen Lemon: Würfel statt Schalen-Streifen und Scheibe, Orange statt Gelb
   - Stracciatella: feine Schoko-Streifen rund um die Kugel (Vanilla hat Punkte)
 - **Gleiche Form, kein Import:** Alle Sorten ohne Extra-Teil haben exakt die Grundform, Roblox legt dafür ohnehin nur ein Mesh an. `studio_setup.luau` übernimmt mit `SHAPE = "vanilla"` die Meshes von Vanilla und setzt nur Farbe und Detailbild. Importieren muss man nur eine Sorte mit eigener Form (Lemon).

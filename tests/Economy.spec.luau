@@ -7,6 +7,17 @@ local Config = require("../src/shared/Config/Economy")
 local Flavors = require("../src/shared/Config/Flavors")
 local RecipeConfig = require("../src/shared/Config/Recipes")
 
+-- a secret stack that exists only in the tests: the whole tower counts double (scope "tower")
+local TEST_STACKS = {
+	{
+		id = "test_party",
+		name = "Test Party",
+		sequence = { "lemon", "mango", "lemon" },
+		effect = { kind = "valueMultiplier", scope = "tower", factor = 2 },
+		rumor = "",
+	},
+}
+
 local function stack(id: string, count: number): { string }
 	return table.create(count, id)
 end
@@ -51,8 +62,10 @@ describe("Economy", function()
 		-- three of four equal scoops count triple: (5 + 15 + 15 + 15) / 20
 		expect(withStack / plain).toBeCloseTo(2.5)
 
-		local party = { "cursed_pickle", "chili_lava", "cursed_pickle" }
-		local partyStacks = Recipes.findStacks(party, RecipeConfig.secretStacks)
+		-- a whole-tower stack (none in the game since the rarer flavors went; this one exists only here)
+		local party = { "lemon", "mango", "lemon" }
+		local partyStacks = Recipes.findStacks(party, TEST_STACKS)
+		expect(#partyStacks).toBe(1)
 		local partyPlain = Economy.serveValue(party, Flavors.byId, Config)
 		expect(Economy.serveValue(party, Flavors.byId, Config, { stacks = partyStacks }) / partyPlain).toBeCloseTo(2)
 	end)
@@ -123,10 +136,10 @@ describe("Recipes", function()
 	end)
 
 	it("counts repeated stacks without overlap", function()
-		local tower = { "rocky_road", "rocky_road", "mochi", "rocky_road", "rocky_road", "mochi" }
+		local tower = { "vanilla", "chocolate", "strawberry", "vanilla", "chocolate", "strawberry" }
 		expect(#Recipes.findStacks(tower, RecipeConfig.secretStacks)).toBe(2)
-		local overlapping = { "cursed_pickle", "chili_lava", "cursed_pickle", "chili_lava", "cursed_pickle" }
-		expect(#Recipes.findStacks(overlapping, RecipeConfig.secretStacks)).toBe(1)
+		local overlapping = { "lemon", "mango", "lemon", "mango", "lemon" }
+		expect(#Recipes.findStacks(overlapping, TEST_STACKS)).toBe(1)
 	end)
 
 	it("resolves churn swirls in either order", function()
@@ -162,6 +175,6 @@ describe("Flavors", function()
 			expect(flavor.mass).toBeGreaterThan(0)
 			expect(string.match(flavor.color, "^#%x%x%x%x%x%x$") ~= nil).toBe(true)
 		end
-		expect(#Flavors.list).toBe(17) -- 11 commons (since 29.10.2026) and 6 rarer ones
+		expect(#Flavors.list).toBe(11) -- the eleven commons; the rarer flavors come later as new designs
 	end)
 end)

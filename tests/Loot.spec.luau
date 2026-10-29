@@ -42,10 +42,10 @@ describe("Spilled scoops: what falls", function()
 	end)
 
 	it("drops the scoops above the kept ones, with their flavors, the top one first", function()
-		local flavors = { "vanilla", "mint", "chocolate", "strawberry", "vanilla", "cursed_pickle" }
+		local flavors = { "vanilla", "mint", "chocolate", "strawberry", "vanilla", "lemon" }
 		local paths = Loot.spill(flavors, 2, 0.5, 0, 1, Config, Tuning, TowerShape)
 		expect(#paths).toBe(4)
-		expect(paths[1].flavorId).toBe("cursed_pickle")
+		expect(paths[1].flavorId).toBe("lemon")
 		expect(paths[4].flavorId).toBe("chocolate")
 	end)
 

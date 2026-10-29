@@ -16,8 +16,23 @@ local function stack(id: string, count: number): { string }
 	return ids
 end
 
+-- The game's flavors plus three made-up ones that only exist here, so the physics modifiers (mass, damping, jerk)
+-- stay tested while every flavor in the game is a plain classic. The rarer flavors that use them come later.
+local FLAVORS = table.clone(Flavors.byId)
+local function testFlavor(id: string, fields: { [string]: number })
+	local flavor = table.clone(Flavors.byId.vanilla) :: any
+	flavor.id = id
+	for key, value in fields do
+		flavor[key] = value
+	end
+	FLAVORS[id] = flavor
+end
+testFlavor("test_heavy", { mass = 2, stiffness = 0.3 })
+testFlavor("test_bouncy", { mass = 0.8, damping = -0.5 })
+testFlavor("test_kicker", { mass = 1.2, jerk = 1.2 })
+
 local function paramsFor(ids: { string }, coneMultiplier: number?)
-	return TowerModel.params(ids, Flavors.byId, Tuning, coneMultiplier or 1)
+	return TowerModel.params(ids, FLAVORS, Tuning, coneMultiplier or 1)
 end
 
 -- Runs the model for `seconds`. `controller(observedState)` returns an Input; `delaySteps` simulates human
@@ -202,23 +217,23 @@ describe("TowerModel", function()
 	end)
 
 	it("heavy scoops at the bottom are more stable than at the top", function()
-		local heavyLow = { "rocky_road", "rocky_road", "rocky_road", "vanilla", "vanilla", "vanilla" }
-		local heavyHigh = { "vanilla", "vanilla", "vanilla", "rocky_road", "rocky_road", "rocky_road" }
+		local heavyLow = { "test_heavy", "test_heavy", "test_heavy", "vanilla", "vanilla", "vanilla" }
+		local heavyHigh = { "vanilla", "vanilla", "vanilla", "test_heavy", "test_heavy", "test_heavy" }
 		local low = paramsFor(heavyLow)
 		local high = paramsFor(heavyHigh)
 		expect(low.gravity).toBeLessThan(high.gravity)
 		expect(low.stiffness).toBeCloseTo(high.stiffness)
 	end)
 
-	it("jelly makes the tower bouncier and pickles kick it", function()
+	it("a bouncy flavor makes the tower bouncier and a kicking one kicks it", function()
 		local plain = paramsFor(stack("vanilla", 5))
-		local jelly = paramsFor(stack("jelly", 5))
-		expect(jelly.damping).toBeLessThan(plain.damping)
-		expect(paramsFor(stack("cursed_pickle", 1)).jerk).toBeGreaterThan(0)
+		local bouncy = paramsFor(stack("test_bouncy", 5))
+		expect(bouncy.damping).toBeLessThan(plain.damping)
+		expect(paramsFor(stack("test_kicker", 1)).jerk).toBeGreaterThan(0)
 		local still = TowerModel.newState(8)
 		local kicked = TowerModel.newState(8)
 		simulate(still, paramsFor(stack("vanilla", 4)), PAD, 2, nil)
-		simulate(kicked, paramsFor({ "vanilla", "vanilla", "vanilla", "cursed_pickle" }), PAD, 2, nil)
+		simulate(kicked, paramsFor({ "vanilla", "vanilla", "vanilla", "test_kicker" }), PAD, 2, nil)
 		expect(TowerModel.tilt(still)).toBeLessThan(1e-9)
 		expect(TowerModel.tilt(kicked)).toBeGreaterThan(1e-4)
 	end)

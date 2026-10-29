@@ -74,12 +74,17 @@ describe("The name sign over a scoop", function()
 		expect(label.color).toBe(Flavors.rarityColors.common)
 	end)
 
+	-- the rarer flavors come later; a made-up one stands in for them here
+	local function rarer(rarity: string, golden: boolean?)
+		local flavor = { name = "Test", value = 7.5, rarity = rarity }
+		return ScoopLabel.text(flavor, golden == true, Flavors, Economy)
+	end
+
 	it("the name in the colour of its rarity", function()
-		expect(text("rocky_road").color).toBe(Flavors.rarityColors.uncommon)
-		expect(text("mochi").color).toBe(Flavors.rarityColors.rare)
-		expect(text("chili_lava").color).toBe(Flavors.rarityColors.epic)
-		expect(text("cursed_pickle").color).toBe(Flavors.rarityColors.legendary)
-		expect(text("rocky_road").value).toBe("7.5")
+		for _, rarity in { "uncommon", "rare", "epic", "legendary" } do
+			expect(rarer(rarity).color).toBe(Flavors.rarityColors[rarity])
+		end
+		expect(rarer("uncommon").value).toBe("7.5")
 	end)
 
 	it("a golden scoop says so, in gold, with its real value", function()
@@ -87,7 +92,7 @@ describe("The name sign over a scoop", function()
 		expect(label.name).toBe("Golden Vanilla")
 		expect(label.value).toBe(tostring(5 * Economy.goldenMultiplier))
 		expect(label.color).toBe(Flavors.rarityColors.golden)
-		expect(text("rocky_road", true).value).toBe("37.5")
+		expect(rarer("uncommon", true).value).toBe("37.5")
 	end)
 
 	it("every rarity has a colour", function()
