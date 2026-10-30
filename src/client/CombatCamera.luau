@@ -112,13 +112,13 @@ local function unblocked(pivot: Vector3, offset: Vector3, character: Model): Vec
 	return offset
 end
 
--- Whether `other` stands in their own cart's safe zone right now (Loot.isShielded, as the server decides it).
+-- Whether `other` stands in their own plot's safe zone right now (Loot.isShielded, as the server decides it).
 local function shielded(other: Player, position: Vector3): boolean
 	local pier = workspace:FindFirstChild("Pier")
-	local carts = pier and pier:FindFirstChild("Carts")
-	local cartName = other:GetAttribute("CartName")
-	local cart = carts and type(cartName) == "string" and carts:FindFirstChild(cartName)
-	local servePoint = cart and cart:FindFirstChild("ServePoint") :: BasePart?
+	local plots = pier and pier:FindFirstChild("Plots")
+	local plotName = other:GetAttribute("PlotName")
+	local plot = plots and type(plotName) == "string" and plots:FindFirstChild(plotName)
+	local servePoint = plot and plot:FindFirstChild("ServePoint") :: BasePart?
 	if not servePoint then
 		return false
 	end

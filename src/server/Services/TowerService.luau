@@ -200,7 +200,7 @@ local function onServe(player: Player, steadyClaim: any)
 	end
 
 	local root = rootOf(player)
-	local servePoint = registry.CartService.servePoint(player)
+	local servePoint = registry.PlotService.servePoint(player)
 	if not root or not servePoint or not registry.DataService.data(player) then
 		return -- no serving before the save is loaded: the coins would have nowhere to go
 	end

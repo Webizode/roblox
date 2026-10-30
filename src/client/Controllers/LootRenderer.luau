@@ -1,6 +1,6 @@
 -- Draws the free spilled scoops the server announces (LootService) and picks one up when the local player walks
 -- over it: the claim goes to the server, which decides. A scoop reserved for its owner glows in the owner's colour,
--- one about to disappear blinks. Also draws the local player's safe zone around the own cart.
+-- one about to disappear blinks. Also draws the local player's safe zone around the own plot's ServePoint.
 --
 -- Kept cheap for phones: one anchored part per scoop plus one ring while it is reserved, no collisions, shadows,
 -- lights or particles, and a part is only moved while it falls, rolls or flies to a tower.
@@ -74,7 +74,7 @@ local player = Players.LocalPlayer
 local registry
 local drawn: { [number]: Drawn } = {}
 local zone: Part?
-local zoneCart: string?
+local zonePlot: string?
 local lastFullNote = -math.huge -- os.clock of the last "cone full" note
 
 local function makePart(): Part
@@ -366,25 +366,26 @@ local function noteFull(scoop: Drawn, now: number, root: BasePart, humanoid: Hum
 	registry.Hud.toast("CONE FULL! Serve at your cart", Palette.awning)
 end
 
--- The safe zone around the own cart: a faint disc, fainter while a throw from it has lifted the protection.
+-- The safe zone around the own plot's ServePoint: a faint disc, fainter while a throw from it has lifted the
+-- protection.
 local function updateZone(now: number)
-	local cartName = player:GetAttribute("CartName")
-	if cartName ~= zoneCart or not zone then
+	local plotName = player:GetAttribute("PlotName")
+	if plotName ~= zonePlot or not zone then
 		if zone then
 			zone:Destroy()
 			zone = nil
 		end
-		-- the cart is only remembered once its disc stands: the pier may not have arrived yet
-		zoneCart = nil
+		-- the plot is only remembered once its disc stands: the pier may not have arrived yet
+		zonePlot = nil
 		local pier = workspace:FindFirstChild("Pier")
-		local carts = pier and pier:FindFirstChild("Carts")
-		local cart = carts and type(cartName) == "string" and carts:FindFirstChild(cartName)
-		local servePoint = cart and cart:FindFirstChild("ServePoint") :: BasePart?
+		local plots = pier and pier:FindFirstChild("Plots")
+		local plot = plots and type(plotName) == "string" and plots:FindFirstChild(plotName)
+		local servePoint = plot and plot:FindFirstChild("ServePoint") :: BasePart?
 		if servePoint then
-			zoneCart = cartName
+			zonePlot = plotName
 			local params = RaycastParams.new()
 			params.FilterType = Enum.RaycastFilterType.Exclude
-			params.FilterDescendantsInstances = { cart, TowerVisual.root() }
+			params.FilterDescendantsInstances = { plot, TowerVisual.root() }
 			local hit = workspace:Raycast(servePoint.Position + Vector3.new(0, 4, 0), Vector3.new(0, -30, 0), params)
 			local y = if hit then hit.Position.Y else servePoint.Position.Y
 			local disc = makePart()

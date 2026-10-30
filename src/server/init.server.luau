@@ -7,11 +7,13 @@ local ORDER = {
 	"MapService",
 	"DataService",
 	"KillTestLog",
-	"CartService",
+	"PlotService",
 	"TowerService",
 	"LauncherService",
 	"CombatService",
 	"LootService",
+	"DebugDummies",
+	"WalkTimer",
 }
 
 local registry = {}

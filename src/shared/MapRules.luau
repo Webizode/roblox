@@ -94,4 +94,26 @@ function MapRules.spotsNear(spots: { number }, x: number, z: number, radius: num
 	return near
 end
 
+-- The spots of `spots` between `inner` and `outer` (inclusive) from (x, z); when none is, the one closest to that ring.
+-- Returns indices into the spot list (1-based spot numbers, not array positions).
+function MapRules.spotsBetween(spots: { number }, x: number, z: number, inner: number, outer: number): { number }
+	local between = {}
+	local best, bestMiss = nil, math.huge
+	for index = 1, #spots // 3 do
+		local dx, dz = spots[index * 3 - 2] - x, spots[index * 3] - z
+		local distance = math.sqrt(dx * dx + dz * dz)
+		if distance >= inner and distance <= outer then
+			table.insert(between, index)
+		end
+		local miss = math.max(inner - distance, distance - outer)
+		if miss < bestMiss then
+			best, bestMiss = index, miss
+		end
+	end
+	if #between == 0 and best then
+		table.insert(between, best)
+	end
+	return between
+end
+
 return MapRules

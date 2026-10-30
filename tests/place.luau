@@ -90,7 +90,17 @@ do
 	expectInstance({ "ReplicatedStorage", "Shared", "Config", name }, "ModuleScript")
 end
 for _, name in
-	{ "MapService", "DataService", "KillTestLog", "CartService", "TowerService", "LauncherService", "CombatService" }
+	{
+		"MapService",
+		"DataService",
+		"KillTestLog",
+		"PlotService",
+		"TowerService",
+		"LauncherService",
+		"CombatService",
+		"DebugDummies",
+		"WalkTimer",
+	}
 do
 	expectInstance({ "ServerScriptService", "Server", "Services", name }, "ModuleScript")
 end

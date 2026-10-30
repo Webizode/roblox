@@ -115,11 +115,11 @@ local function catchBase(root: BasePart): Vector3
 end
 
 local function servePoint(): BasePart?
-	local cartName = player:GetAttribute("CartName")
+	local plotName = player:GetAttribute("PlotName")
 	local pier = workspace:FindFirstChild("Pier")
-	local carts = pier and pier:FindFirstChild("Carts")
-	local cart = carts and type(cartName) == "string" and carts:FindFirstChild(cartName)
-	return cart and cart:FindFirstChild("ServePoint") :: BasePart?
+	local plots = pier and pier:FindFirstChild("Plots")
+	local plot = plots and type(plotName) == "string" and plots:FindFirstChild(plotName)
+	return plot and plot:FindFirstChild("ServePoint") :: BasePart?
 end
 
 local function flatten(vector: Vector3): Vector3

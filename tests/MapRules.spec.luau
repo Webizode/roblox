@@ -46,8 +46,8 @@ describe("Map: landing spots", function()
 		expect(MapRules.landingSurface(nil, "Part", 1, Config)).toBe(true)
 	end)
 
-	it("roofs, palms, lamps, lollipops, bushes, the fence and the machine are not", function()
-		for _, folder in { "Stoiska", "Palmy", "Latarnie", "Lizaki", "Trawa", "Plot", "BigSwirl" } do
+	it("roofs, palms, lamps, lollipops, bushes, the fence, the cover and the machine are not", function()
+		for _, folder in { "Stoiska", "Covery", "Palmy", "Latarnie", "Lizaki", "Trawa", "Plot", "BigSwirl" } do
 			expect(MapRules.landingSurface(folder, "Part", 1, Config)).toBe(false)
 		end
 	end)

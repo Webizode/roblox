@@ -1,10 +1,11 @@
 --!strict
--- Kornel's ice cream island (Workspace."Ice Cream Map") and how the game reads it: where the Big Swirl stands, where
+-- The ice cream island (Workspace."Ice Cream Map") and how the game reads it: where the Big Swirl stands, where
 -- the sea starts, which surfaces scoops may land on and which decorations a thrown ball flies through.
--- Folder names are the map's own top-level folders (Polish). The contract for Workspace.Pier is in MapService.
+-- Folder names are the map's own top-level folders (Polish, from Kornel's first island; the 16-player graybox keeps
+-- them). The contract for Workspace.Pier is in MapService.
 
 return {
-	root = "Ice Cream Map", -- Kornel's map in Workspace, never changed by the game
+	root = "Ice Cream Map", -- the map in Workspace, never changed by the game
 	pier = "Pier", -- the invisible helpers in Workspace (MapService contract)
 
 	-- the Big Swirl (our own machine, built by MapService) stands on this part in the middle of the plaza
@@ -30,9 +31,10 @@ return {
 		footprint = 1.5, -- studs from the spot to the four extra rays around it
 		maxStep = 0.8, -- studs of height difference within the footprint (rules out railings, lamp heads, knobs)
 		minNormalY = 0.8, -- surfaces steeper than about 37 degrees are not ground
-		-- never a landing spot: roofs, palms, lamps, lollipops, bushes, the fence, decorations, the machine
+		-- never a landing spot: roofs, palms, lamps, lollipops, bushes, the fence, decorations, the cover, the machine
 		blockedFolders = {
 			"Stoiska",
+			"Covery",
 			"Palmy",
 			"Latarnie",
 			"Lizaki",

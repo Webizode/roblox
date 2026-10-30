@@ -15,7 +15,7 @@ return {
 	ink = "#2B2D42",
 	white = "#FFFFFF", -- the crosshair's default colour
 
-	-- one per cart (CartService sets it as the PlayerColor attribute): marks what belongs to a player, like the glow
+	-- one per plot (PlotService sets it as the PlayerColor attribute): marks what belongs to a player, like the glow
 	-- of their spilled scoops. Bright and far apart, so they read on the deck and on small screens.
 	playerColors = {
 		"#3A86FF",
@@ -28,5 +28,7 @@ return {
 		"#70E000",
 		"#C1121F",
 		"#F15BB5",
+		"#5E60CE",
+		"#2EC4B6",
 	},
 }

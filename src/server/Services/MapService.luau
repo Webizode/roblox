@@ -1,18 +1,19 @@
--- Reads Kornel's ice cream island and puts our Big Swirl on it. The map itself is never changed: the game finds its
+-- Reads the ice cream island and puts our Big Swirl on it. The map itself is never changed: the game finds its
 -- way around it through invisible helpers in Workspace.Pier and the rules in Config/Map.
 --
 -- Map contract (the place must follow it, the server stops with an error otherwise):
---   Workspace."Ice Cream Map"           Kornel's map (Config/Map.root), with the Big Swirl's spot
+--   Workspace."Ice Cream Map"           the island (Config/Map.root), with the Big Swirl's spot
 --     .Plac.Arena_Znacznik              BasePart in the middle of the plaza (Config/Map.machineMarker)
 --   Workspace.Pier                      Folder with the invisible helpers
---     .Carts.<Name>                     one Model per stand, each with
+--     .Plots.<Name>                     one Model per player plot (Plot_01, ...), each with
 --       .ServePoint                     BasePart (invisible, no collision or queries), about 3 studs above the ground
---                                       in front of the stand: where the player serves and spawns
+--                                       at the plot's edge towards the arena: where the player serves (the safe zone
+--                                       is around it) and spawns
 --       .Body.Label                     optional BillboardGui with a TextLabel, shows the owner
---       .Stand                          optional ObjectValue, the stand model in the map it belongs to
+--       .Area                           optional ObjectValue, the plot's area in the map (Ice Cream Map.Plots)
 --       .Spawn                          optional SpawnLocation (invisible, no collision) on the ground there, so
 --                                       Roblox never spawns a character at the origin inside the Big Swirl before
---                                       CartService moves it to its own stand
+--                                       PlotService moves it to its own plot
 --     .BigSwirl.Nozzle                  built here on the marker when missing; scoops launch from the Nozzle
 --   Water                               Terrain water, a part named "Water", Water material, or anything below
 --                                       Config/Map.waterLevel: spilled scoops sink there, players respawn
@@ -148,29 +149,29 @@ function MapService.Init()
 	local root = workspace:FindFirstChild(MapConfig.root)
 	local pier = workspace:FindFirstChild(MapConfig.pier)
 	local marker = root and find(root, MapConfig.machineMarker)
-	local carts = pier and pier:FindFirstChild("Carts")
+	local plots = pier and pier:FindFirstChild("Plots")
 	if not root then
 		table.insert(missing, `Workspace.{MapConfig.root}`)
 	end
 	if not (marker and marker:IsA("BasePart")) then
 		table.insert(missing, `the Big Swirl marker {table.concat(MapConfig.machineMarker, ".")}`)
 	end
-	if not carts then
-		table.insert(missing, `Workspace.{MapConfig.pier}.Carts`)
+	if not plots then
+		table.insert(missing, `Workspace.{MapConfig.pier}.Plots`)
 	else
-		for _, cart in carts:GetChildren() do
-			if not cart:FindFirstChild("ServePoint") then
-				table.insert(missing, `ServePoint in Carts.{cart.Name}`)
+		for _, plot in plots:GetChildren() do
+			if not plot:FindFirstChild("ServePoint") then
+				table.insert(missing, `ServePoint in Plots.{plot.Name}`)
 			end
 		end
-		if #carts:GetChildren() == 0 then
-			table.insert(missing, "at least one cart in Carts")
+		if #plots:GetChildren() == 0 then
+			table.insert(missing, "at least one plot in Plots")
 		end
 	end
 	if #missing > 0 then
 		error(`The place does not follow the map contract (top of MapService): missing {table.concat(missing, ", ")}.`)
 	end
-	assert(pier and carts and marker and marker:IsA("BasePart"), "map contract checked above")
+	assert(pier and plots and marker and marker:IsA("BasePart"), "map contract checked above")
 
 	local machine = pier:FindFirstChild("BigSwirl") or buildMachine(pier, marker)
 	local nozzle = machine:FindFirstChild("Nozzle") :: BasePart?
@@ -182,15 +183,15 @@ function MapService.Init()
 	MapService.pier = pier
 	MapService.nozzle = nozzle
 	MapService.center = Vector3.new(marker.Position.X, topOf(marker), marker.Position.Z)
-	MapService.carts = carts:GetChildren()
-	table.sort(MapService.carts, function(a, b)
+	MapService.plots = plots:GetChildren()
+	table.sort(MapService.plots, function(a, b)
 		return a.Name < b.Name
 	end)
 	MapService.landingSpots = sampleLandingSpots(MapService.center)
 	print(
 		string.format(
-			"[Map] %d stands, Big Swirl at (%.0f, %.1f, %.0f), %d landing spots",
-			#MapService.carts,
+			"[Map] %d plots, Big Swirl at (%.0f, %.1f, %.0f), %d landing spots",
+			#MapService.plots,
 			MapService.center.X,
 			MapService.center.Y,
 			MapService.center.Z,
@@ -204,22 +205,23 @@ function MapService.groundAt(x: number, fromY: number, z: number, reach: number)
 	return MapQuery.ground(x, fromY, z, reach, characters())
 end
 
--- the landing spots within a radius of the machine, worked out once per radius
-local within: { [number]: { number } } = {}
+-- the landing spots in a ring round the machine, worked out once per ring
+local inRing: { [string]: { number } } = {}
 
--- A random landing spot within `radius` studs of the machine (Config/Launcher randomRadius: the arena and the inner
--- ring), all equally likely.
-function MapService.landingWithin(radius: number, rng: Random): Vector3?
+-- A random landing spot between `inner` and `outer` studs from the machine (one of Config/Launcher randomBands), all
+-- equally likely; the spot nearest that ring when none lies in it.
+function MapService.landingBetween(inner: number, outer: number, rng: Random): Vector3?
 	local spots = MapService.landingSpots
-	local near = within[radius]
-	if not near then
-		near = MapRules.spotsNear(spots, MapService.center.X, MapService.center.Z, radius)
-		within[radius] = near
+	local key = `{inner}:{outer}`
+	local between = inRing[key]
+	if not between then
+		between = MapRules.spotsBetween(spots, MapService.center.X, MapService.center.Z, inner, outer)
+		inRing[key] = between
 	end
-	if #near == 0 then
+	if #between == 0 then
 		return nil
 	end
-	local index = near[rng:NextInteger(1, #near)]
+	local index = between[rng:NextInteger(1, #between)]
 	return Vector3.new(spots[index * 3 - 2], spots[index * 3 - 1], spots[index * 3])
 end
 

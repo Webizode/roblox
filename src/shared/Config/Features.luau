@@ -19,6 +19,20 @@ return {
 	-- reason for a reject, start point and speed, and what the ball hit). Turn off once throwing works in Studio.
 	debugThrow = true,
 
+	-- Studio test mode for the 12-player map (DebugDummies, Studio only): this many players in all, you included; the
+	-- rest are simulated. They take the last plots, count for the fire rate and the near shots, run for scoops they
+	-- can reach in time and serve at their plot. Landings show as discs, a summary goes to the output every 30 s and
+	-- to ServerStorage.DebugDummiesLog. 0 is off.
+	debugPlayers = 0,
+	-- the name, tower and catches over every dummy; also switchable while playing (attribute Labels on
+	-- Workspace.DebugDummies)
+	debugDummyLabels = true,
+
+	-- Studio stopwatch (WalkTimer, Studio only): prints the time from your last pickup to your own plot, and once at
+	-- the start walks test figures from their plot out to the Big Swirl (sprint) and from set and random landing spots
+	-- home (without a tower and with 36 scoops; ServerStorage.WalkTimerLog).
+	debugWalkTimer = false,
+
 	-- Temporary diagnostics for the dash: client and server print each step (request or why none was sent, the
 	-- server's grant or reason for a reject, the burst and why it ended). Turn off once the dash works in Studio.
 	debugDash = true,

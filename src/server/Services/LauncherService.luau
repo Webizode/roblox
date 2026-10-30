@@ -5,6 +5,8 @@
 -- cycle is over. Without the rig the scoop leaves from the Nozzle right away.
 -- The server knows every scoop it fired, so a client can only catch scoops that exist, after their highest
 -- point, at a recent time, close to its own tower (CatchRules).
+-- The Studio test mode (DebugDummies, Features.debugPlayers) adds simulated players: they count for the fire rate and
+-- the near shots, hear of every shot and catch some of them (takeByDummy). Off, its hooks do nothing.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -92,7 +94,8 @@ end
 
 -- Every target is one of the map's landing spots (MapService): ground a player can stand on, never water, a roof, a
 -- palm or a railing. A new player's first shots land right at them (tutorial). Otherwise most go to a random spot in
--- the arena and the inner ring and nearPlayerShare near a player who is on the move (TargetRules): a spot within
+-- the arena, weighted towards the middle (randomBands), and nearPlayerShare near a player who is on the move
+-- (TargetRules): a spot within
 -- playerOffset of them, or the nearest spot when they stand where nothing may land.
 local function pickTarget(): Vector3?
 	local now = workspace:GetServerTimeNow()
@@ -106,17 +109,22 @@ local function pickTarget(): Vector3?
 			end
 			local track = tracks[player]
 			if track and not TargetRules.isIdle(track, now, Tuning) then
-				table.insert(moving, root)
+				table.insert(moving, root.Position)
 			end
 		end
+	end
+	-- the simulated players of the Studio test mode (DebugDummies) count like real ones
+	for _, position in registry.DebugDummies.movingPositions(now) do
+		table.insert(moving, position)
 	end
 
 	local index = TargetRules.choose(rng:NextNumber(), rng:NextNumber(), #moving, Tuning)
 	if index then
-		local root = moving[index]
-		return map.landingNear(root.Position.X, root.Position.Z, Tuning.playerOffset, rng)
+		local position = moving[index]
+		return map.landingNear(position.X, position.Z, Tuning.playerOffset, rng)
 	end
-	return map.landingWithin(Tuning.randomRadius, rng)
+	local band = TargetRules.band(rng:NextNumber(), Tuning.randomBands)
+	return map.landingBetween(band.inner, band.outer, rng)
 end
 
 local function resolve(shot: Shot, catcher: Player?)
@@ -125,10 +133,24 @@ local function resolve(shot: Shot, catcher: Player?)
 	end
 	shot.resolved = true
 	shots[shot.id] = nil
+	registry.DebugDummies.shotResolved(shot.id, catcher)
 	-- nobody caught it: it lies where it came down for a few seconds (LootService.landed), unless that is the water.
 	-- The free scoop is announced first, so clients swap the shot for it without a gap.
 	local landed = catcher == nil and registry.LootService.landed(shot.flavorId, shot.to, shot.t0 + shot.flight)
 	Remotes.ShotResolved:FireAllClients(shot.id, catcher, landed)
+end
+
+-- A simulated player of the Studio test mode caught the shot: it is gone without a free scoop and without a splash
+-- (clients read `landed` as "a free scoop takes its place" and just drop the shot). False when it is already gone.
+function LauncherService.takeByDummy(id: number): boolean
+	local shot = shots[id]
+	if not shot or shot.resolved then
+		return false
+	end
+	shot.resolved = true
+	shots[id] = nil
+	Remotes.ShotResolved:FireAllClients(id, nil, true)
+	return true
 end
 
 -- interval: seconds until the next shot, which sets how fast the arms play
@@ -144,6 +166,7 @@ local function fire(interval: number)
 		local base = arms.root.Position
 		arm = LaunchArms.pick(to.X - base.X, to.Z - base.Z, arms.freeAt, now, ArmConfig)
 		if not arm then
+			registry.DebugDummies.shotSkipped()
 			return -- the arms that point that way are all busy; the next tick picks again
 		end
 		local timing = LaunchArms.timing(LaunchArms.playSpeed(interval, ArmConfig), ArmConfig)
@@ -186,6 +209,7 @@ local function fire(interval: number)
 		scoopAt,
 		speed
 	)
+	registry.DebugDummies.shotFired(shot.id, to, t0 + shot.flight)
 
 	task.delay(t0 - now + shot.flight * Tuning.resolveAfter, resolve, shot, nil)
 end
@@ -283,7 +307,7 @@ local function onCatchClaim(player: Player, id: any, claimTime: any, tiltX: any,
 end
 
 local function interval(): number
-	local playerCount = math.max(1, #Players:GetPlayers())
+	local playerCount = math.max(1, #Players:GetPlayers() + registry.DebugDummies.count())
 	return math.max(Tuning.minInterval, Tuning.baseInterval / math.sqrt(playerCount))
 end
 

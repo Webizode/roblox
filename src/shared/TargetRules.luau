@@ -1,6 +1,7 @@
 --!strict
--- Where the Big Swirl aims (Config/Launcher): most scoops go to a random spot in the arena and the inner ring, the
--- rest (nearPlayerShare) near one of the players who are on the move. Standing still for idleSeconds (within
+-- Where the Big Swirl aims (Config/Launcher): most scoops go to a random spot in the arena, in a ring picked by its
+-- share (randomBands, weighted towards the middle), the rest (nearPlayerShare) near one of the players who are on the
+-- move. Standing still for idleSeconds (within
 -- idleRadius) takes a player out of the near shots, so standing around grows no tower. Pure: the config is passed in;
 -- the launcher keeps a Track per player and feeds it the player's position.
 
@@ -35,6 +36,23 @@ function TargetRules.choose(roll: number, pick: number, moving: number, config: 
 		return nil
 	end
 	return math.clamp(1 + math.floor(pick * moving), 1, moving)
+end
+
+-- Which ring of `bands` (each { inner, outer, share }) a random shot lands in, by their shares (they need not add up
+-- to 1); `roll` in [0, 1).
+function TargetRules.band(roll: number, bands: { any }): any
+	local total = 0
+	for _, band in bands do
+		total += band.share
+	end
+	local left = roll * total
+	for _, band in bands do
+		left -= band.share
+		if left < 0 then
+			return band
+		end
+	end
+	return bands[#bands]
 end
 
 return TargetRules

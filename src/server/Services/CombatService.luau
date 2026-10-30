@@ -98,7 +98,7 @@ end
 
 -- Studs from the player's root to their own cart's ServePoint, or nil without either.
 local function cartDistance(player: Player, root: BasePart): number?
-	local servePoint = registry.CartService.servePoint(player)
+	local servePoint = registry.PlotService.servePoint(player)
 	return servePoint and (root.Position - servePoint).Magnitude
 end
 

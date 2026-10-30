@@ -59,19 +59,52 @@ describe("Big Swirl aim: random or near a player", function()
 end)
 
 describe("Big Swirl aim: the random spots", function()
-	it("only spots within randomRadius of the machine, the arena and the inner ring", function()
-		-- landing spots every 10 studs out to 100 along a line from the machine at (0, 0)
+	it("weighted towards the middle: 35 % at 25-60, 35 % at 60-95, 30 % at 95-125, set in the config", function()
+		local bands = Config.randomBands
+		expect(#bands).toBe(3)
+		local expected = { { 25, 60, 0.35 }, { 60, 95, 0.35 }, { 95, 125, 0.30 } }
+		for index, band in bands do
+			expect(band.inner).toBe(expected[index][1])
+			expect(band.outer).toBe(expected[index][2])
+			expect(band.share).toBe(expected[index][3])
+		end
+		expect(bands[#bands].outer <= 135).toBe(true) -- never out on the strip, the way home
+	end)
+
+	it("picks a ring by its share", function()
+		local bands = Config.randomBands
+		local count = {}
+		local rolls = 10000
+		for i = 0, rolls - 1 do
+			local band = TargetRules.band(i / rolls, bands)
+			count[band] = (count[band] or 0) + 1
+		end
+		for _, band in bands do
+			expect(math.abs(count[band] / rolls - band.share) < 0.001).toBe(true)
+		end
+		expect(TargetRules.band(0.9999999, bands)).toBe(bands[#bands])
+		-- shares need not add up to 1
+		local half = { { inner = 0, outer = 1, share = 1 }, { inner = 1, outer = 2, share = 1 } }
+		expect(TargetRules.band(0.49, half)).toBe(half[1])
+		expect(TargetRules.band(0.51, half)).toBe(half[2])
+	end)
+
+	it("only spots inside the ring, else the one closest to it", function()
+		-- landing spots every 10 studs out to 130 along a line from the machine at (0, 0)
 		local spots = {}
-		for r = 0, 100, 10 do
+		for r = 0, 130, 10 do
 			table.insert(spots, r)
 			table.insert(spots, 6)
 			table.insert(spots, 0)
 		end
-		local inside = MapRules.spotsNear(spots, 0, 0, Config.randomRadius)
-		for _, index in inside do
-			expect(spots[index * 3 - 2] <= Config.randomRadius).toBe(true)
+		local between = MapRules.spotsBetween(spots, 0, 0, 20, 50)
+		expect(#between).toBe(4) -- 20, 30, 40, 50
+		for _, index in between do
+			local r = spots[index * 3 - 2]
+			expect(r >= 20 and r <= 50).toBe(true)
 		end
-		expect(#inside).toBe(7) -- 0 to 60
-		expect(Config.randomRadius < 81).toBe(true) -- never out on the sand ring with the stands
+		local none = MapRules.spotsBetween(spots, 0, 0, 52, 58) -- no spot in there: the closest to the ring
+		expect(#none).toBe(1)
+		expect(spots[none[1] * 3 - 2]).toBe(50)
 	end)
 end)
