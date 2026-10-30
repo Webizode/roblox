@@ -1,6 +1,7 @@
--- Gives every player their own plot (Workspace.Pier.Plots), spawns them in front of its ServePoint on the ground, sets
--- the jump power (Config/Economy.jumpPower; jumping is on since the dash came in) and brings back players who end up
--- in the sea: they respawn at their plot, like after any other respawn with an empty cone.
+-- Gives every player their own plot (Workspace.Pier.Plots), spawns them on it (its Spawn, the middle of the plot
+-- island), sets the jump power (Config/Economy.jumpPower; jumping is on since the dash came in) and brings back players
+-- who end up in the sea: they respawn at their plot, like after any other respawn with an empty cone. ArenaService
+-- uses the same spots for the teleport buttons.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -24,6 +25,46 @@ local map
 local owners: { [Instance]: Player } = {}
 local assigned: { [Player]: Model } = {}
 local respawning: { [Player]: boolean } = {}
+
+-- Where a new character of the player appears: the plot's Spawn (the middle of the island), or on a map without one
+-- serveRadius + 4 in front of the ServePoint, outside the serve radius, so the first catches are not served away as
+-- one-scoop towers the moment they land.
+function PlotService.spawnSpot(player: Player): Vector3?
+	local plot = assigned[player]
+	local spawn = plot and plot:FindFirstChild("Spawn")
+	if spawn and spawn:IsA("BasePart") then
+		return spawn.Position
+	end
+	local servePoint = plot and plot:FindFirstChild("ServePoint") :: BasePart?
+	if not servePoint then
+		return nil
+	end
+	local inward = Vector3.new(map.center.X - servePoint.Position.X, 0, map.center.Z - servePoint.Position.Z)
+	inward = if inward.Magnitude > 1e-3 then inward.Unit else Vector3.zero
+	return servePoint.Position + inward * SPAWN_DISTANCE
+end
+
+-- The player's way into the arena: the plot's ArenaEntry on the strip above its ramp, nil on a map without one.
+function PlotService.arenaEntry(player: Player): Vector3?
+	local plot = assigned[player]
+	local entry = plot and plot:FindFirstChild("ArenaEntry")
+	return if entry and entry:IsA("BasePart") then entry.Position else nil
+end
+
+-- Puts a character on the ground at (and under) `spot`, standing still and looking towards the Big Swirl.
+function PlotService.placeCharacter(character: Model, spot: Vector3)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not humanoid or not root then
+		return
+	end
+	-- on the ground there, whatever its height; the spot's own height when the ray finds nothing
+	local ground = map.groundAt(spot.X, spot.Y + SPAWN_RAY_UP, spot.Z, SPAWN_RAY_REACH)
+	local feet = ground.y or spot.Y
+	local at = Vector3.new(spot.X, feet + humanoid.HipHeight + root.Size.Y / 2 + 0.2, spot.Z)
+	root.AssemblyLinearVelocity = Vector3.zero
+	character:PivotTo(CFrame.lookAt(at, Vector3.new(map.center.X, at.Y, map.center.Z)))
+end
 
 -- The name over a taken plot; a free plot shows nothing (text nil).
 local function setLabel(plot: Model, text: string?)
@@ -75,23 +116,12 @@ local function onCharacter(player: Player, character: Model)
 	humanoid.UseJumpPower = true
 	humanoid.JumpPower = EconomyConfig.jumpPower
 
-	local plot = assigned[player]
-	local servePoint = plot and plot:FindFirstChild("ServePoint") :: BasePart?
-	if servePoint then
-		local root = character:WaitForChild("HumanoidRootPart") :: BasePart
+	local spot = PlotService.spawnSpot(player)
+	if spot then
+		character:WaitForChild("HumanoidRootPart")
 		-- wait a frame: the default spawn positions the character after CharacterAdded fires
 		task.wait()
-		-- spawn a few studs in front of the ServePoint, outside the serve radius, so the first (tutorial) catches are
-		-- not served away as one-scoop towers the moment they land
-		local lookAt = Vector3.new(map.center.X, servePoint.Position.Y, map.center.Z)
-		local inward = lookAt - servePoint.Position
-		inward = if inward.Magnitude > 1e-3 then inward.Unit else Vector3.zero
-		local spot = servePoint.Position + inward * SPAWN_DISTANCE
-		-- on the ground there, whatever its height; the ServePoint's own height when the ray finds nothing
-		local ground = map.groundAt(spot.X, spot.Y + SPAWN_RAY_UP, spot.Z, SPAWN_RAY_REACH)
-		local feet = ground.y or (servePoint.Position.Y - 3)
-		local spawnAt = Vector3.new(spot.X, feet + humanoid.HipHeight + root.Size.Y / 2 + 0.2, spot.Z)
-		character:PivotTo(CFrame.lookAt(spawnAt, Vector3.new(lookAt.X, spawnAt.Y, lookAt.Z)))
+		PlotService.placeCharacter(character, spot)
 	end
 	respawning[player] = nil
 end

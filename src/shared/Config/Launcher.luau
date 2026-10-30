@@ -7,24 +7,24 @@ return {
 
 	-- Where scoops land (TargetRules): most at a random spot in the arena, so nobody gets scoops
 	-- thrown at them just for standing around; nearPlayerShare of them near a player who is on the move. A player who
-	-- has stayed within idleRadius studs for idleSeconds counts as standing still and gets none aimed at them.
+	-- has stayed within idleRadius studs for idleSeconds counts as standing still and gets none aimed at them. Only
+	-- players in the arena (Config/Map.arena) get near shots and tutorial shots.
 	nearPlayerShare = 0.2,
 	-- the random spots, weighted towards the middle: a ring (studs from the machine) is picked by its share, then a spot
-	-- in it, all equally likely. Arena only (the machine reaches out to 28, the rim is at 135); the strip (135 to 159)
-	-- is the way home and, like the plots, only gets scoops aimed near a player
+	-- in it, all equally likely. No further than about 75 % of the arena radius (135), so the outer arena and the rim
+	-- stay the way out
 	randomBands = {
-		{ inner = 25, outer = 60, share = 0.35 },
-		{ inner = 60, outer = 95, share = 0.35 },
-		{ inner = 95, outer = 125, share = 0.30 },
+		{ inner = 25, outer = 55, share = 0.35 },
+		{ inner = 55, outer = 80, share = 0.35 },
+		{ inner = 80, outer = 100, share = 0.30 },
 	},
 	playerOffset = 9, -- max studs from the player a near shot lands
 	idleSeconds = 4,
 	idleRadius = 2,
-	tutorialShots = 3, -- first shots aim right at a new player
+	tutorialShots = 3, -- first shots aim right at a new player, once they are in the arena
 	tutorialOffset = 1.5,
-	-- landing spots are sampled inside this circle around the machine; it reaches past the spawns in front of the
-	-- plots (ServePoints at 163, spawns 12 studs further in), so the tutorial shots land right at a new player
-	landingRadius = 155,
+	-- landing spots are sampled inside this circle around the machine: the arena only, where all scoops land now
+	landingRadius = 135,
 
 	flightBase = 1.7, -- seconds
 	flightPerStud = 0.012,

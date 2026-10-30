@@ -2,18 +2,22 @@
 -- way around it through invisible helpers in Workspace.Pier and the rules in Config/Map.
 --
 -- Map contract (the place must follow it, the server stops with an error otherwise):
---   Workspace."Ice Cream Map"           the island (Config/Map.root), with the Big Swirl's spot
+--   Workspace."Ice Cream Map"           the hub island with the arena (Config/Map.root, arena size in Config/Map.arena)
+--                                       and the plot islands, with the Big Swirl's spot
 --     .Plac.Arena_Znacznik              BasePart in the middle of the plaza (Config/Map.machineMarker)
 --   Workspace.Pier                      Folder with the invisible helpers
---     .Plots.<Name>                     one Model per player plot (Plot_01, ...), each with
+--     .Plots.<Name>                     one Model per player plot (Plot_01, ...; ModelStreamingMode Persistent, so
+--                                       every client has every ServePoint), each with
 --       .ServePoint                     BasePart (invisible, no collision or queries), about 3 studs above the ground
---                                       at the plot's edge towards the arena: where the player serves (the safe zone
---                                       is around it) and spawns
+--                                       on the plot island at its bridge: where the player serves (the safe zone is
+--                                       around it)
 --       .Body.Label                     optional BillboardGui with a TextLabel, shows the owner
---       .Area                           optional ObjectValue, the plot's area in the map (Ice Cream Map.Plots)
---       .Spawn                          optional SpawnLocation (invisible, no collision) on the ground there, so
---                                       Roblox never spawns a character at the origin inside the Big Swirl before
---                                       PlotService moves it to its own plot
+--       .Area                           optional ObjectValue, the plot island in the map (Ice Cream Map.Plots)
+--       .Spawn                          optional SpawnLocation (invisible, no collision) in the middle of the plot
+--                                       island: where the player spawns and the "my plot" button brings them; without
+--                                       it they spawn a few studs in front of the ServePoint
+--       .ArenaEntry                     optional BasePart (invisible, no collision or queries) on the strip above the
+--                                       plot's ramp: where the "arena" button brings the player
 --     .BigSwirl.Nozzle                  built here on the marker when missing; scoops launch from the Nozzle
 --   Water                               Terrain water, a part named "Water", Water material, or anything below
 --                                       Config/Map.waterLevel: spilled scoops sink there, players respawn

@@ -473,3 +473,25 @@ describe("Hits: how centred they count", function()
 		expect(knocked).toBe(true)
 	end)
 end)
+
+describe("Knockdown animations", function()
+	local reaction = Config.reactionAnimations
+
+	it("the knockdown lasts as long as fall, lying still and the faster get-up together", function()
+		local total = reaction.fallLength + reaction.fallHold + reaction.getUpLength / reaction.getUpSpeed
+		expect(math.abs(Config.knockdownTime - total) < 0.01).toBe(true)
+		expect(math.abs(Config.knockdownTime - 1.6) < 0.05).toBe(true)
+	end)
+
+	it("the get-up fades in over about a quarter second and out into idle at its end", function()
+		expect(reaction.getUpFade).toBe(0.25)
+		expect(reaction.getUpSpeed).toBe(1.25)
+		expect(reaction.fallHold).toBe(0.2)
+		expect(reaction.idleFade > 0 and reaction.idleFade < reaction.getUpLength / reaction.getUpSpeed).toBe(true)
+	end)
+
+	it("the hit plays over walking and aiming, the knockdown over everything", function()
+		expect(reaction.hitPriority).toBe("Action2")
+		expect(reaction.knockdownPriority).toBe("Action4")
+	end)
+end)

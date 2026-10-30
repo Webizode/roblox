@@ -28,6 +28,10 @@ return {
 	-- Workspace.DebugDummies)
 	debugDummyLabels = true,
 
+	-- Draws the arena zone (ArenaZone, Config/Map.arena: the floor and the ramps up to their top edge) half transparent,
+	-- to check where the safe zone starts. Client only, for testing.
+	debugArenaZone = false,
+
 	-- Studio stopwatch (WalkTimer, Studio only): prints the time from your last pickup to your own plot, and once at
 	-- the start walks test figures from their plot out to the Big Swirl (sprint) and from set and random landing spots
 	-- home (without a tower and with 36 scoops; ServerStorage.WalkTimerLog).

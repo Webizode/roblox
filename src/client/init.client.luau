@@ -16,6 +16,7 @@ local ORDER = {
 	"LootRenderer",
 	"RemoteTowers",
 	"SettingsController",
+	"TeleportMenu",
 }
 
 local registry = {}

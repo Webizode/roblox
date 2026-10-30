@@ -2,9 +2,10 @@
 -- other gameplay value (the sprint speed is set by the server), and adds no second animation system:
 --   * animation ids from Config/Movement go into Roblox's own Animate script (empty ids keep the defaults),
 --   * a procedural layer on the root joint (R15 or R6, Motor6D or the AnimationConstraint of newer avatars) leans
---     every character into runs and turns, plays a stumble on a hit and a fall/get-up pose for a knockdown (every
---     client draws it for every character from replicated velocity and the server's hit events, so all players see
---     the same thing),
+--     every character into runs and turns and plays a stumble on a hit (every client draws it for every character
+--     from replicated velocity and the server's hit events, so all players see the same thing),
+--   * the hit, knockdown and get-up animations (Config/Combat reactionAnimations) on the local character; the
+--     Animator shows them to everyone. Where they do not load, a procedural fall/get-up pose stands in,
 --   * small local effects: dust and a little camera shake on landing, a FOV kick and trail on a dash, camera
 --     shake on hits,
 --   * combat movement while the CombatMode attribute is on: the local character's combat walk, idle and sprint over
@@ -24,6 +25,7 @@ local Dash = require(Shared:WaitForChild("Dash"))
 local Movement = require(Config:WaitForChild("Movement"))
 local Palette = require(Config:WaitForChild("Palette"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
+local Reaction = require(Config:WaitForChild("Combat")).reactionAnimations
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
@@ -368,10 +370,111 @@ local function watchLanding(character: Model)
 	end)
 end
 
+-- Hit reaction, knockdown and get-up animations (Config/Combat reactionAnimations) on the local character. The
+-- Animator replicates them, so other characters are left alone: their own clients play them.
+type ReactionTracks = { humanoid: Humanoid, hit: AnimationTrack?, fall: AnimationTrack?, getUp: AnimationTrack? }
+local reaction: ReactionTracks? = nil
+local knockdownRun = 0 -- counts knockdowns, so the timers of an earlier one do nothing
+-- set once the knockdown animations load here; the experience's animations load the same for everyone, so from then
+-- on other characters get no procedural knockdown pose on top of the animation their own client plays
+local knockdownAnimated = false
+
+local function loadReactionTracks(character: Model)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	local animator = humanoid and humanoid:WaitForChild("Animator", 10)
+	if not humanoid or not humanoid:IsA("Humanoid") or not animator or not animator:IsA("Animator") then
+		return
+	end
+	local function load(id: string, priority: string): AnimationTrack?
+		if id == "" or not canLoad(animator, id) then
+			return nil
+		end
+		local animation = Instance.new("Animation")
+		animation.AnimationId = id
+		local ok, track = pcall(function()
+			return animator:LoadAnimation(animation)
+		end)
+		if not ok then
+			return nil
+		end
+		track.Looped = false
+		track.Priority = (Enum.AnimationPriority :: any)[priority]
+		return track
+	end
+	local tracks: ReactionTracks = {
+		humanoid = humanoid,
+		hit = load(Reaction.hit, Reaction.hitPriority),
+		fall = load(Reaction.knockdown, Reaction.knockdownPriority),
+		getUp = load(Reaction.getUp, Reaction.knockdownPriority),
+	}
+	if player.Character == character then
+		reaction = tracks
+		knockdownAnimated = tracks.fall ~= nil and tracks.getUp ~= nil
+	end
+end
+
+local function isDown(tracks: ReactionTracks): boolean
+	return (tracks.fall ~= nil and tracks.fall.IsPlaying) or (tracks.getUp ~= nil and tracks.getUp.IsPlaying)
+end
+
+-- Fall, lie still on its last frame for fallHold, fade into the get-up (played getUpSpeed times faster), and fade out
+-- into idle at its end. Together that is Config/Combat knockdownTime.
+local function playKnockdown(tracks: ReactionTracks)
+	local fall, getUp = tracks.fall :: AnimationTrack, tracks.getUp :: AnimationTrack
+	knockdownRun += 1
+	local run = knockdownRun
+	if tracks.hit then
+		tracks.hit:Stop(Reaction.hitFade)
+	end
+	getUp:Stop(0)
+	fall:Play(0.05, 1, 1)
+	-- stop on the last frame: checked every frame, before the track can finish and let go of the pose (a timer comes
+	-- too late by a frame now and then)
+	local hold: RBXScriptConnection
+	hold = RunService.PreAnimation:Connect(function()
+		if run ~= knockdownRun or not fall.IsPlaying then
+			hold:Disconnect()
+		elseif fall.Length > 0 and fall.TimePosition >= fall.Length - 0.05 then
+			fall:AdjustSpeed(0)
+			fall.TimePosition = fall.Length - 0.01
+			hold:Disconnect()
+		end
+	end)
+	task.delay(Reaction.fallLength + Reaction.fallHold, function()
+		if run ~= knockdownRun then
+			return
+		end
+		getUp:Play(Reaction.getUpFade, 1, Reaction.getUpSpeed)
+		fall:Stop(Reaction.getUpFade)
+		task.delay(Reaction.getUpLength / Reaction.getUpSpeed - Reaction.idleFade, function()
+			if run == knockdownRun then
+				getUp:Stop(Reaction.idleFade)
+			end
+		end)
+	end)
+end
+
+-- The hit reaction on the local character for a hit that does not knock down (upper body only, so walking and
+-- aiming go on underneath). Other characters show theirs from their own clients.
+function MovementController.hitReaction(character: Model)
+	local tracks = reaction
+	if character ~= player.Character or not tracks or not tracks.hit or isDown(tracks) then
+		return
+	end
+	local hit = tracks.hit
+	hit:Play(Reaction.hitFade, 1, 1)
+	task.delay(math.max(0, hit.Length - Reaction.hitFade), function()
+		if hit.IsPlaying then
+			hit:Stop(Reaction.hitFade)
+		end
+	end)
+end
+
 local function onCharacter(character: Model)
 	combatTracks = nil -- the old character's tracks went with it
 	task.spawn(applyAnimations, character)
 	task.spawn(loadCombatTracks, character)
+	task.spawn(loadReactionTracks, character)
 	task.spawn(watchLanding, character)
 end
 
@@ -509,16 +612,26 @@ function MovementController.stumble(character: Model, dirX: number, dirZ: number
 	end
 end
 
--- Knockdown pose on any character for `seconds`, then it gets up.
+-- Knockdown on any character for `seconds`, then it gets up: the knockdown animations on the local character, the
+-- procedural pose when they do not load (or have not loaded yet).
 function MovementController.knockDown(character: Model, seconds: number)
 	local pose = poseFor(character)
 	if not pose then
 		return
 	end
-	pose.downTarget = 1
-	if character == player.Character then
+	local own = character == player.Character
+	if own then
 		startShake(Movement.hitShake * 1.6)
 	end
+	local tracks = reaction
+	if own and tracks and tracks.fall and tracks.getUp and tracks.humanoid.Parent == character then
+		playKnockdown(tracks)
+		return
+	end
+	if not own and knockdownAnimated then
+		return -- its own client plays the animations, which reach us through its Animator
+	end
+	pose.downTarget = 1
 	task.delay(seconds, function()
 		if poses[character] == pose then
 			pose.downTarget = 0

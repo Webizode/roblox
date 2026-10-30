@@ -62,6 +62,7 @@ for _, name in
 		"TargetRules",
 		"AimRules",
 		"MusicPlaylist",
+		"ArenaZone",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")
@@ -95,6 +96,7 @@ for _, name in
 		"DataService",
 		"KillTestLog",
 		"PlotService",
+		"ArenaService",
 		"TowerService",
 		"LauncherService",
 		"CombatService",
@@ -124,6 +126,7 @@ for _, name in
 		"ShotRenderer",
 		"RemoteTowers",
 		"SettingsController",
+		"TeleportMenu",
 	}
 do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", "Controllers", name }, "ModuleScript")

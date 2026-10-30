@@ -93,16 +93,17 @@ local function trackPlayers()
 end
 
 -- Every target is one of the map's landing spots (MapService): ground a player can stand on, never water, a roof, a
--- palm or a railing. A new player's first shots land right at them (tutorial). Otherwise most go to a random spot in
--- the arena, weighted towards the middle (randomBands), and nearPlayerShare near a player who is on the move
--- (TargetRules): a spot within
--- playerOffset of them, or the nearest spot when they stand where nothing may land.
+-- palm or a railing. Only players in the arena (ArenaService) count: a new one's first shots land right at them
+-- (tutorial), otherwise most go to a random spot in the arena, weighted towards the middle (randomBands), and
+-- nearPlayerShare near a player who is on the move (TargetRules): a spot within playerOffset of them, or the nearest
+-- spot when they stand where nothing may land.
 local function pickTarget(): Vector3?
 	local now = workspace:GetServerTimeNow()
 	local moving = {}
 	for _, player in Players:GetPlayers() do
 		local root = rootOf(player)
-		if root then
+		-- players on the strip, the hub or their plot get nothing aimed at them; the tutorial waits for the arena
+		if root and registry.ArenaService.inArena(player) then
 			if (tutorialLeft[player] or 0) > 0 then
 				tutorialLeft[player] -= 1
 				return map.landingNear(root.Position.X, root.Position.Z, Tuning.tutorialOffset, rng)

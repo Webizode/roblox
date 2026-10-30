@@ -59,16 +59,17 @@ describe("Big Swirl aim: random or near a player", function()
 end)
 
 describe("Big Swirl aim: the random spots", function()
-	it("weighted towards the middle: 35 % at 25-60, 35 % at 60-95, 30 % at 95-125, set in the config", function()
+	it("weighted towards the middle: 35 % at 25-55, 35 % at 55-80, 30 % at 80-100, set in the config", function()
 		local bands = Config.randomBands
 		expect(#bands).toBe(3)
-		local expected = { { 25, 60, 0.35 }, { 60, 95, 0.35 }, { 95, 125, 0.30 } }
+		local expected = { { 25, 55, 0.35 }, { 55, 80, 0.35 }, { 80, 100, 0.30 } }
 		for index, band in bands do
 			expect(band.inner).toBe(expected[index][1])
 			expect(band.outer).toBe(expected[index][2])
 			expect(band.share).toBe(expected[index][3])
 		end
-		expect(bands[#bands].outer <= 135).toBe(true) -- never out on the strip, the way home
+		-- no further than about 75 % of the arena radius (135), never near the rim
+		expect(bands[#bands].outer <= 0.76 * 135).toBe(true)
 	end)
 
 	it("picks a ring by its share", function()

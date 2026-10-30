@@ -356,7 +356,8 @@ local function hitPlayer(ball: Ball, victim: Player, position: Vector3, distance
 end
 
 -- Moves every ball from its last checked time to now and resolves the first thing it touches: a player capsule
--- or the world. Players knocked down are not targets until they are up again, and nobody hits themselves.
+-- or the world. Players knocked down are not targets until they are up again, players outside the arena never are
+-- (ArenaService), and nobody hits themselves.
 local function step()
 	local time = now()
 	if #balls == 0 then
@@ -384,7 +385,9 @@ local function step()
 		for _, player in Players:GetPlayers() do
 			local victimState = states[player]
 			local root = rootOf(player)
-			if player ~= ball.thrower and root and not (victimState and time < victimState.downUntil) then
+			-- players outside the arena are never hit: the ball flies on through them, even one already in the air
+			local target = player ~= ball.thrower and root and registry.ArenaService.inArena(player)
+			if target and root and not (victimState and time < victimState.downUntil) then
 				local p = root.Position
 				local distance, s = Combat.closestToCapsule(ax, ay, az, bx, by, bz, p.X, p.Y, p.Z, Config.hitHalfHeight)
 				if distance <= Config.hitRadius + Config.ballRadius and s < bestS then

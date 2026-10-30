@@ -217,6 +217,31 @@ return {
 	-- which with taps never added up.)
 	staggerDecay = 0.2,
 	knockdownAt = 1.5,
-	knockdownTime = 1.5, -- seconds on the ground; no further hits land meanwhile
+	-- seconds down; no further hits land meanwhile. The knockdown animations' total: fall (fallLength), lying still
+	-- (fallHold), get-up (getUpLength / getUpSpeed) = 0.333 + 0.2 + 1.367 / 1.25 = 1.63 (tests/Combat.spec)
+	knockdownTime = 1.63,
 	knockdownBoost = 1.5, -- knockback and tower kick multiplier for the hit that knocks down
+
+	-- Hit reaction, knockdown and get-up (R15, by Ismo). The victim's own client plays them on its character and the
+	-- Animator shows them to everyone (MovementController). Without them, or when one does not load, the procedural
+	-- stumble and knockdown pose stand in.
+	reactionAnimations = {
+		-- "R15_WS_Hit" (0.45 s): upper body only, so walking and aiming go on underneath; on every hit that does not
+		-- knock down
+		hit = "rbxassetid://84454561261662",
+		hitPriority = "Action2", -- Enum.AnimationPriority name
+		hitFade = 0.05, -- seconds in and out
+		-- "R15_WS_Knockdown" (0.333 s): falls and ends lying; it stops on its last frame
+		knockdown = "rbxassetid://127621446568262",
+		fallLength = 0.333, -- seconds
+		fallHold = 0.2, -- seconds lying still on the last frame
+		-- "R15_WS_GetUp" (1.367 s): starts lying, ends standing. It fades in over getUpFade (this also smooths the right
+		-- leg, whose pose differs from the fall's last frame) and fades out into idle/walk over idleFade at its end
+		getUp = "rbxassetid://127552978582776",
+		getUpLength = 1.367, -- seconds at speed 1
+		getUpSpeed = 1.25,
+		getUpFade = 0.25,
+		idleFade = 0.2,
+		knockdownPriority = "Action4", -- for the fall and the get-up
+	},
 }

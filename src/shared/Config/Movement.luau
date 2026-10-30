@@ -47,7 +47,8 @@ return {
 	sprintFov = 6, -- degrees wider while the local player sprints
 	sprintFovTime = 0.3,
 
-	-- hit stumble and knockdown pose (procedural until stumble/knockdown/get-up animations exist)
+	-- hit stumble (procedural, under the hit animation) and the procedural knockdown pose, which only stands in when the
+	-- knockdown animations of Config/Combat reactionAnimations do not load
 	stumbleAngle = math.rad(28), -- back-tilt of a full hit
 	stumbleRecover = 5, -- 1/s
 	knockdownAngle = math.rad(78),

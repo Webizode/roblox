@@ -272,6 +272,8 @@ local function onResolved(
 		registry.MovementController.stumble(character, dirX, dirZ, strength)
 		if knockdown then
 			registry.MovementController.knockDown(character, CombatConfig.knockdownTime)
+		else
+			registry.MovementController.hitReaction(character)
 		end
 	end
 	if thrower == player and victim ~= player then

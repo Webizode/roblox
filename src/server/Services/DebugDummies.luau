@@ -1,11 +1,12 @@
--- Studio test mode for the 16-player map (Features.debugPlayers): simulated players, so the Big Swirl's spread and
--- the scoops per player can be seen without 16 people. Studio only; off, every hook below does nothing.
+-- Studio test mode for the 12-player map (Features.debugPlayers): simulated players, so the Big Swirl's spread and
+-- the scoops per player can be seen without 12 people. Studio only; off, every hook below does nothing.
 --
 -- A dummy takes a plot from the back of the list (Plot_12 downwards; real players take theirs from the front),
 -- runs straight for a shot it can reach before it lands and nobody closer runs for (ignoring cover and the rim, so
--- this is the best case for the dummies), catches it if it stands there
--- when it lands, and walks home to serve after a few scoops, as slow as the tower makes it (Economy.walkSpeed). It
--- counts for the fire rate and for the near shots like a real player. Every landing spot gets a disc: white in the
+-- this is the best case for the dummies), catches it if it stands there when it lands, and after a few scoops walks
+-- out of the arena along its own lane, as slow as the tower makes it (Economy.walkSpeed). Out of the arena it serves
+-- (as if the "my plot" button took it home) and comes back in from its ArenaEntry. It counts for the fire rate and for
+-- the near shots like a real player in the arena. Every landing spot gets a disc: white in the
 -- air, green caught by a dummy, blue caught by a player, red not caught. A summary goes to the output every 30 s and
 -- to ServerStorage.DebugDummiesLog as JSON.
 
@@ -18,9 +19,11 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Economy = require(Shared:WaitForChild("Economy"))
 local TargetRules = require(Shared:WaitForChild("TargetRules"))
+local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local Features = require(Config:WaitForChild("Features"))
 local Launcher = require(Config:WaitForChild("Launcher"))
+local MapConfig = require(Config:WaitForChild("Map"))
 local Palette = require(Config:WaitForChild("Palette"))
 
 local DebugDummies = {}
@@ -29,9 +32,12 @@ local REPORT_EVERY = 30 -- seconds
 local MAX_MARKERS = 400
 local SERVE_MIN, SERVE_MAX = 6, 14 -- scoops a dummy carries before it walks home
 local WANDER_SECONDS = 3
-local RINGS = { 25, 60, 95, 125 } -- studs from the machine (Config/Launcher randomBands); then everything further out
+local RINGS = { 25, 55, 80, 100 } -- studs from the machine (Config/Launcher randomBands); then everything further out
 local RAISED = 2 -- studs above the arena floor (the Big Swirl's marker): a landing in the arena this high is on a plateau
-local ARENA = 135 -- studs from the machine to the arena's rim
+local ARENA = MapConfig.arena.radius -- studs from the machine to the arena's rim
+-- a dummy leaves the arena up its own ramp and serves once it is out of the arena zone (ArenaZone), this far out on
+-- its lane: just past the ramp's top edge
+local OUT = MapConfig.arena.rampTop + 1
 
 local COLOR = {
 	flying = Color3.new(1, 1, 1),
@@ -42,7 +48,8 @@ local COLOR = {
 
 type Dummy = {
 	name: string,
-	home: Vector3, -- the ServePoint
+	exit: Vector3, -- where it leaves the arena: on its own lane, just past the rim
+	entry: Vector3, -- where it comes back in: the plot's ArenaEntry on the strip
 	angle: number, -- the plot's direction from the machine (radians)
 	position: Vector3,
 	carrying: number,
@@ -122,8 +129,10 @@ local function makeDummy(index: number, plot: Model): Dummy?
 		return nil
 	end
 	local home = servePoint.Position
-	local inward = flat(map.center - home).Unit
-	local start = home + inward * (EconomyConfig.serveRadius + 4)
+	local outward = flat(home - map.center).Unit
+	local exit = map.center + outward * (OUT + 1)
+	local entryPart = plot:FindFirstChild("ArenaEntry")
+	local start = if entryPart and entryPart:IsA("BasePart") then entryPart.Position else exit
 
 	local body = Instance.new("Part")
 	body.Name = "Dummy_" .. plot.Name
@@ -152,7 +161,8 @@ local function makeDummy(index: number, plot: Model): Dummy?
 	local now = workspace:GetServerTimeNow()
 	return {
 		name = plot.Name,
-		home = home,
+		exit = exit,
+		entry = start,
 		angle = math.atan2(home.X - map.center.X, home.Z - map.center.Z),
 		position = Vector3.new(start.X, groundY(start.X, start.Z, home.Y - 3), start.Z),
 		carrying = 0,
@@ -209,13 +219,17 @@ local function step(dummy: Dummy, dt: number, now: number)
 	end
 
 	if dummy.goingHome then
-		goal = dummy.home
-		if (flat(goal) - flat(dummy.position)).Magnitude <= EconomyConfig.serveRadius - 1 then
+		goal = dummy.exit
+		if not ArenaZone.contains(dummy.position.X, dummy.position.Z, MapConfig.arena) then
+			-- out alive: home with the button, serve, and back in from the arena entry
 			dummy.serves += 1
 			dummy.scoopsServed += dummy.carrying
 			dummy.carrying = 0
 			dummy.serveAt = rng:NextInteger(SERVE_MIN, SERVE_MAX)
 			dummy.goingHome = false
+			dummy.position =
+				Vector3.new(dummy.entry.X, groundY(dummy.entry.X, dummy.entry.Z, dummy.entry.Y), dummy.entry.Z)
+			goal = dummy.position
 		end
 	else
 		local entry = dummy.shotId and pending[dummy.shotId]
@@ -374,11 +388,12 @@ function DebugDummies.count(): number
 	return #dummies
 end
 
--- Where the dummies are that are on the move (not standing still, TargetRules), for the near shots.
+-- Where the dummies are that are in the arena and on the move (not standing still, TargetRules), for the near shots.
 function DebugDummies.movingPositions(now: number): { Vector3 }
 	local list = {}
 	for _, dummy in dummies do
-		if not TargetRules.isIdle(dummy.track, now, Launcher) then
+		local inArena = ArenaZone.contains(dummy.position.X, dummy.position.Z, MapConfig.arena)
+		if inArena and not TargetRules.isIdle(dummy.track, now, Launcher) then
 			table.insert(list, dummy.position)
 		end
 	end

@@ -1,13 +1,14 @@
--- Studio stopwatch for the way home (Features.debugWalkTimer). Studio only; off, it does nothing.
+-- Studio stopwatch for the way out of the arena (Features.debugWalkTimer). Studio only; off, it does nothing.
 --
 -- Live: every pickup (the tower grows) starts the clock where the player stands; reaching the own plot (within
 -- serveRadius of its ServePoint) stops it and prints the time, the straight distance and the tower.
 --
--- Measured: once at the start, test figures (plain R15 rigs, server-owned) walk from set landing spots to their
--- plot with Roblox pathfinding (no jumping, so over the best rim ramp), first at the walk speed without a tower,
--- then at the walk speed with 36 scoops (Economy.walkSpeed, no sneakers, no sprint). Plots 02 to 04 stand for all
--- 12 (the arena repeats every 90 degrees). The tower's balance is not simulated, only its speed. Results go to the
--- output and to ServerStorage.WalkTimerLog as JSON.
+-- Measured: once at the start, test figures (plain R15 rigs, server-owned) walk from set landing spots out of the
+-- arena with Roblox pathfinding (no jumping, so over the best rim ramp; the run ends at its top), first at the walk
+-- speed without a tower, then at the walk speed with 36 scoops (Economy.walkSpeed, no sneakers, no sprint), and
+-- sprint from the arena entry in to the Big Swirl. Plots 02 to 04 stand for all 12 (the arena repeats every 90
+-- degrees). The tower's balance is not simulated, only its speed. Results go to the output and to
+-- ServerStorage.WalkTimerLog as JSON.
 
 local HttpService = game:GetService("HttpService")
 local PathfindingService = game:GetService("PathfindingService")
@@ -23,6 +24,8 @@ local TargetRules = require(Shared:WaitForChild("TargetRules"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local Features = require(Config:WaitForChild("Features"))
 local Launcher = require(Config:WaitForChild("Launcher"))
+local MapConfig = require(Config:WaitForChild("Map"))
+local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 
 local WalkTimer = {}
 
@@ -33,16 +36,18 @@ local GROUP = "WalkTimerFigures"
 local GIVE_UP = 60 -- seconds per run
 local START_DELAY = 15 -- seconds after the server start, so the map, the navigation mesh and the server have settled
 local RIM = 135 -- studs from the machine to the arena's rim
-local MACHINE = 34 -- studs from the machine's centre where the run out to the Big Swirl ends (it reaches out to 28)
+local MACHINE = 34 -- studs from the machine's centre where the run in to the Big Swirl ends (it reaches out to 28)
 local RANDOM_STARTS = 6 -- per plot: landing spots drawn like the Big Swirl's random shots (randomBands), any side
+local OUTBOUND = "arena entry to the Big Swirl"
 
--- where a run home starts, from the plot's own direction: an angle off it and a distance from the machine
+-- where a run out of the arena starts, from the plot's own direction: an angle off it and a distance from the machine
+-- (scoops land out to 100)
 local SPOTS = {
-	{ name = "arena rim, own side", turn = 0, radius = 125 },
-	{ name = "arena middle, own side", turn = 0, radius = 80 },
+	{ name = "outer landing ring, own side", turn = 0, radius = 95 },
+	{ name = "landing middle, own side", turn = 0, radius = 60 },
 	{ name = "next to the Big Swirl, own side", turn = 0, radius = MACHINE },
-	{ name = "arena middle, 90 degrees off", turn = 90, radius = 80 },
-	{ name = "arena rim, opposite side", turn = 180, radius = 125 },
+	{ name = "landing middle, 90 degrees off", turn = 90, radius = 60 },
+	{ name = "outer landing ring, opposite side", turn = 180, radius = 95 },
 	{ name = "random landing spot (weighted)" },
 }
 
@@ -141,18 +146,19 @@ local function plan(from: Vector3, goal: Vector3): { PathWaypoint }
 	return if ok and path.Status == Enum.PathStatus.Success then path:GetWaypoints() else {}
 end
 
--- Walks a planned leg; true once within `near` of `goal`.
+-- Walks a planned leg; true once within `near` of `goal`, or as soon as `stop` says the run is over.
 local function walkLeg(
 	humanoid: Humanoid,
 	root: BasePart,
 	waypoints: { PathWaypoint },
 	goal: Vector3,
 	near: number,
-	deadline: number
+	deadline: number,
+	stop: (() -> boolean)?
 ): boolean
 	local index = 2
 	while os.clock() < deadline do
-		if flatDistance(root.Position, goal) <= near then
+		if flatDistance(root.Position, goal) <= near or (stop and stop()) then
 			return true
 		end
 		local target = if waypoints[index] then waypoints[index].Position else goal
@@ -165,8 +171,16 @@ local function walkLeg(
 	return false
 end
 
--- Walks a figure from `start` to the ServePoint; seconds and the walked path length, or nil when it gets stuck.
-local function run(start: Vector3, home: Vector3, speed: number, arriveWithin: number): (number?, number?)
+-- Walks a figure from `start` towards `home`; seconds and the walked path length, or nil when it gets stuck. With
+-- `untilOut` the run is over the moment the figure is out of the arena zone (ArenaZone: past a ramp's top edge),
+-- wherever it is on its way.
+local function run(
+	start: Vector3,
+	home: Vector3,
+	speed: number,
+	arriveWithin: number,
+	untilOut: boolean?
+): (number?, number?)
 	local rig, humanoid = figure(start, speed)
 	local root = rig:FindFirstChild("HumanoidRootPart") :: BasePart
 	task.wait(0.5) -- land on the ground
@@ -185,11 +199,18 @@ local function run(start: Vector3, home: Vector3, speed: number, arriveWithin: n
 		walked += flatDistance(root.Position, last)
 		last = root.Position
 	end)
+	local function out(): boolean
+		return not ArenaZone.contains(root.Position.X, root.Position.Z, MapConfig.arena)
+	end
+	local stop = if untilOut then out else nil
 	local arrived = true
 	for index, goal in legs do
 		local near = if index == #legs then arriveWithin else 2
-		if not walkLeg(humanoid, root, plans[index], goal, near, deadline) then
+		if not walkLeg(humanoid, root, plans[index], goal, near, deadline, stop) then
 			arrived = false
+			break
+		end
+		if stop and stop() then
 			break
 		end
 	end
@@ -210,7 +231,7 @@ local function measure()
 	-- the start spots, the same for both paces: landing spots near each set point, and some drawn like random shots
 	local rng = Random.new(7)
 	local starts = {}
-	local outbound = {} -- from the spawn in front of the plot out to the Big Swirl
+	local outbound = {} -- from the arena entry on the strip in to the Big Swirl
 	for _, plotName in PLOTS do
 		local plot
 		for _, candidate in map.plots do
@@ -222,11 +243,14 @@ local function measure()
 		if servePoint then
 			local home = servePoint.Position
 			local own = math.atan2(home.X - map.center.X, home.Z - map.center.Z)
+			-- a run heads for the rim ramp on the shortest way towards the own plot and ends the moment it is out of the arena
 			local function add(name: string, start: Vector3?)
 				if start then
+					local legs = viaRamp(start, home)
+					local out = if #legs >= 3 then legs[#legs - 1] else home
 					table.insert(
 						starts,
-						{ plot = plotName, spot = name, from = start, to = home, within = EconomyConfig.serveRadius }
+						{ plot = plotName, spot = name, from = start, to = out, within = 3, untilOut = true }
 					)
 				end
 			end
@@ -243,15 +267,16 @@ local function measure()
 					end
 				end
 			end
-			-- where PlotService puts a new character: serveRadius + 4 in front of the ServePoint, on the ground
+			-- where the "arena" button puts a player: the plot's ArenaEntry on the strip, on the ground
 			local inward = Vector3.new(map.center.X - home.X, 0, map.center.Z - home.Z).Unit
-			local spawnSpot = home + inward * (EconomyConfig.serveRadius + 4)
-			local feet = map.groundAt(spawnSpot.X, spawnSpot.Y + 6, spawnSpot.Z, 30).y or spawnSpot.Y - 3
+			local entry = plot:FindFirstChild("ArenaEntry")
+			local entrySpot = if entry and entry:IsA("BasePart") then entry.Position else home
+			local feet = map.groundAt(entrySpot.X, entrySpot.Y + 6, entrySpot.Z, 30).y or entrySpot.Y - 3
 			local machine = map.center - inward * MACHINE
 			table.insert(outbound, {
 				plot = plotName,
-				spot = "plot to the Big Swirl",
-				from = Vector3.new(spawnSpot.X, feet, spawnSpot.Z),
+				spot = OUTBOUND,
+				from = Vector3.new(entrySpot.X, feet, entrySpot.Z),
 				to = Vector3.new(machine.X, map.center.Y + 0.3, machine.Z),
 				within = 3,
 			})
@@ -274,7 +299,7 @@ local function measure()
 			local job = { plot = start.plot, spot = start.spot, pace = round.label }
 			table.insert(jobs, job)
 			task.spawn(function()
-				job.seconds, job.studs = run(start.from, start.to, round.speed, start.within)
+				job.seconds, job.studs = run(start.from, start.to, round.speed, start.within, start.untilOut)
 				done += 1
 			end)
 		end
@@ -289,8 +314,10 @@ local function measure()
 	end
 
 	-- average over the three plots, per start spot and pace
-	print("[Stoppuhr] walks out to the Big Swirl and home to the own plot (average of plots 02-04):")
-	local rows = { "plot to the Big Swirl" }
+	print(
+		"[Stoppuhr] in to the Big Swirl, and out of the arena (past the rim band, Config/Map.arena) (average of plots 02-04):"
+	)
+	local rows = { OUTBOUND }
 	for _, spot in SPOTS do
 		table.insert(rows, spot.name)
 	end

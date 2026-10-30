@@ -40,7 +40,6 @@ end
 function MapRules.inSea(rootY: number, config: Config): boolean
 	return rootY < config.waterLevel + config.respawnMargin
 end
-
 -- Whether a surface a scoop would land on is ground a player could stand on.
 function MapRules.landingSurface(folder: string?, name: string, normalY: number, config: Config): boolean
 	local landing = config.landing
