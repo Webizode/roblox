@@ -29,4 +29,15 @@ function Dash.blocks(normalX: number, normalY: number, normalZ: number, dirX: nu
 	return normalX * dirX + normalZ * dirZ < -0.15
 end
 
+-- How fast a dash animation `length` seconds long has to play so it is over `recovery` seconds after a dash of
+-- `duration` seconds ends: the move itself fits the burst, the last bit straightens the body up. 1 for an animation
+-- whose length is not known yet (0) or a dash without time.
+function Dash.animationSpeed(length: number, duration: number, recovery: number): number
+	local total = duration + recovery
+	if length <= 0 or total <= 0 then
+		return 1
+	end
+	return length / total
+end
+
 return Dash

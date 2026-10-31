@@ -185,6 +185,7 @@ type CombatTracks = {
 }
 
 local combatTracks: CombatTracks? = nil
+local preloadDashTracks: (character: Model) -> () -- defined with the dash animations below
 local sprintingNow = false -- the local player's sprint, from setSprinting
 local MAX_PLAY_SPEED = 2 -- a dash would otherwise spin the walk cycle
 
@@ -476,6 +477,7 @@ local function onCharacter(character: Model)
 	task.spawn(loadCombatTracks, character)
 	task.spawn(loadReactionTracks, character)
 	task.spawn(watchLanding, character)
+	task.spawn(preloadDashTracks, character)
 end
 
 -- How far the hips turn towards a walk that goes sideways in combat mode (left +): along the walk for forwards and
@@ -772,22 +774,18 @@ local function dashSound(root: BasePart, kind: Dash.Kind): boolean
 	return true
 end
 
--- The local character's dash animation from Config/Movement, if one is set for this direction. Animations played
--- by the owner replicate to everyone, so other characters are left alone here.
+-- The local character's dash animations from Config/Movement, one track per direction that has one. Animations
+-- played by the owner replicate to everyone, so other characters are left alone here.
 local dashTracks: { [string]: AnimationTrack } = {}
 local dashTracksOf: Humanoid? = nil
 local nextForward = 1
-local function playDashAnimation(character: Model, kind: Dash.Kind)
-	local key: string = kind
-	if kind == "forward" then
-		key = "forward" .. nextForward
-		nextForward = 3 - nextForward
-	end
+local dashPlays = 0 -- counts dash animations started, so a stop meant for an earlier one leaves a newer one alone
+local function dashTrack(character: Model, key: string): AnimationTrack?
 	local id = Movement.dashAnimations[key]
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
 	if not id or id == "" or not humanoid or not animator then
-		return
+		return nil
 	end
 	if dashTracksOf ~= humanoid then
 		dashTracksOf = humanoid
@@ -801,14 +799,60 @@ local function playDashAnimation(character: Model, kind: Dash.Kind)
 			return animator:LoadAnimation(animation)
 		end)
 		if not ok then
-			return
+			return nil
 		end
 		track = loaded
 		track.Looped = false
 		track.Priority = Enum.AnimationPriority.Action
 		dashTracks[key] = track
 	end
-	track:Play(0.04)
+	return track
+end
+
+-- Loads the dash tracks when the character spawns, so their length is known by the first dash.
+function preloadDashTracks(character: Model)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if humanoid and humanoid:WaitForChild("Animator", 10) then
+		for key in Movement.dashAnimations do
+			dashTrack(character, key)
+		end
+	end
+end
+
+-- Plays the dash animation for this direction, sped up so it ends dashAnimationRecovery seconds after the dash of
+-- `duration` seconds (the animations are longer than any dash), and stops it there in any case.
+local function playDashAnimation(character: Model, kind: Dash.Kind, duration: number)
+	local key: string = kind
+	if kind == "forward" then
+		key = "forward" .. nextForward
+		nextForward = 3 - nextForward
+	end
+	local track = dashTrack(character, key)
+	if not track then
+		return
+	end
+	local recovery = Movement.dashAnimationRecovery
+	track:Play(0.04, 1, Dash.animationSpeed(track.Length, duration, recovery))
+	if track.Length <= 0 then
+		-- not loaded yet: set the speed as soon as the length is known
+		local connection
+		connection = track:GetPropertyChangedSignal("Length"):Connect(function()
+			connection:Disconnect()
+			if track.IsPlaying then
+				track:AdjustSpeed(Dash.animationSpeed(track.Length, duration, recovery))
+			end
+		end)
+		task.delay(duration + recovery, function()
+			connection:Disconnect()
+		end)
+	end
+	dashPlays += 1
+	local play = dashPlays
+	task.delay(duration + recovery, function()
+		if play == dashPlays and track.IsPlaying then
+			track:Stop(0.06)
+		end
+	end)
 end
 
 -- The floor under a point (the character excluded), or nil over a gap.
@@ -894,7 +938,7 @@ function MovementController.dash(character: Model, duration: number, dirX: numbe
 	end
 	local soundPlayed = dashSound(root, kind)
 	if character == player.Character then
-		playDashAnimation(character, kind)
+		playDashAnimation(character, kind, duration)
 		if not soundPlayed then
 			Sfx.play("dash")
 		end

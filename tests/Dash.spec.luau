@@ -26,4 +26,14 @@ describe("Dash", function()
 		expect(Dash.blocks(0.99, 0, 0.1, 0, -1)).toBe(false) -- grazed
 		expect(Dash.blocks(0, 0, -1, 0, -1)).toBe(false) -- facing away (behind the character)
 	end)
+
+	it("plays the dash animation fast enough to end shortly after the dash", function()
+		-- the 1 s animations, a 0.125 s dash and 0.1 s to straighten up: over after 0.225 s
+		expect(math.abs(Dash.animationSpeed(1, 0.125, 0.1) - 1 / 0.225) < 1e-9).toBe(true)
+		expect(Dash.animationSpeed(1, 0.2, 0.05)).toBe(4) -- the power dash
+		expect(Dash.animationSpeed(0.5, 0.5, 0)).toBe(1)
+		-- not loaded yet, or no time at all: normal speed rather than a division by zero
+		expect(Dash.animationSpeed(0, 0.125, 0.1)).toBe(1)
+		expect(Dash.animationSpeed(1, 0, 0)).toBe(1)
+	end)
 end)

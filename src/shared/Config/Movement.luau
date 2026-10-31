@@ -85,6 +85,9 @@ return {
 		right = "rbxassetid://126986340101454",
 		back = "rbxassetid://126984073461087",
 	},
+	-- the dash animations play sped up so they end this long after the dash itself (seconds), whatever their own
+	-- length: the move fits the burst, the rest straightens the body up (Dash.animationSpeed)
+	dashAnimationRecovery = 0.1,
 	landMinAirTime = 0.35, -- shorter hops land without dust or shake
 	landFullAirTime = 1.1, -- landings after this long get the full effect
 	landShake = 0.5, -- degrees
