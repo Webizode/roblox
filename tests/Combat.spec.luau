@@ -537,7 +537,7 @@ describe("Headshots", function()
 			x = ROOT.x,
 			y = ROOT.y + Config.towerUp,
 			z = ROOT.z + Config.towerBack,
-			height = scoops * Tuning.scoopSpacing,
+			height = (scoops - 1) * Tuning.scoopSpacing,
 			radius = Config.towerRadius,
 		}
 	end
@@ -594,8 +594,19 @@ describe("Headshots", function()
 
 	it("from behind the tower on the back takes the ball: a normal hit, unless there is no tower", function()
 		expect(throwAt(0, 6.5, 30, HEAD.x, HEAD.y, HEAD.z, towerOf(5))).toBe(false)
-		expect(throwAt(0, 6.5, 30, HEAD.x, HEAD.y, HEAD.z, nil)).toBe(true)
-		expect(throwAt(0, 6.5, 30, HEAD.x, HEAD.y, HEAD.z, towerOf(0))).toBe(true)
+		expect(throwAt(0, 6.5, 30, HEAD.x, HEAD.y, HEAD.z, nil)).toBe(true) -- no scoops: no column
+		-- even a single scoop sits high enough on the back to cover the head from straight behind
+		expect(throwAt(0, 6.5, 30, HEAD.x, HEAD.y, HEAD.z, towerOf(1))).toBe(false)
+	end)
+
+	it("the column is the stack of scoops: centre to centre, the scoop radius round", function()
+		local tower = towerOf(3)
+		expect(tower.height).toBeCloseTo(2 * Tuning.scoopSpacing, 1e-9)
+		expect(towerOf(1).height).toBe(0)
+		-- a ball from behind well above a 1-scoop tower and over the head reaches the head zone untouched
+		local over = ROOT.y + Config.towerUp + Config.towerRadius + Config.ballRadius + 0.05
+		expect(over < HEAD.y + HEAD.radius * Config.headZoneScale + Config.ballRadius).toBe(true)
+		expect(throwAt(0, over, 30, HEAD.x, over, HEAD.z, towerOf(1))).toBe(true)
 	end)
 
 	it("from the front the tower does not shield the head", function()

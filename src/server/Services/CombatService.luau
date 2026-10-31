@@ -349,7 +349,7 @@ local function headAndTower(player: Player, root: BasePart): (Combat.Head?, Comb
 			x = bottom.X,
 			y = bottom.Y,
 			z = bottom.Z,
-			height = scoops * TowerConfig.scoopSpacing,
+			height = (scoops - 1) * TowerConfig.scoopSpacing,
 			radius = Config.towerRadius,
 		}
 end

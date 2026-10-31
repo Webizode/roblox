@@ -268,7 +268,9 @@ local function pointToSegment(
 end
 
 export type Head = { x: number, y: number, z: number, radius: number }
-export type TowerColumn = { x: number, y: number, z: number, height: number, radius: number } -- y: its bottom
+-- the scoops on the back as a capsule: from the centre of the bottom scoop (x, y, z) `height` studs up to the centre of
+-- the top one, `radius` the scoops' radius (height 0: a single scoop)
+export type TowerColumn = { x: number, y: number, z: number, height: number, radius: number }
 
 -- Whether a ball that touched the body capsule at `fromT` is a headshot: following its arc on through the body (as
 -- passDistance does), it reaches the head zone (the head's radius times headZoneScale, plus the ball) with its centre
@@ -298,9 +300,14 @@ function Combat.isHeadshot(
 		local qx, qy, qz = Combat.position(ox, oy, oz, vx, vy, vz, config.gravity, t)
 		local headDistance, headS = pointToSegment(px, py, pz, qx, qy, qz, head.x, head.y, head.z)
 		local towerS = math.huge
-		if tower and tower.height > 0 then
+		if tower then
 			local half = tower.height / 2
-			local distance, s = Combat.closestToCapsule(px, py, pz, qx, qy, qz, tower.x, tower.y + half, tower.z, half)
+			local distance, s
+			if half > 1e-6 then
+				distance, s = Combat.closestToCapsule(px, py, pz, qx, qy, qz, tower.x, tower.y + half, tower.z, half)
+			else
+				distance, s = pointToSegment(px, py, pz, qx, qy, qz, tower.x, tower.y, tower.z) -- a single scoop
+			end
 			if distance <= tower.radius + config.ballRadius then
 				towerS = s
 			end

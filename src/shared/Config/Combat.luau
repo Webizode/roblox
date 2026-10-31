@@ -242,12 +242,14 @@ return {
 	},
 	-- Headshot (Combat.isHeadshot): only the head counts, its zone is the Head part's radius times headZoneScale.
 	-- The server follows the ball's arc through the body; reaching the tower column on the back first (a throw from
-	-- behind) makes it a normal hit. The column stands upright (the server does not know the lean) on the back,
-	-- towerBack studs behind and towerUp above the HumanoidRootPart, scoopSpacing (Config/Tower) per scoop high.
+	-- behind) makes it a normal hit. The column runs upright (the server does not know the lean) through the scoop
+	-- centres: from the bottom scoop, towerBack studs behind and towerUp above the HumanoidRootPart, scoopSpacing
+	-- (Config/Tower) up per further scoop, towerRadius round. Measured on the R15 rig in the 2-player test on
+	-- 31.10.2026 (Backpacks.seat): bottom scoop centre 2.24 behind, 0.68 above, scoop radius 1.05.
 	headZoneScale = 1.3,
-	towerBack = 1.6,
-	towerUp = 1.2,
-	towerRadius = 1.1,
+	towerBack = 2.24,
+	towerUp = 0.68,
+	towerRadius = 1.05,
 	-- seconds down; no further hits land meanwhile. The knockdown animations' total: fall (fallLength), lying still
 	-- (fallHold), get-up (getUpLength / getUpSpeed) = 0.333 + 0.2 + 1.367 / 1.25 = 1.63 (tests/Combat.spec)
 	knockdownTime = 1.63,
