@@ -863,9 +863,11 @@ function MovementController.dash(character: Model, duration: number, dirX: numbe
 	end
 	local look = root.CFrame.LookVector
 	local kind = Dash.kind(dirX, dirZ, look.X, look.Z)
-	-- lean into the actual direction: forward or back tips the body, sideways rolls it, diagonals mix both
+	-- lean into the actual direction: forward or back tips the body, sideways rolls it, diagonals mix both. Only for
+	-- directions without a dash animation, which brings its own pose (and replicates from the dashing player)
+	local animation = Movement.dashAnimations[if kind == "forward" then "forward1" else kind]
 	local pose = poseFor(character)
-	if pose then
+	if pose and (not animation or animation == "") then
 		local relative = root.CFrame:VectorToObjectSpace(Vector3.new(dirX, 0, dirZ))
 		pose.dashPitch = relative.Z * Movement.dashLean -- ahead is -Z; a forward lean is a negative pitch
 		pose.dashRoll = -relative.X * Movement.dashLean

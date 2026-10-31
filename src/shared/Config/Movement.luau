@@ -69,7 +69,7 @@ return {
 	dashAfterimageTransparency = 0.45,
 	dashLimbTrailLifetime = 0.16,
 	-- the body leans into the dash, whichever way it goes (forward, back, to a side or diagonally): a procedural pose
-	-- on the root joint until dash animations exist (dashAnimations below)
+	-- on the root joint, only for directions without a dash animation (dashAnimations below)
 	dashLean = math.rad(16),
 	dashLeanIn = 0.05, -- seconds to lean in
 	dashLeanOut = 0.22, -- seconds to straighten up after the burst
@@ -78,7 +78,13 @@ return {
 	-- dash animations by direction (Dash.kind; forward alternates between two), "rbxassetid://<id>" of animations
 	-- published by the experience owner for the game's rig. Empty plays none. The model's own animations are R6
 	-- and published by its author, so they cannot be used as they are.
-	dashAnimations = { forward1 = "", forward2 = "", left = "", right = "", back = "" },
+	dashAnimations = {
+		forward1 = "rbxassetid://131205595010379",
+		forward2 = "rbxassetid://131205595010379", -- only one forward animation so far
+		left = "rbxassetid://97220317798033",
+		right = "rbxassetid://126986340101454",
+		back = "rbxassetid://126984073461087",
+	},
 	landMinAirTime = 0.35, -- shorter hops land without dust or shake
 	landFullAirTime = 1.1, -- landings after this long get the full effect
 	landShake = 0.5, -- degrees
