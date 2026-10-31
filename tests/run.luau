@@ -28,6 +28,7 @@ require("./AimRules.spec")
 require("./MusicPlaylist.spec")
 require("./ArenaZone.spec")
 require("./MouseRules.spec")
+require("./HitPoints.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

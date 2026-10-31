@@ -2,6 +2,7 @@ local harness = require("./harness")
 local describe, it, expect = harness.describe, harness.it, harness.expect
 
 local Combat = require("../src/shared/Combat")
+local HitPoints = require("../src/shared/HitPoints")
 local Config = require("../src/shared/Config/Combat")
 local TowerModel = require("../src/shared/TowerModel")
 local Flavors = require("../src/shared/Config/Flavors")
@@ -179,120 +180,151 @@ describe("Holding a throw", function()
 		expect(Combat.validateStrength(5, p.rise, Config)).toBe(1)
 		expect(Combat.validateStrength(0 / 0, p.rise / 2, Config)).toBeCloseTo(0.5, 1e-9)
 	end)
-
-	it(
-		"three taps on the middle knock down at the third, two do not, grazing taps never; two strong ones do",
-		function()
-			-- a whole load at a realistic pace: the throw interval, a short hold and the network on top
-			local pace = Config.throwInterval + 0.2
-			local function load(power: number): number?
-				local stagger, lastHitAt = 0, -math.huge
-				for index = 1, Config.ammo do
-					local time = (index - 1) * pace
-					local down
-					stagger, down = Combat.addHit(stagger, lastHitAt, time, power, Config)
-					lastHitAt = time
-					if down then
-						return index
-					end
-				end
-				return nil
-			end
-			local tap = Combat.hitPower(0, Config.minSpeed, Config.minSpeed, 0, Config)
-			expect(load(tap)).toBe(3)
-			local grazingTap = Combat.hitPower(2, Config.minSpeed, Config.minSpeed, 0, Config)
-			expect(load(grazingTap)).toBeNil()
-			local strong = Combat.hitPower(0, Config.maxSpeed, Config.maxSpeed, 1, Config)
-			local stagger = Combat.addHit(0, 0, 0, strong, Config)
-			local _, knocked = Combat.addHit(stagger, 0, 0.6, strong, Config)
-			expect(knocked).toBe(true)
-		end
-	)
 end)
 
-describe("Knockdown threshold", function()
-	it("never knocks down with a single hit, however strong", function()
-		local _, down = Combat.addHit(0, 0, 0, 1, Config)
-		expect(down).toBe(false)
+describe("Ammo: ball by ball", function()
+	local per, delay, gap = Config.reloadPerBall, Config.reloadDelay, Config.throwInterval
+	local EPS = 0.001
+
+	-- the count after refreshing at `time`
+	local function countAt(ammo, time: number): number
+		Combat.refresh(ammo, time, Config)
+		return ammo.count
+	end
+
+	it("one ball loads in about 1.4 s after a 0.5 s wait, and empty to full takes a bit over 4 s", function()
+		expect(per).toBe(1.4)
+		expect(delay).toBe(0.5)
+		expect(Config.ammo * per).toBeCloseTo(4.2, 1e-9)
 	end)
 
-	it("knocks down after two solid hits in quick succession, not after two spread out", function()
-		local stagger = Combat.addHit(0, 0, 0, 1, Config)
-		local _, quick = Combat.addHit(stagger, 0, 0.4, 1, Config)
-		local _, slow = Combat.addHit(stagger, 0, 3, 1, Config)
-		expect(quick).toBe(true)
-		expect(slow).toBe(false)
-	end)
-
-	it("two grazing hits do not knock down, even fully charged", function()
-		local speed = Config.maxSpeed
-		local power = Combat.hitPower(Config.hitRadius + Config.ballRadius * 0.9, speed * 0.7, speed, 1, Config)
-		local stagger = Combat.addHit(0, 0, 0, power, Config)
-		local _, down = Combat.addHit(stagger, 0, 0.4, power, Config)
-		expect(down).toBe(false)
-	end)
-
-	it("a knockdown resets the stagger", function()
-		local stagger, down = Combat.addHit(1.2, 0, 0, 1, Config)
-		expect(down).toBe(true)
-		expect(stagger).toBe(0)
-	end)
-end)
-
-describe("Ammo", function()
-	it("allows exactly three throws, then reloads for seven seconds and refills all three", function()
+	it("throwing 1: it comes back alone, delay + one ball after the throw", function()
 		local ammo = Combat.newAmmo(Config)
 		expect(Combat.tryThrow(ammo, 0, Config)).toBe(true)
-		expect(Combat.tryThrow(ammo, 0.5, Config)).toBe(true)
-		expect(Combat.tryThrow(ammo, 1.0, Config)).toBe(true)
+		expect(ammo.count).toBe(2)
+		expect(countAt(ammo, delay + per - EPS)).toBe(2)
+		expect(countAt(ammo, delay + per)).toBe(3)
+		expect(ammo.reloadUntil).toBe(0) -- full: nothing loads
+		expect(countAt(ammo, 100)).toBe(3)
+	end)
+
+	it("throwing 2: they come back one after another", function()
+		local ammo = Combat.newAmmo(Config)
+		Combat.tryThrow(ammo, 0, Config)
+		Combat.tryThrow(ammo, gap, Config)
+		expect(ammo.count).toBe(1)
+		local first = gap + delay + per
+		expect(countAt(ammo, first - EPS)).toBe(1)
+		expect(countAt(ammo, first)).toBe(2)
+		expect(countAt(ammo, first + per - EPS)).toBe(2)
+		expect(countAt(ammo, first + per)).toBe(3)
+	end)
+
+	it("throwing all 3: no throw while empty, then one by one, full a bit over 4 s after the last throw", function()
+		local ammo = Combat.newAmmo(Config)
+		for index = 0, 2 do
+			expect(Combat.tryThrow(ammo, index * gap, Config)).toBe(true)
+		end
+		local last = 2 * gap
 		expect(ammo.count).toBe(0)
-		expect(ammo.reloadUntil).toBe(1.0 + Config.reloadTime)
-		expect(Combat.tryThrow(ammo, 2, Config)).toBe(false)
-		expect(Combat.tryThrow(ammo, 1.0 + Config.reloadTime - 0.01, Config)).toBe(false)
-		expect(Combat.tryThrow(ammo, 1.0 + Config.reloadTime, Config)).toBe(true)
-		expect(ammo.count).toBe(Config.ammo - 1)
+		expect(Combat.tryThrow(ammo, last + gap, Config)).toBe(false) -- nothing loaded: no throw
+		expect(ammo.count).toBe(0)
+		local first = last + delay + per
+		expect(countAt(ammo, first - EPS)).toBe(0)
+		expect(countAt(ammo, first)).toBe(1)
+		expect(countAt(ammo, first + per)).toBe(2)
+		expect(countAt(ammo, first + 2 * per)).toBe(3)
+		expect(first + 2 * per - last).toBeCloseTo(delay + 3 * per, 1e-9) -- 4.7 s
+	end)
+
+	it("a refresh long after catches up all at once, never past 3", function()
+		local ammo = Combat.newAmmo(Config)
+		for index = 0, 2 do
+			Combat.tryThrow(ammo, index * gap, Config)
+		end
+		expect(countAt(ammo, 1000)).toBe(3)
+		expect(ammo.reloadUntil).toBe(0)
+	end)
+
+	it("throwing while reloading: the half-loaded ball starts over after the wait, the loaded ones stay", function()
+		local ammo = Combat.newAmmo(Config)
+		Combat.tryThrow(ammo, 0, Config)
+		Combat.tryThrow(ammo, gap, Config) -- 1 left
+		local midway = gap + delay + per / 2 -- the next ball half loaded
+		expect(Combat.tryThrow(ammo, midway, Config)).toBe(true)
+		expect(ammo.count).toBe(0)
+		expect(ammo.reloadUntil).toBeCloseTo(midway + delay + per, 1e-9)
+		expect(countAt(ammo, midway + delay + per - EPS)).toBe(0)
+		expect(countAt(ammo, midway + delay + per)).toBe(1)
+	end)
+
+	it("throwing a ball that just loaded: it was really there, and the reload waits again", function()
+		local ammo = Combat.newAmmo(Config)
+		for index = 0, 2 do
+			Combat.tryThrow(ammo, index * gap, Config)
+		end
+		local loaded = 2 * gap + delay + per
+		expect(Combat.tryThrow(ammo, loaded - EPS, Config)).toBe(false)
+		expect(Combat.tryThrow(ammo, loaded, Config)).toBe(true)
+		expect(ammo.count).toBe(0)
+		expect(ammo.reloadUntil).toBeCloseTo(loaded + delay + per, 1e-9)
 	end)
 
 	it("every throw costs one, and the interval stops a whole load in one burst", function()
 		local ammo = Combat.newAmmo(Config)
 		expect(Combat.tryThrow(ammo, 10, Config)).toBe(true)
-		expect(Combat.tryThrow(ammo, 10.1, Config)).toBe(false)
+		expect(Combat.tryThrow(ammo, 10 + gap - EPS, Config)).toBe(false)
 		expect(ammo.count).toBe(Config.ammo - 1)
 	end)
 
-	it("a partly used load does not refill by itself", function()
+	it("throwing on and on at the throw interval never gets more balls than were loaded", function()
 		local ammo = Combat.newAmmo(Config)
-		Combat.tryThrow(ammo, 0, Config)
-		Combat.refresh(ammo, 100, Config)
-		expect(ammo.count).toBe(Config.ammo - 1)
+		local thrown = 0
+		for step = 0, 200 do
+			if Combat.tryThrow(ammo, step * gap, Config) then
+				thrown += 1
+			end
+		end
+		-- 3 at the start; after that a refused throw changes nothing, so each further ball is thrown on the first
+		-- try once it is loaded: delay + one ball after the throw before, on the throw-interval grid
+		local every = math.ceil((delay + per) / gap)
+		expect(thrown).toBe(Config.ammo + (200 - (Config.ammo - 1)) // every)
 	end)
 end)
 
 describe("Ammo display", function()
-	it("shows the loaded balls and no refill while there is ammo", function()
-		local ammo = Combat.newAmmo(Config)
-		for throws = 0, Config.ammo - 1 do
-			local loaded, refill = Combat.ammoDisplay(ammo.count, ammo.reloadUntil, throws, Config)
-			expect(loaded).toBe(Config.ammo - throws)
-			expect(refill).toBe(0)
-			Combat.tryThrow(ammo, throws, Config)
-		end
+	local per, delay = Config.reloadPerBall, Config.reloadDelay
+
+	it("a full load shows 3 and no refill", function()
+		local loaded, refill = Combat.ammoDisplay(3, 0, 5, Config)
+		expect(loaded).toBe(3)
+		expect(refill).toBe(0)
 	end)
 
-	it("fills up over the reload of an empty load", function()
+	it("the ball loading fills up, also with balls left; nothing during the wait after a throw", function()
 		local ammo = Combat.newAmmo(Config)
-		for throws = 1, Config.ammo do
-			Combat.tryThrow(ammo, throws, Config)
-		end
-		local start = ammo.reloadUntil - Config.reloadTime
-		local loaded, refill = Combat.ammoDisplay(ammo.count, ammo.reloadUntil, start, Config)
-		expect(loaded).toBe(0)
-		expect(refill).toBeCloseTo(0)
-		_, refill = Combat.ammoDisplay(ammo.count, ammo.reloadUntil, start + Config.reloadTime / 2, Config)
-		expect(refill).toBeCloseTo(0.5)
-		-- the refill message arrives a moment after the reload ends: the display stays full meanwhile
-		_, refill = Combat.ammoDisplay(ammo.count, ammo.reloadUntil, ammo.reloadUntil + 0.1, Config)
+		Combat.tryThrow(ammo, 0, Config)
+		local loaded, refill = Combat.ammoDisplay(ammo.count, ammo.reloadUntil, delay / 2, Config)
+		expect(loaded).toBe(2)
+		expect(refill).toBe(0)
+		_, refill = Combat.ammoDisplay(ammo.count, ammo.reloadUntil, delay + per / 2, Config)
+		expect(refill).toBeCloseTo(0.5, 1e-9)
+		-- the refill message arrives a moment after the ball is loaded: the circle stays full meanwhile
+		_, refill = Combat.ammoDisplay(ammo.count, ammo.reloadUntil, delay + per + 0.03, Config)
 		expect(refill).toBe(1)
+	end)
+
+	it("the second ball of a reload fills from 0 again", function()
+		local ammo = Combat.newAmmo(Config)
+		Combat.tryThrow(ammo, 0, Config)
+		Combat.tryThrow(ammo, 1, Config)
+		local first = 1 + delay + per
+		Combat.refresh(ammo, first, Config)
+		local loaded, refill = Combat.ammoDisplay(ammo.count, ammo.reloadUntil, first, Config)
+		expect(loaded).toBe(2)
+		expect(refill).toBeCloseTo(0, 1e-9)
+		_, refill = Combat.ammoDisplay(ammo.count, ammo.reloadUntil, first + per / 4, Config)
+		expect(refill).toBeCloseTo(0.25, 1e-9)
 	end)
 
 	it("clamps attribute values that make no sense", function()
@@ -304,6 +336,8 @@ describe("Ammo display", function()
 		expect(loaded).toBe(0)
 		expect(refill).toBe(0)
 		_, refill = Combat.ammoDisplay(0, 0 / 0, 0, Config)
+		expect(refill).toBe(0)
+		_, refill = Combat.ammoDisplay(3, 50, 0, Config) -- full: whatever the time says, nothing loads
 		expect(refill).toBe(0)
 	end)
 end)
@@ -450,27 +484,23 @@ describe("Hits: how centred they count", function()
 		expect(centred).toBeCloseTo(2, 0.3)
 	end)
 
-	it("knockdown happens: two full-strength hits on the middle, or three taps on the middle", function()
+	it("grazes by power: a centred tap is a normal hit, a grazing tap and a weak graze are worth less", function()
+		local Knock = Config.knock
 		local _, centred, speed = firstHit(0, 1)
 		local strong = Combat.hitPower(centred, speed, speed, 1, Config)
-		expect(strong).toBeGreaterThan(0.9)
-		local stagger, down = Combat.addHit(0, -math.huge, 0, strong, Config)
-		expect(down).toBe(false) -- one hit never knocks down
-		stagger, down = Combat.addHit(stagger, 0, Config.throwInterval + 0.1, strong, Config)
-		expect(down).toBe(true)
-
+		expect(HitPoints.value(false, false, strong, Knock)).toBe(Knock.points.normal)
 		local _, tapCentred, tapSpeed = firstHit(0, 0)
 		local tap = Combat.hitPower(tapCentred, tapSpeed, tapSpeed, 0, Config)
-		expect(tap).toBeGreaterThan(0.55)
-		local s, last, knocked = 0, -math.huge, false
-		for i = 1, Config.ammo do
-			local now = (i - 1) * (Config.throwInterval + 0.1)
-			local kd
-			s, kd = Combat.addHit(s, last, now, tap, Config)
-			last = now
-			knocked = knocked or kd
-		end
-		expect(knocked).toBe(true)
+		expect(HitPoints.value(false, false, tap, Knock)).toBe(Knock.points.normal)
+		local _, tapOff = firstHit(2, 0)
+		local grazingTap = Combat.hitPower(tapOff, tapSpeed, tapSpeed, 0, Config)
+		expect(grazingTap < Knock.grazeBelow).toBe(true)
+		expect(HitPoints.value(false, false, grazingTap, Knock)).toBe(Knock.points.graze)
+		-- a full-strength ball passing the side is still a normal hit
+		local _, off = firstHit(2, 1)
+		expect(HitPoints.value(false, false, Combat.hitPower(off, speed, speed, 1, Config), Knock)).toBe(
+			Knock.points.normal
+		)
 	end)
 end)
 
@@ -493,5 +523,122 @@ describe("Knockdown animations", function()
 	it("the hit plays over walking and aiming, the knockdown over everything", function()
 		expect(reaction.hitPriority).toBe("Action2")
 		expect(reaction.knockdownPriority).toBe("Action4")
+	end)
+end)
+
+describe("Headshots", function()
+	-- a victim 15 studs ahead, its HumanoidRootPart at y 5 and the R15 head 1.59 above it (Head part 1.2 big, measured
+	-- on the R15 rig in Studio), facing
+	-- the thrower at the origin (-Z); the tower column stands on the back (+Z) like CombatService builds it
+	local ROOT = { x = 0, y = 5, z = 15 }
+	local HEAD = { x = 0, y = 6.59, z = 15, radius = 0.6 }
+	local function towerOf(scoops: number)
+		return {
+			x = ROOT.x,
+			y = ROOT.y + Config.towerUp,
+			z = ROOT.z + Config.towerBack,
+			height = scoops * Tuning.scoopSpacing,
+			radius = Config.towerRadius,
+		}
+	end
+
+	-- a perfect throw from (ox, oy, oz) at the point (tx, ty, tz), followed frame by frame like the server does;
+	-- whether it is a headshot once it touches the body capsule, nil if it misses the body
+	local function throwAt(ox, oy, oz, tx, ty, tz, tower, config): boolean?
+		config = config or Config
+		local speed = Combat.throwSpeed(1, true, config)
+		local _, vx, vy, vz = Combat.aimVelocity(ox, oy, oz, tx, ty, tz, speed, config)
+		local reach = config.hitRadius + config.ballRadius
+		local last = 0
+		for frame = 1, 120 do
+			local t = frame / 60
+			local ax, ay, az = Combat.position(ox, oy, oz, vx, vy, vz, config.gravity, last)
+			local bx, by, bz = Combat.position(ox, oy, oz, vx, vy, vz, config.gravity, t)
+			if
+				Combat.closestToCapsule(ax, ay, az, bx, by, bz, ROOT.x, ROOT.y, ROOT.z, config.hitHalfHeight) <= reach
+			then
+				return Combat.isHeadshot(ox, oy, oz, vx, vy, vz, last, HEAD, tower, config)
+			end
+			last = t
+		end
+		return nil
+	end
+
+	it("a ball at the head is a headshot, one at the chest or the legs is not", function()
+		expect(throwAt(0, 6.5, 0, HEAD.x, HEAD.y, HEAD.z)).toBe(true)
+		expect(throwAt(0, 6.5, 0, ROOT.x, ROOT.y, ROOT.z)).toBe(false)
+		expect(throwAt(0, 6.5, 0, ROOT.x, ROOT.y - 1.5, ROOT.z)).toBe(false)
+	end)
+
+	it("a ball at the neck grazes the chin with the ball but is a body hit: only the head counts", function()
+		local neck = HEAD.y - HEAD.radius - 0.2
+		-- within reach of the head zone, so without the head-height rule it would count
+		expect(HEAD.y - neck <= HEAD.radius * Config.headZoneScale + Config.ballRadius).toBe(true)
+		expect(throwAt(0, neck, 0, HEAD.x, neck, HEAD.z)).toBe(false)
+		-- the bottom of the head itself is still the head
+		local chin = HEAD.y - HEAD.radius + 0.05
+		expect(throwAt(0, chin, 0, HEAD.x, chin, HEAD.z)).toBe(true)
+	end)
+
+	it("the head zone is a bit bigger than the head: headZoneScale decides a near miss", function()
+		local reach = HEAD.radius * Config.headZoneScale + Config.ballRadius
+		local plain = table.clone(Config)
+		plain.headZoneScale = 1
+		local plainReach = HEAD.radius + Config.ballRadius
+		local between = (reach + plainReach) / 2
+		expect(Config.headZoneScale > 1).toBe(true)
+		expect(throwAt(0, 6.5, 0, between, HEAD.y, HEAD.z)).toBe(true)
+		expect(throwAt(0, 6.5, 0, between, HEAD.y, HEAD.z, nil, plain)).toBe(false)
+		expect(throwAt(0, 6.5, 0, reach + 0.3, HEAD.y, HEAD.z)).toBe(false)
+	end)
+
+	it("from behind the tower on the back takes the ball: a normal hit, unless there is no tower", function()
+		expect(throwAt(0, 6.5, 30, HEAD.x, HEAD.y, HEAD.z, towerOf(5))).toBe(false)
+		expect(throwAt(0, 6.5, 30, HEAD.x, HEAD.y, HEAD.z, nil)).toBe(true)
+		expect(throwAt(0, 6.5, 30, HEAD.x, HEAD.y, HEAD.z, towerOf(0))).toBe(true)
+	end)
+
+	it("from the front the tower does not shield the head", function()
+		expect(throwAt(0, 6.5, 0, HEAD.x, HEAD.y, HEAD.z, towerOf(5))).toBe(true)
+		expect(throwAt(0, 6.5, 0, HEAD.x, HEAD.y, HEAD.z, towerOf(20))).toBe(true)
+	end)
+
+	it("a throw from the side at the head is a headshot, the tower behind it does not matter", function()
+		expect(throwAt(-15, 6.5, 15, HEAD.x, HEAD.y, HEAD.z, towerOf(5))).toBe(true)
+	end)
+
+	it("aim help draws to the chest, never the head: a throw at its point is no headshot", function()
+		local point = ROOT.y + Config.aimAssist.aimHeight
+		expect(point < HEAD.y - HEAD.radius * Config.headZoneScale).toBe(true)
+		expect(throwAt(0, point, 0, ROOT.x, point, ROOT.z)).toBe(false)
+		expect(throwAt(0, point, 40, ROOT.x, point, ROOT.z)).toBe(false)
+	end)
+end)
+
+describe("Charge glow", function()
+	local p = Config.perfect
+
+	it("grows with the hold and turns perfect exactly in the perfect window, again and again", function()
+		expect(Combat.chargeGlow(10, 10 + p.rise / 2, Config)).toBeCloseTo(0.5, 1e-9)
+		local level, perfect = Combat.chargeGlow(10, 10 + p.rise, Config)
+		expect(level).toBe(1)
+		expect(perfect).toBe(true)
+		_, perfect = Combat.chargeGlow(10, 10 + p.rise * 2, Config)
+		expect(perfect).toBe(false)
+		_, perfect = Combat.chargeGlow(10, 10 + p.rise * 3, Config)
+		expect(perfect).toBe(true)
+		-- the same moments the crosshair shows and the server accepts
+		for _, held in { 0.1, p.rise - p.window / 2, p.rise + p.window / 2 + 0.01, 1.7 } do
+			local _, glowPerfect = Combat.chargeGlow(0, held, Config)
+			expect(glowPerfect).toBe(Combat.isPerfect(held, Config))
+		end
+	end)
+
+	it("nothing while not charging, for odd values or a start in the future", function()
+		for _, startedAt in { nil, "x", 0 / 0, math.huge, 20 } do
+			local level, perfect = Combat.chargeGlow(startedAt, 10, Config)
+			expect(level).toBe(0)
+			expect(perfect).toBe(false)
+		end
 	end)
 end)

@@ -12,6 +12,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local Combat = require(Shared:WaitForChild("Combat"))
 local Tuning = require(Config:WaitForChild("Tower"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
 
@@ -47,7 +48,25 @@ local player = Players.LocalPlayer
 local gui: ScreenGui
 local coinsText: TextLabel
 local ammoBalls: { Frame } = {}
+local ammoFills: { UIGradient } = {} -- per circle: how full it is, from the bottom up
 local reloadText: TextLabel
+local AMMO_EMPTY = 0.8 -- transparency of the unloaded part of a circle
+
+-- The transparency of a circle `share` full (0..1): solid below the line, faint above it.
+local function ammoFill(share: number): NumberSequence
+	if share >= 1 then
+		return NumberSequence.new(0)
+	elseif share <= 0 then
+		return NumberSequence.new(AMMO_EMPTY)
+	end
+	local line = math.clamp(share, 0.002, 0.997)
+	return NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(line, 0),
+		NumberSequenceKeypoint.new(line + 0.002, AMMO_EMPTY),
+		NumberSequenceKeypoint.new(1, AMMO_EMPTY),
+	})
+end
 local towerCard: Frame
 local countText: TextLabel
 local worthText: TextLabel
@@ -147,7 +166,7 @@ local function buildSide()
 	coinsText.Parent = coins
 	coins.Parent = side
 
-	-- ice balls left in the load; while the load reloads, the seconds until it is full again
+	-- ice balls loaded, the one loading filling up from the bottom; with none loaded, the seconds until the next one
 	local ammo = Ui.card({
 		Name = "IceBalls",
 		LayoutOrder = 2,
@@ -159,8 +178,12 @@ local function buildSide()
 	for index = 1, CombatConfig.ammo do
 		local ball = Ui.circle(18, "skyTop", { Name = "Ball" .. index, LayoutOrder = index })
 		Ui.stroke(ball, "vanilla", 2, 0.4)
+		local fill = Instance.new("UIGradient")
+		fill.Rotation = -90 -- runs from the bottom (0) to the top (1)
+		fill.Parent = ball
 		ball.Parent = ammo
 		ammoBalls[index] = ball
+		ammoFills[index] = fill
 	end
 	reloadText = Ui.text({ Name = "Reload", LayoutOrder = CombatConfig.ammo + 1, TextSize = 18, Visible = false })
 	reloadText.Parent = ammo
@@ -437,13 +460,22 @@ function Hud.Start()
 
 	RunService.RenderStepped:Connect(function()
 		local count = player:GetAttribute("IceBalls")
-		count = if type(count) == "number" then count else CombatConfig.ammo
-		for index, ball in ammoBalls do
-			ball.BackgroundTransparency = if index <= count then 0 else 0.8
-		end
 		local readyAt = player:GetAttribute("IceBallsReadyAt")
-		local left = if type(readyAt) == "number" then readyAt - workspace:GetServerTimeNow() else 0
-		reloadText.Visible = count <= 0 and left > 0
+		local serverNow = workspace:GetServerTimeNow()
+		local loaded, refill = Combat.ammoDisplay(
+			if type(count) == "number" then count else CombatConfig.ammo,
+			if type(readyAt) == "number" then readyAt else 0,
+			serverNow,
+			CombatConfig
+		)
+		-- loaded balls full, the one loading fills from the bottom up, the rest faint
+		for index, ball in ammoBalls do
+			ball.BackgroundTransparency = 0
+			ammoFills[index].Transparency =
+				ammoFill(if index <= loaded then 1 elseif index == loaded + 1 then refill else 0)
+		end
+		local left = if type(readyAt) == "number" then readyAt - serverNow else 0
+		reloadText.Visible = loaded <= 0 and left > 0
 		if reloadText.Visible then
 			reloadText.Text = string.format("%.1fs", left)
 		end

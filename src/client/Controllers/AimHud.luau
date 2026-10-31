@@ -2,7 +2,8 @@
 -- Its size comes from AimRules (bigger while moving, sprinting, after a dash and right after a throw, a little smaller
 -- while a throw is held). While the throw button is held a small inner circle grows from the middle to the outer
 -- circle and shrinks back, again and again (Combat.pulse); while letting go would be a perfect throw both turn green.
--- A hit of the local player flashes a red X in it. It is fixed: white, its size from Config/Combat crosshair, no settings.
+-- A hit of the local player flashes a red X in it, a headshot a bigger gold one (feedback.headshotMark). It is fixed:
+-- white, its size from Config/Combat crosshair, no settings.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,6 +20,7 @@ local AimHud = {}
 local Look = CombatConfig.crosshair
 local PERFECT = Color3.fromHex(Look.perfectColor)
 local MARK = Ui.color("awning")
+local HEADSHOT = Ui.color("lemon")
 
 local holder: Frame
 local outer: Frame
@@ -28,6 +30,7 @@ local innerStroke: UIStroke
 local mark: Frame
 local COLOR = Ui.color("white") -- fixed: the crosshair is not a setting
 local markUntil = 0
+local markBars: { Frame } = {}
 
 -- A thin ring centred on the holder: a light line with a faint dark edge, so it reads on sky, sand and ice cream.
 local function ring(name: string): (Frame, UIStroke)
@@ -90,14 +93,23 @@ function AimHud.Init()
 	mark.BackgroundTransparency = 1
 	mark.Size = UDim2.fromOffset(14, 14)
 	mark.Visible = false
-	bar(45).Parent = mark
-	bar(-45).Parent = mark
+	local a, b = bar(45), bar(-45)
+	a.Parent, b.Parent = mark, mark
+	markBars = { a, b }
 	mark.Parent = holder
 end
 
--- The local player's throw hit somebody: the red X flashes in the crosshair.
-function AimHud.mark()
-	markUntil = os.clock() + CombatConfig.feedback.markTime
+-- The local player's throw hit somebody: the red X flashes in the crosshair; a headshot shows a bigger, thicker gold
+-- X for longer.
+function AimHud.mark(headshot: boolean?)
+	local look = CombatConfig.feedback
+	local size = if headshot then look.headshotMark.size else 14
+	mark.Size = UDim2.fromOffset(size, size)
+	for _, line in markBars do
+		line.BackgroundColor3 = if headshot then HEADSHOT else MARK
+		line.Size = UDim2.new(1, 0, 0, if headshot then look.headshotMark.thickness else 2)
+	end
+	markUntil = os.clock() + (if headshot then look.headshotMark.time else look.markTime)
 end
 
 -- Called every frame. `active` shows the crosshair (combat mode), `ready` dims it while no throw is possible (empty

@@ -64,6 +64,7 @@ for _, name in
 		"MusicPlaylist",
 		"ArenaZone",
 		"MouseRules",
+		"HitPoints",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")

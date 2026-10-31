@@ -1,11 +1,12 @@
 --!strict
--- Pure maths for the ice-ball throw: the flight curve, the hit test against a player capsule, hit power, the
--- knockdown threshold and the ammo rules. No Roblox globals; CombatService and CombatController use the same
+-- Pure maths for the ice-ball throw: the flight curve, the hit test against a player capsule, the headshot, hit power
+-- and the ammo rules (the knockdown points are HitPoints). No Roblox globals; CombatService and CombatController use the same
 -- functions, and tests/Combat.spec.luau covers them.
 
 export type Config = {
 	ammo: number,
-	reloadTime: number,
+	reloadPerBall: number,
+	reloadDelay: number,
 	throwInterval: number,
 	perfect: { rise: number, window: number, speed: number },
 	chargeTolerance: number,
@@ -19,13 +20,12 @@ export type Config = {
 	hitRadius: number,
 	hitHalfHeight: number,
 	minPower: number,
-	staggerDecay: number,
-	knockdownAt: number,
+	headZoneScale: number,
 }
 
 export type Ammo = {
 	count: number,
-	reloadUntil: number, -- server time the load refills, 0 while there is ammo left
+	reloadUntil: number, -- server time the next ball is loaded, 0 while the load is full
 	lastThrowAt: number,
 }
 
@@ -104,6 +104,20 @@ function Combat.validatePerfect(claimed: boolean, held: number, config: Config):
 		return false
 	end
 	return fromTouch(held, config) <= config.perfect.window / 2 + config.chargeTolerance
+end
+
+-- How the ball in the hand of a player charging since `startedAt` (server time, the ChargeStartedAt attribute) glows
+-- at `now`: its strength (0..1, the glow's share) and whether letting go would be perfect (the bright green glow).
+-- Nothing while not charging (startedAt nil or not a number) or for a start in the future.
+function Combat.chargeGlow(startedAt: any, now: number, config: Config): (number, boolean)
+	if type(startedAt) ~= "number" or not isFinite(startedAt) then
+		return 0, false
+	end
+	local held = now - startedAt
+	if held <= 0 then
+		return 0, false
+	end
+	return Combat.strength(held, config), Combat.isPerfect(held, config)
 end
 
 -- Release speed at `strength` in [0, 1]; a perfect throw goes at perfect.speed.
@@ -232,6 +246,76 @@ function Combat.passDistance(
 	return best
 end
 
+-- Closest distance from the point c to the segment a->b, and where along a->b (0..1) it is.
+local function pointToSegment(
+	ax: number,
+	ay: number,
+	az: number,
+	bx: number,
+	by: number,
+	bz: number,
+	cx: number,
+	cy: number,
+	cz: number
+): (number, number)
+	local dx, dy, dz = bx - ax, by - ay, bz - az
+	local length2 = dx * dx + dy * dy + dz * dz
+	local s = if length2 > 1e-9
+		then math.clamp(((cx - ax) * dx + (cy - ay) * dy + (cz - az) * dz) / length2, 0, 1)
+		else 0
+	local px, py, pz = ax + dx * s - cx, ay + dy * s - cy, az + dz * s - cz
+	return math.sqrt(px * px + py * py + pz * pz), s
+end
+
+export type Head = { x: number, y: number, z: number, radius: number }
+export type TowerColumn = { x: number, y: number, z: number, height: number, radius: number } -- y: its bottom
+
+-- Whether a ball that touched the body capsule at `fromT` is a headshot: following its arc on through the body (as
+-- passDistance does), it reaches the head zone (the head's radius times headZoneScale, plus the ball) with its centre
+-- at head height (above the bottom of the head itself) before it reaches the tower column on the back. Only the head
+-- counts: a ball at the chest that grazes the chin is a body hit, and a tower in the way (a throw from behind) makes
+-- it a normal hit. `tower` is nil without scoops. The server decides this from the flight alone.
+function Combat.isHeadshot(
+	ox: number,
+	oy: number,
+	oz: number,
+	vx: number,
+	vy: number,
+	vz: number,
+	fromT: number,
+	head: Head,
+	tower: TowerColumn?,
+	config: Config
+): boolean
+	local headReach = head.radius * config.headZoneScale + config.ballRadius
+	local reach = config.hitRadius + config.ballRadius
+	local speed = math.max(math.sqrt(vx * vx + (vy - config.gravity * fromT) ^ 2 + vz * vz), 1)
+	local span = 2 * reach / speed -- long enough to cross the whole capsule
+	local steps = 32
+	local px, py, pz = Combat.position(ox, oy, oz, vx, vy, vz, config.gravity, fromT)
+	for step = 1, steps do
+		local t = fromT + span * step / steps
+		local qx, qy, qz = Combat.position(ox, oy, oz, vx, vy, vz, config.gravity, t)
+		local headDistance, headS = pointToSegment(px, py, pz, qx, qy, qz, head.x, head.y, head.z)
+		local towerS = math.huge
+		if tower and tower.height > 0 then
+			local half = tower.height / 2
+			local distance, s = Combat.closestToCapsule(px, py, pz, qx, qy, qz, tower.x, tower.y + half, tower.z, half)
+			if distance <= tower.radius + config.ballRadius then
+				towerS = s
+			end
+		end
+		if headDistance <= headReach and py + (qy - py) * headS >= head.y - head.radius then
+			return headS < towerS
+		end
+		if towerS < math.huge then
+			return false
+		end
+		px, py, pz = qx, qy, qz
+	end
+	return false
+end
+
 -- Hit power, at most 1: a centred hit (distance 0) of a full-strength ball that has not slowed down yet is
 -- strongest; grazing, slowed-down (impact speed below its release speed) and weaker (tapped) ones are less. A
 -- perfect throw is full strength: faster, so it slows down less, but no harder.
@@ -250,36 +334,24 @@ function Combat.hitPower(
 	return math.clamp(speedFactor * strengthFactor * (config.minPower + (1 - config.minPower) * centred), floor, 1)
 end
 
--- Adds a hit to the victim's stagger. Returns the new stagger and whether this hit knocks them down (which
--- resets the stagger). A single hit is at most 1 and never reaches knockdownAt on its own.
-function Combat.addHit(
-	stagger: number,
-	lastHitAt: number,
-	now: number,
-	power: number,
-	config: Config
-): (number, boolean)
-	local drained = math.max(0, stagger - config.staggerDecay * math.max(0, now - lastHitAt))
-	local value = drained + power
-	if value >= config.knockdownAt then
-		return 0, true
-	end
-	return value, false
-end
-
 function Combat.newAmmo(config: Config): Ammo
 	return { count = config.ammo, reloadUntil = 0, lastThrowAt = -math.huge }
 end
 
--- Refills an empty load once its reload time is over.
+-- Loads the balls whose time has come: one after another, reloadPerBall each, until the load is full again.
 function Combat.refresh(ammo: Ammo, now: number, config: Config)
-	if ammo.count <= 0 and now >= ammo.reloadUntil then
-		ammo.count = config.ammo
+	while ammo.count < config.ammo and ammo.reloadUntil > 0 and now >= ammo.reloadUntil do
+		ammo.count += 1
+		ammo.reloadUntil = if ammo.count < config.ammo then ammo.reloadUntil + config.reloadPerBall else 0
+	end
+	if ammo.count >= config.ammo then
 		ammo.reloadUntil = 0
 	end
 end
 
--- Spends one throw if allowed. Every throw costs one, hit or miss; the third starts the reload.
+-- Spends one throw if a ball is loaded and the throw interval has passed. Every throw costs one, hit or miss, and
+-- (re)starts the reload: the next ball is ready reloadDelay + reloadPerBall after it. A ball half loaded when the
+-- throw comes starts over, so throwing keeps the reload waiting.
 function Combat.tryThrow(ammo: Ammo, now: number, config: Config): boolean
 	Combat.refresh(ammo, now, config)
 	if ammo.count <= 0 or now - ammo.lastThrowAt < config.throwInterval then
@@ -287,21 +359,20 @@ function Combat.tryThrow(ammo: Ammo, now: number, config: Config): boolean
 	end
 	ammo.count -= 1
 	ammo.lastThrowAt = now
-	if ammo.count == 0 then
-		ammo.reloadUntil = now + config.reloadTime
-	end
+	ammo.reloadUntil = now + config.reloadDelay + config.reloadPerBall
 	return true
 end
 
--- What the ammo display (the ball in the hand) shows for the replicated ammo: how many balls are loaded and, while
--- an empty load refills, how far along the reload is (0..1). Inputs come from attributes, so anything out of range
--- is clamped.
+-- What the ammo displays (the HUD circles, the ball in the hand) show for the replicated ammo: how many balls are
+-- loaded and how far the next one has loaded (0..1; 0 while the load is full or the reload still waits after a
+-- throw). Inputs come from attributes, so anything out of range is clamped. The count only rises when the server
+-- says so; until then a finished ball shows as fully loaded.
 function Combat.ammoDisplay(count: number, reloadUntil: number, now: number, config: Config): (number, number)
 	local loaded = if count == count then math.clamp(math.floor(count), 0, config.ammo) else 0
-	if loaded > 0 or not isFinite(reloadUntil) or reloadUntil <= 0 then
+	if loaded >= config.ammo or not isFinite(reloadUntil) or reloadUntil <= 0 then
 		return loaded, 0
 	end
-	return 0, math.clamp(1 - (reloadUntil - now) / config.reloadTime, 0, 1)
+	return loaded, math.clamp(1 - (reloadUntil - now) / config.reloadPerBall, 0, 1)
 end
 
 return Combat

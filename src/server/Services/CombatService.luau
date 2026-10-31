@@ -10,6 +10,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
+local HitPoints = require(Shared:WaitForChild("HitPoints"))
 local MouseRules = require(Shared:WaitForChild("MouseRules"))
 local AimRules = require(Shared:WaitForChild("AimRules"))
 local Loot = require(Shared:WaitForChild("Loot"))
@@ -18,6 +19,7 @@ local Config = require(Shared:WaitForChild("Config"):WaitForChild("Combat"))
 local LootConfig = require(Shared:WaitForChild("Config"):WaitForChild("Loot"))
 local Features = require(Shared:WaitForChild("Config"):WaitForChild("Features"))
 local MapConfig = require(Shared:WaitForChild("Config"):WaitForChild("Map"))
+local TowerConfig = require(Shared:WaitForChild("Config"):WaitForChild("Tower"))
 
 local CombatService = {}
 
@@ -25,8 +27,7 @@ local registry
 
 type PlayerState = {
 	ammo: Combat.Ammo,
-	stagger: number,
-	lastHitAt: number,
+	knock: HitPoints.State, -- knockdown points (Config/Combat knock)
 	downUntil: number,
 	reloadToken: number,
 	chargeStartedAt: number?, -- server time the throw button went down; cleared by a throw, knockdown or respawn
@@ -58,7 +59,7 @@ local RELEASE_FORWARD = 1
 -- one charge start per this many seconds is plenty for a human; faster ones are dropped
 local CHARGE_INTERVAL = 0.05
 
--- keyed by Player, not by character: a respawn keeps ammo, reload and stagger
+-- keyed by Player, not by character: a respawn keeps ammo, reload and knockdown points
 local states: { [Player]: PlayerState } = {}
 local balls: { Ball } = {}
 -- the last hit each player took that did harm, so a topple soon after it is credited to its thrower
@@ -109,22 +110,29 @@ local function publishAmmo(player: Player, state: PlayerState)
 	player:SetAttribute("IceBallsReadyAt", state.ammo.reloadUntil)
 end
 
--- Refill exactly when the reload ends, so the HUD shows the new load without waiting for the next throw.
+-- Loads each ball exactly when its time comes, so the HUD shows it without waiting for the next throw, and plans the
+-- next one until the load is full. A throw plans anew (the token drops the old plan).
 local function scheduleRefill(player: Player, state: PlayerState)
 	state.reloadToken += 1
 	local token = state.reloadToken
+	if state.ammo.reloadUntil <= 0 then
+		return
+	end
 	task.delay(math.max(0, state.ammo.reloadUntil - now()) + 0.05, function()
 		if states[player] ~= state or state.reloadToken ~= token then
 			return
 		end
 		Combat.refresh(state.ammo, now(), Config)
 		publishAmmo(player, state)
+		scheduleRefill(player, state)
 	end)
 end
 
--- Whether the player is charging a throw, published as the Charging attribute so every client can draw the wind-up.
+-- Whether the player is charging a throw, published as the Charging attribute so every client can draw the wind-up,
+-- and since when (ChargeStartedAt, server time), so every client can light the ball in the hand by the charge.
 local function setCharging(player: Player, state: PlayerState, startedAt: number?)
 	state.chargeStartedAt = startedAt
+	player:SetAttribute("ChargeStartedAt", startedAt)
 	player:SetAttribute("Charging", startedAt ~= nil)
 end
 
@@ -256,9 +264,7 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedS
 		)
 	)
 	publishAmmo(player, state)
-	if state.ammo.count == 0 then
-		scheduleRefill(player, state)
-	end
+	scheduleRefill(player, state) -- every throw makes the reload wait and start over
 
 	nextId += 1
 	table.insert(balls, {
@@ -294,7 +300,8 @@ local function resolve(
 	position: Vector3,
 	power: number,
 	knockdown: boolean,
-	shielded: boolean?
+	shielded: boolean?,
+	headshot: boolean?
 )
 	local flat = Vector3.new(ball.vx, 0, ball.vz)
 	flat = if flat.Magnitude > 1e-3 then flat.Unit else Vector3.zero
@@ -307,14 +314,57 @@ local function resolve(
 		flat.Z,
 		power,
 		knockdown,
-		shielded == true
+		shielded == true,
+		headshot == true
 	)
 end
 
-local function hitPlayer(ball: Ball, victim: Player, position: Vector3, distance: number, speed: number)
+-- The victim's knockdown points for their own meter (HitPoints.display): the count, when it drops back to 0, and
+-- until when the get-up protection lasts.
+local function publishKnock(player: Player, knock: HitPoints.State)
+	player:SetAttribute("KnockPoints", knock.points)
+	player:SetAttribute("KnockResetAt", math.max(0, knock.lastHitAt + Config.knock.resetAfter)) -- never -inf
+	player:SetAttribute("KnockProtectedUntil", math.max(0, knock.protectedUntil))
+end
+
+-- The head zone and the tower column of a player, for Combat.isHeadshot: the Head part's centre and radius, and an
+-- upright column on the back as high as their tower (nil without scoops).
+local function headAndTower(player: Player, root: BasePart): (Combat.Head?, Combat.TowerColumn?)
+	local head = (root.Parent :: Model):FindFirstChild("Head") :: BasePart?
+	if not head then
+		return nil, nil
+	end
+	local p = head.Position
+	local zone: Combat.Head =
+		{ x = p.X, y = p.Y, z = p.Z, radius = math.max(head.Size.X, head.Size.Y, head.Size.Z) / 2 }
+	local scoops = registry.TowerService.count(player)
+	if scoops <= 0 then
+		return zone, nil
+	end
+	local flatBack = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+	flatBack = if flatBack.Magnitude > 1e-3 then -flatBack.Unit else Vector3.zero
+	local bottom = root.Position + flatBack * Config.towerBack + Vector3.new(0, Config.towerUp, 0)
+	return zone,
+		{
+			x = bottom.X,
+			y = bottom.Y,
+			z = bottom.Z,
+			height = scoops * TowerConfig.scoopSpacing,
+			radius = Config.towerRadius,
+		}
+end
+
+local function hitPlayer(
+	ball: Ball,
+	victim: Player,
+	position: Vector3,
+	distance: number,
+	speed: number,
+	headshot: boolean
+)
 	local state = states[victim]
 	local time = now()
-	-- at the own cart a hit lands but does no harm: no power, no stagger, no knockdown (design rule 4)
+	-- at the own cart a hit lands but does no harm: no power, no points, no knockdown (design rule 4)
 	local root = rootOf(victim)
 	if state and root and Loot.isShielded(cartDistance(victim, root), time, state.unshieldedUntil, LootConfig) then
 		debugLog(`{victim.Name} hit by {ball.thrower.Name} in their cart's safe zone: no harm`)
@@ -324,27 +374,29 @@ local function hitPlayer(ball: Ball, victim: Player, position: Vector3, distance
 	local power = Combat.hitPower(distance, speed, ball.speed, ball.strength, Config)
 	local knockdown = false
 	if state then
-		local before = math.max(0, state.stagger - Config.staggerDecay * math.max(0, time - state.lastHitAt))
-		state.stagger, knockdown = Combat.addHit(state.stagger, state.lastHitAt, time, power, Config)
+		local value = HitPoints.value(headshot, ball.perfect, power, Config.knock)
+		local added
+		added, knockdown = HitPoints.add(state.knock, time, value, time + Config.knockdownTime, Config.knock)
 		debugLog(
 			string.format(
-				"%s hit by %s: power %.2f (%.2f studs off the axis, %.0f of %.0f studs/s, strength %.2f%s), stagger %.2f + %.2f %s %.1f%s",
+				"%s hit by %s: %s%s, power %.2f (%.2f studs off the axis, %.0f of %.0f studs/s, strength %.2f), %d points worth, %d counted, now %d of %d%s",
 				victim.Name,
 				ball.thrower.Name,
+				if headshot then "HEADSHOT" else "body",
+				if ball.perfect then " perfect" else "",
 				power,
 				distance,
 				speed,
 				ball.speed,
 				ball.strength,
-				if ball.perfect then ", perfect" else "",
-				before,
-				power,
-				if knockdown then ">=" else "<",
-				Config.knockdownAt,
+				value,
+				added,
+				if knockdown then Config.knock.knockdownAt else state.knock.points,
+				Config.knock.knockdownAt,
 				if knockdown then ": KNOCKDOWN" else ""
 			)
 		)
-		state.lastHitAt = time
+		publishKnock(victim, state.knock)
 		registry.TowerService.hitStance(victim, power)
 		lastHitBy[victim] = { thrower = ball.thrower, at = time }
 		if knockdown then
@@ -358,7 +410,7 @@ local function hitPlayer(ball: Ball, victim: Player, position: Vector3, distance
 			registry.LootService.ownerDown(victim, state.downUntil)
 		end
 	end
-	resolve(ball, victim, position, power, knockdown)
+	resolve(ball, victim, position, power, knockdown, false, headshot)
 end
 
 -- Moves every ball from its last checked time to now and resolves the first thing it touches: a player capsule
@@ -430,7 +482,22 @@ local function step()
 					Config
 				)
 			)
-			hitPlayer(ball, bestVictim, from:Lerp(to, bestS), centred, speed)
+			-- headshot: the arc on through the body reaches the head zone before the tower on the back
+			local head, tower = headAndTower(bestVictim, rootOf(bestVictim) :: BasePart)
+			local headshot = head ~= nil
+				and Combat.isHeadshot(
+					ball.ox,
+					ball.oy,
+					ball.oz,
+					ball.vx,
+					ball.vy,
+					ball.vz,
+					ball.lastT,
+					head,
+					tower,
+					Config
+				)
+			hitPlayer(ball, bestVictim, from:Lerp(to, bestS), centred, speed, headshot)
 		elseif worldHit then
 			debugLog(
 				string.format(
@@ -491,8 +558,7 @@ function CombatService.Start()
 	local function onPlayer(player: Player)
 		local state: PlayerState = {
 			ammo = Combat.newAmmo(Config),
-			stagger = 0,
-			lastHitAt = 0,
+			knock = HitPoints.new(),
 			downUntil = 0,
 			reloadToken = 0,
 			chargeStartedAt = nil,
@@ -503,6 +569,7 @@ function CombatService.Start()
 		}
 		states[player] = state
 		publishAmmo(player, state)
+		publishKnock(player, state.knock)
 		setCombatMode(player, state, false)
 		-- a respawn keeps the ammo but never a charge or combat mode from the old character
 		player.CharacterAdded:Connect(function()

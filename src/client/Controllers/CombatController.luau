@@ -236,7 +236,8 @@ local function onResolved(
 	dirZ: number,
 	power: number,
 	knockdown: boolean,
-	shielded: boolean?
+	shielded: boolean?,
+	headshot: boolean?
 )
 	local ball = balls[id]
 	if ball then
@@ -280,7 +281,13 @@ local function onResolved(
 		end
 	end
 	if thrower == player and victim ~= player then
-		registry.Hud.toast(if knockdown then "KNOCKDOWN!" else "HIT!", Palette.lemon)
+		if headshot then
+			-- its own sound and word; a knockdown still says so in the feed (HitFeedback)
+			Sfx.play("headshot")
+			registry.Hud.toast("HEADSHOT!", Palette.lemon)
+		else
+			registry.Hud.toast(if knockdown then "KNOCKDOWN!" else "HIT!", Palette.lemon)
+		end
 	end
 	if victim ~= player or not character then
 		return

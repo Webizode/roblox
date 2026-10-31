@@ -126,6 +126,33 @@ function Sfx.play(name: string, playbackSpeed: number?)
 	end)
 end
 
+-- Plays a sound from Config/Sounds in the world at `parent` (a part or attachment), heard up to `hearing` studs
+-- away and fading towards there, in the effects group.
+function Sfx.at(name: string, parent: Instance, hearing: number)
+	local id = Sounds[name]
+	if type(id) ~= "string" then
+		return
+	end
+	local instance = Instance.new("Sound")
+	instance.Name = name
+	instance.SoundId = id
+	instance.Volume = 0.6
+	instance.SoundGroup = effects
+	instance.RollOffMode = Enum.RollOffMode.InverseTapered
+	instance.RollOffMinDistance = math.min(10, hearing)
+	instance.RollOffMaxDistance = hearing
+	instance.Parent = parent
+	instance.Ended:Once(function()
+		instance:Destroy()
+	end)
+	instance:Play()
+	task.delay(5, function()
+		if instance.Parent then
+			instance:Destroy()
+		end
+	end)
+end
+
 -- The nth catch of a tower, one pentatonic step higher each time.
 function Sfx.catch(count: number)
 	local steps = Sounds.pentatonic

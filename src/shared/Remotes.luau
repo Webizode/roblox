@@ -29,7 +29,7 @@ local DEFINITIONS = {
 	ThrowIceBall = "RemoteEvent",
 	IceBallThrown = "RemoteEvent", -- server -> all: id, thrower, origin, velocity, t0 (server time), perfect
 	-- server -> all: id, thrower, victim (nil on a miss), position, dirX, dirZ, power, knockdown, shielded (the victim
-	-- stood in their cart's safe zone: no harm)
+	-- stood in their cart's safe zone: no harm), headshot (Combat.isHeadshot)
 	IceBallResolved = "RemoteEvent",
 	-- server -> the thrower: kind ("knockdown": their hit knocked the victim down; "toppled": the victim's tower fell
 	-- soon after their hit), victim, scoops the victim lost

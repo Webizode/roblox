@@ -83,9 +83,9 @@ local function number(victim: Player, lost: number)
 end
 
 local function onResolved(_: number, thrower: Player, victim: Player?, ...)
-	local shielded = select(6, ...)
+	local shielded, headshot = select(6, ...)
 	if thrower == player and victim and not shielded then
-		registry.AimHud.mark()
+		registry.AimHud.mark(headshot == true)
 	end
 end
 

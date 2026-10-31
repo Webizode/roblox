@@ -5,6 +5,8 @@
 -- Every client draws it for every player from the CombatMode, IceBalls and IceBallsReadyAt attributes the server sets
 -- (Combat.ammoDisplay turns the ammo into what to show). Client-only, anchored, non-colliding, like the towers;
 -- nothing here touches gameplay. The thrown ball itself starts at the server's release point, the same hand.
+-- Charging lights it up for everyone (ChargeStartedAt, Combat.chargeGlow): a glowing shell that grows with the
+-- strength and flares green while letting go would be perfect, with the charge-up and perfect sounds for players nearby.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +23,7 @@ local Palette = require(Config:WaitForChild("Palette"))
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local BallVisual = require(client:WaitForChild("BallVisual"))
+local Sfx = require(client:WaitForChild("Sfx"))
 
 local HeldBalls = {}
 
@@ -39,12 +42,19 @@ type Held = {
 	size: number, -- last size written to the part
 	modelSize: number, -- and to the model
 	shown: boolean,
+	glow: Part, -- the charge glow: a see-through neon shell with a light, around the ball while charging
+	chargeStart: number?, -- the ChargeStartedAt last frame, to hear a new charge start
+	chargePerfect: boolean, -- letting go would be perfect last frame, to hear each perfect moment once
 }
 
 local STEP = "WobbleHeldBalls"
 local HIDDEN_SCALE = 0.02
 local Look = CombatConfig.held
 local DIAMETER = CombatConfig.ballRadius * 2 -- the same ball that flies
+local Charge = Look.charge
+local ICE = Color3.fromHex(Palette.skyTop)
+local PERFECT = Color3.fromHex(CombatConfig.crosshair.perfectColor)
+local GLOW_SIZE = 1.5 -- the shell, times the ball
 
 local localPlayer = Players.LocalPlayer
 local held: { [Player]: Held } = {}
@@ -57,6 +67,16 @@ local function newHeld(player: Player): Held
 	part.Color = Color3.fromHex(Palette.skyTop)
 	part.Parent = nil
 	local model = BallVisual.new("HeldBall_" .. player.UserId, DIAMETER)
+	local glow = TowerVisual.makePart(TowerVisual.root())
+	glow.Name = "ChargeGlow_" .. player.UserId
+	glow.Shape = Enum.PartType.Ball
+	glow.Material = Enum.Material.Neon
+	glow.CastShadow = false
+	glow.Size = Vector3.one * DIAMETER * GLOW_SIZE
+	local light = Instance.new("PointLight")
+	light.Shadows = false
+	light.Parent = glow
+	glow.Parent = nil
 	return {
 		part = part,
 		model = model,
@@ -72,6 +92,9 @@ local function newHeld(player: Player): Held
 		size = -1,
 		modelSize = DIAMETER,
 		shown = false,
+		glow = glow,
+		chargeStart = nil,
+		chargePerfect = false,
 	}
 end
 
@@ -87,6 +110,7 @@ local function show(entry: Held, on: boolean)
 		entry.shown = on
 		if not on then
 			place(entry.part, false)
+			place(entry.glow, false)
 			if entry.model then
 				place(entry.model, false)
 			end
@@ -95,6 +119,49 @@ local function show(entry: Held, on: boolean)
 			end
 			entry.count = nil -- what changed while hidden shows as it is, without a pop
 		end
+	end
+end
+
+-- The charge, for every player (Combat.chargeGlow from the ChargeStartedAt attribute): the shell round the ball and
+-- its light grow with the strength and flare up green while letting go would be perfect. Players nearby hear the
+-- charge start and each perfect moment at the hand.
+local function chargeLook(
+	player: Player,
+	entry: Held,
+	hand: BasePart,
+	centre: Vector3,
+	serverNow: number,
+	shown: boolean
+)
+	local startedAt = player:GetAttribute("ChargeStartedAt")
+	local level, perfect = Combat.chargeGlow(startedAt, serverNow, CombatConfig)
+	local started = if type(startedAt) == "number" then startedAt else nil
+	if started ~= entry.chargeStart then
+		entry.chargeStart = started
+		if started then
+			Sfx.at("chargeUp", hand, Charge.hearing)
+		end
+	end
+	if perfect and not entry.chargePerfect then
+		Sfx.at("perfectReady", hand, Charge.hearing)
+	end
+	entry.chargePerfect = perfect
+	local glow = entry.glow
+	local on = shown and level > 0
+	place(glow, on)
+	if not on then
+		return
+	end
+	local light = glow:FindFirstChildOfClass("PointLight") :: PointLight
+	local color = if perfect then PERFECT else ICE
+	glow.Color = color
+	light.Color = color
+	glow.Transparency = if perfect then 0.45 else 1 - 0.35 * level
+	light.Brightness = if perfect then Charge.perfectBrightness else Charge.brightness * level
+	light.Range = if perfect then Charge.perfectRange else Charge.range * level
+	glow.CFrame = CFrame.new(centre)
+	if player == localPlayer then
+		glow.LocalTransparencyModifier = hand.LocalTransparencyModifier -- fades with the arm in first person
 	end
 end
 
@@ -238,6 +305,7 @@ local function onRenderStep()
 					* CFrame.Angles(0, idle.yaw + turn + spin, 0)
 					* CFrame.Angles(idle.pitch, 0, idle.roll)
 			)
+			chargeLook(player, entry, hand, model:GetPivot().Position, serverNow, scale > 0.5)
 			continue
 		end
 		if model then
@@ -260,6 +328,7 @@ local function onRenderStep()
 			part.LocalTransparencyModifier = localModifier
 		end
 		part.CFrame = centre
+		chargeLook(player, entry, hand, centre.Position, serverNow, not frost and scale > 0.5)
 	end
 end
 
@@ -274,6 +343,7 @@ local function untrack(player: Player)
 	if entry then
 		held[player] = nil
 		entry.part:Destroy()
+		entry.glow:Destroy()
 		if entry.model then
 			entry.model:Destroy()
 		end

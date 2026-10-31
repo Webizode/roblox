@@ -5,9 +5,12 @@ return {
 	-- combat mode (R): only in it can a player charge and throw. Switching on is rate-limited, off always works.
 	combatModeInterval = 0.2, -- seconds
 
-	-- ammo: three throws per load; once all three are gone the load refills after reloadTime. The server owns it.
+	-- ammo: up to three balls. Whenever fewer are loaded they load one after another, reloadPerBall each (empty to full
+	-- 3 x 1.4 = 4.2 s), also with some left; every throw makes the reload wait: the next ball is ready reloadDelay +
+	-- reloadPerBall after it (a half-loaded ball starts over). The server owns the count (Combat.tryThrow, refresh).
 	ammo = 3,
-	reloadTime = 4, -- seconds
+	reloadPerBall = 1.4, -- seconds per ball
+	reloadDelay = 0.5, -- seconds after a throw before the next ball starts loading
 	throwInterval = 0.4, -- seconds between two throws, so a macro cannot fire a whole load at once
 
 	-- throw strength (Combat.strength): a tap throws at once at strength 0; holding raises it to 1 by perfect.rise
@@ -53,7 +56,9 @@ return {
 	aimAssist = {
 		maxAngle = 8, -- degrees from the crosshair
 		maxRange = 120, -- studs
-		aimHeight = 1, -- studs above the HumanoidRootPart the camera is drawn to (the chest)
+		-- studs above the HumanoidRootPart the camera is drawn to: the middle of the R15 UpperTorso (+0.2), well below
+		-- the head (+1.59, Combat.isHeadshot), so aim help never sets up a headshot (it was 1, the neck, until 31.10.2026)
+		aimHeight = 0.2,
 		devices = {
 			keyboard = { friction = 0.15, pull = 0.4 }, -- mouse: hardly felt
 			gamepad = { friction = 0.35, pull = 1.6 },
@@ -70,6 +75,11 @@ return {
 		numberRise = 3, -- studs it rises
 		feedTime = 2.5, -- seconds a feed line stays
 		feedLines = 3, -- at most this many at once, the newest at the bottom
+		-- a headshot: a bigger, thicker gold X, "HEADSHOT!" and its own sound (Sounds.headshot) for the thrower
+		headshotMark = { size = 26, thickness = 4, time = 0.6 },
+		-- the own knockdown meter (KnockMeter) below the crosshair: one segment per point up to knock.knockdownAt,
+		-- shown while there are points or the get-up protection lasts
+		meter = { segment = 18, gap = 3, height = 6, below = 46 }, -- pixels
 	},
 
 	-- aiming: the ball leaves the right hand and flies on an arc through the point under the crosshair
@@ -108,6 +118,10 @@ return {
 		spinSpeed = 25, -- degrees per second the floating ball slowly turns, on top of its idle sway
 		-- after a throw the next ball pops in only once the arm has swung through, so the hand is empty meanwhile
 		reappearDelay = 0.5, -- seconds
+		-- charging lights the ball up for everyone (ChargeStartedAt): brighter with the strength up to `brightness` and
+		-- `range`, much brighter and green (crosshair perfectColor) while letting go would be a perfect throw. Players
+		-- within hearing studs hear the charge start (Sounds.chargeUp) and every perfect moment (Sounds.perfectReady).
+		charge = { brightness = 2.5, range = 7, perfectBrightness = 8, perfectRange = 12, hearing = 60 },
 	},
 
 	-- ice look of the ball, purely visual and client-only (BallVisual, HeldBalls, CombatController). Particles use
@@ -203,7 +217,7 @@ return {
 	towerKickPerScoop = 0.03,
 	towerKickMax = 1.0,
 	towerShakeGain = 1.0,
-	towerShakeDecay = 0.6, -- per second, like the stagger
+	towerShakeDecay = 0.6, -- per second
 	unsteadySeconds = 1.0, -- times 1 + shake
 	unsteadyFactor = 0.35,
 	-- The steady stance is no shield: a hit taken in it reaches the tower at stanceTowerScale of its power and drains
@@ -211,12 +225,29 @@ return {
 	stanceTowerScale = 0.5,
 	stanceDrain = 0.25,
 
-	-- knockdown: every hit adds its power to a stagger value that drains by staggerDecay per second. A single hit
-	-- (power <= 1) never reaches knockdownAt; two full-strength hits on the middle do, and so do three taps on the middle
-	-- (0.6 each) of one load, even 0.6 s apart. Two taps, or three grazing ones, do not. (Since 29.10.2026; it was 0.6,
-	-- which with taps never added up.)
-	staggerDecay = 0.2,
-	knockdownAt = 1.5,
+	-- knockdown points (HitPoints, since 31.10.2026; before, hit powers added up to a stagger value): every hit is
+	-- worth points by what it was, and at knockdownAt the victim goes down. Three normal hits, two perfect throws, two
+	-- headshots or one perfect headshot knock down. A normal hit with power below grazeBelow (Combat.hitPower: a tap
+	-- or a weak ball that only grazes) is worth `graze`. After resetAfter seconds without a hit the count is 0 again.
+	-- Hits within multiWindow of each other (several players at once) count once, the strongest; the others still
+	-- push and shove the tower. After getting up, hits give no points for `protection` seconds (they still push).
+	-- Power keeps deciding knockback, the tower shove and the stance drain.
+	knock = {
+		points = { normal = 2, graze = 1, perfect = 3, headshot = 3, headshotPerfect = 6 },
+		grazeBelow = 0.4,
+		knockdownAt = 6,
+		resetAfter = 4, -- seconds
+		multiWindow = 0.25, -- seconds
+		protection = 2, -- seconds after getting up
+	},
+	-- Headshot (Combat.isHeadshot): only the head counts, its zone is the Head part's radius times headZoneScale.
+	-- The server follows the ball's arc through the body; reaching the tower column on the back first (a throw from
+	-- behind) makes it a normal hit. The column stands upright (the server does not know the lean) on the back,
+	-- towerBack studs behind and towerUp above the HumanoidRootPart, scoopSpacing (Config/Tower) per scoop high.
+	headZoneScale = 1.3,
+	towerBack = 1.6,
+	towerUp = 1.2,
+	towerRadius = 1.1,
 	-- seconds down; no further hits land meanwhile. The knockdown animations' total: fall (fallLength), lying still
 	-- (fallHold), get-up (getUpLength / getUpSpeed) = 0.333 + 0.2 + 1.367 / 1.25 = 1.63 (tests/Combat.spec)
 	knockdownTime = 1.63,

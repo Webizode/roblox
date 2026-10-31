@@ -13,6 +13,11 @@ return {
 	throw = "rbxassetid://127438224839678",
 	hit = "rbxasset://sounds/snap.wav",
 	perfectThrow = "rbxasset://sounds/electronicpingshort.wav", -- a bright ping, played higher (CombatController)
+	-- free Creator Store placeholders: "bell hitsound" (1.7 s), "charge up" (0.97 s), ProSoundEffects "Magic Twirling
+	-- Small High Pitch Spinning Chime" (2.1 s)
+	headshot = "rbxassetid://124010691633262", -- the thrower hears it on their headshot
+	chargeUp = "rbxassetid://139493189032178", -- at the charging hand, for players nearby
+	perfectReady = "rbxassetid://9125644410", -- at the hand each time letting go would be perfect
 
 	-- every catch climbs one step of a pentatonic scale so a growing tower "sings"
 	pentatonic = { 0, 2, 4, 7, 9 },
