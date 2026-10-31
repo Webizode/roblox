@@ -30,16 +30,19 @@ function ArenaZone.nearestLane(x: number, z: number, config: Config): number
 	return index % config.ramps + 1
 end
 
--- Whether the point (x, z) lies in the arena: on the floor disc, or on a ramp up to its top edge.
-function ArenaZone.contains(x: number, z: number, config: Config): boolean
+-- Whether the point (x, z) lies in the arena: on the floor disc, or on a ramp up to its top edge. `slack` (studs,
+-- default 0) widens the zone all round; the server uses it for the position it sees a little late.
+function ArenaZone.contains(x: number, z: number, config: Config, slack: number?): boolean
+	local extra = slack or 0
 	local dx, dz = x - config.center.x, z - config.center.z
-	if dx * dx + dz * dz <= config.radius * config.radius then
+	local radius = config.radius + extra
+	if dx * dx + dz * dz <= radius * radius then
 		return true
 	end
 	local sx, sz = ArenaZone.lane(ArenaZone.nearestLane(x, z, config), config)
 	local along = dx * sx + dz * sz
 	local across = dx * sz - dz * sx
-	return along > 0 and along <= config.rampTop and math.abs(across) <= config.rampHalfWidth
+	return along > 0 and along <= config.rampTop + extra and math.abs(across) <= config.rampHalfWidth + extra
 end
 
 return ArenaZone

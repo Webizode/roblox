@@ -91,3 +91,20 @@ describe("Arena zone: the ramps", function()
 		end
 	end)
 end)
+
+describe("Arena zone: the server's slack", function()
+	it("widens the floor and the ramps by the slack, and only by it", function()
+		local slack = MapConfig.arena.serverSlack
+		local edge = Config.radius + slack / 2
+		expect(ArenaZone.contains(edge, 0, Config)).toBe(false)
+		expect(ArenaZone.contains(edge, 0, Config, slack)).toBe(true)
+		expect(ArenaZone.contains(Config.radius + slack + 0.5, 0, Config, slack)).toBe(false)
+		for index = 1, Config.ramps do
+			local x, z = onLane(index, Config.radius + 1, Config.rampHalfWidth + slack / 2)
+			expect(ArenaZone.contains(x, z, Config)).toBe(false)
+			expect(ArenaZone.contains(x, z, Config, slack)).toBe(true)
+			x, z = onLane(index, Config.rampTop + slack / 2, 0)
+			expect(ArenaZone.contains(x, z, Config, slack)).toBe(true)
+		end
+	end)
+end)

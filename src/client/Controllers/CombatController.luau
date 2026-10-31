@@ -23,7 +23,10 @@ local Combat = require(Shared:WaitForChild("Combat"))
 local AimRules = require(Shared:WaitForChild("AimRules"))
 local BallMotion = require(Shared:WaitForChild("BallMotion"))
 local MapQuery = require(Shared:WaitForChild("MapQuery"))
+local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
+local MouseRules = require(Shared:WaitForChild("MouseRules"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
+local MapConfig = require(Config:WaitForChild("Map"))
 local Features = require(Config:WaitForChild("Features"))
 local Palette = require(Config:WaitForChild("Palette"))
 
@@ -459,11 +462,33 @@ local function onAimStep(dt: number)
 	registry.AimHud.set(combatMode, canThrow(), crosshairRadius, held)
 end
 
+-- Whether the local character stands in the arena (ArenaZone, the same function the server asks).
+local function inArena(): boolean
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	return root ~= nil and ArenaZone.contains(root.Position.X, root.Position.Z, MapConfig.arena)
+end
+
 -- Holds the mouse in the middle of the screen and keeps the cursor hidden (the crosshair is the cursor) while combat
--- mode is on. Runs after the camera scripts every frame, because they set the mouse behaviour and the cursor
--- themselves (a held right mouse button pans Roblox's camera and shows the cursor).
+-- mode is on, as MouseRules.mode says. Runs after the camera scripts every frame, because they set the mouse
+-- behaviour and the cursor themselves (a held right mouse button pans Roblox's camera and shows the cursor).
 local function onMouseStep()
-	if UserInputService.MouseEnabled and UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
+	local here = inArena()
+	local mode = MouseRules.mode(
+		combatMode,
+		here,
+		UserInputService.MouseEnabled,
+		UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+	)
+	if MouseRules.mustLeaveCombat(combatMode, here) then
+		-- out of the arena: combat mode ends, and exitCombatMode frees the mouse for the teleport buttons
+		forceExit()
+		registry.Hud.toast("Combat mode off: safe zone", Palette.mint)
+		return
+	end
+	if mode ~= "locked" then
+		return
+	end
+	if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 	end
 	if UserInputService.MouseIconEnabled then
@@ -569,6 +594,10 @@ local function setCombatMode(on: boolean)
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		if not humanoid or humanoid.Health <= 0 or os.clock() < downUntil then
+			return
+		end
+		if not MouseRules.canEnterCombat(inArena()) then
+			registry.Hud.toast("Combat mode only in the arena", Palette.mint)
 			return
 		end
 		enterCombatMode()

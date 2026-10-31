@@ -10,12 +10,14 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
+local MouseRules = require(Shared:WaitForChild("MouseRules"))
 local AimRules = require(Shared:WaitForChild("AimRules"))
 local Loot = require(Shared:WaitForChild("Loot"))
 local MapQuery = require(Shared:WaitForChild("MapQuery"))
 local Config = require(Shared:WaitForChild("Config"):WaitForChild("Combat"))
 local LootConfig = require(Shared:WaitForChild("Config"):WaitForChild("Loot"))
 local Features = require(Shared:WaitForChild("Config"):WaitForChild("Features"))
+local MapConfig = require(Shared:WaitForChild("Config"):WaitForChild("Map"))
 
 local CombatService = {}
 
@@ -135,7 +137,8 @@ local function setCombatMode(player: Player, state: PlayerState, on: boolean)
 	player:SetAttribute("CombatMode", on)
 end
 
--- Combat mode on or off (R). Off always goes through, so a client can never get stuck in it; on is rate-limited.
+-- Combat mode on or off (R). Off always goes through, so a client can never get stuck in it; on is rate-limited and
+-- only granted in the arena (MouseRules, ArenaService).
 local function onSetCombatMode(player: Player, on: any)
 	local state = states[player]
 	if not state or type(on) ~= "boolean" or on == state.combatMode then
@@ -144,6 +147,9 @@ local function onSetCombatMode(player: Player, on: any)
 	local time = now()
 	if on and time - state.lastModeAt < Config.combatModeInterval then
 		return
+	end
+	if on and not MouseRules.canEnterCombat(registry.ArenaService.inArena(player, MapConfig.arena.serverSlack)) then
+		return -- combat mode only exists in the arena
 	end
 	state.lastModeAt = time
 	setCombatMode(player, state, on)
@@ -522,6 +528,19 @@ function CombatService.Start()
 	Remotes.ChargeIceBall.OnServerEvent:Connect(onCharge)
 	Remotes.ThrowIceBall.OnServerEvent:Connect(onThrow)
 	RunService.Heartbeat:Connect(step)
+	-- combat mode ends the moment a player leaves the arena (the client ends it there too)
+	RunService.Heartbeat:Connect(function()
+		for player, state in states do
+			if
+				MouseRules.mustLeaveCombat(
+					state.combatMode,
+					registry.ArenaService.inArena(player, MapConfig.arena.serverSlack)
+				)
+			then
+				setCombatMode(player, state, false)
+			end
+		end
+	end)
 end
 
 return CombatService

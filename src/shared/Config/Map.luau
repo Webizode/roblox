@@ -39,6 +39,9 @@ return {
 		-- seconds the buttons and the "safe zone" note wait for the zone to stay the same before they change, so they do
 		-- not flicker on the line; the server decides at once
 		displayDelay = 0.2,
+		-- studs the server adds all round when it decides on combat mode (MouseRules): it sees a player's position a
+		-- little late, so one who just walked in and pressed R is not turned away, nor one still in it cut short
+		serverSlack = 4,
 	},
 	-- seconds a player's teleport requests are at least apart: only against floods, nobody clicks that fast
 	teleportMinInterval = 0.25,

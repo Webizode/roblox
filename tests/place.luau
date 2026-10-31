@@ -63,6 +63,7 @@ for _, name in
 		"AimRules",
 		"MusicPlaylist",
 		"ArenaZone",
+		"MouseRules",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")

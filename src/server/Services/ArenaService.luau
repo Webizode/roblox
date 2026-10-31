@@ -28,10 +28,11 @@ local function rootOf(player: Player): BasePart?
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
--- Whether the player is in the arena right now (false without a character).
-function ArenaService.inArena(player: Player): boolean
+-- Whether the player is in the arena right now (false without a character). `slack` widens the zone (studs), for
+-- decisions that must not trip over the position arriving a little late (combat mode, Config/Map.arena.serverSlack).
+function ArenaService.inArena(player: Player, slack: number?): boolean
 	local root = rootOf(player)
-	return root ~= nil and ArenaZone.contains(root.Position.X, root.Position.Z, MapConfig.arena)
+	return root ~= nil and ArenaZone.contains(root.Position.X, root.Position.Z, MapConfig.arena, slack)
 end
 
 local function publish()
