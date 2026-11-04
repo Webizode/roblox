@@ -34,6 +34,12 @@ function MapQuery.folderOf(instance: Instance): string?
 	return nil
 end
 
+-- Whether a part is one of the invisible walls that only stop players (MapRules.playersOnly): cameras, throws and
+-- ground checks look through it.
+function MapQuery.playersOnly(instance: Instance): boolean
+	return MapRules.playersOnly(MapQuery.folderOf(instance), MapConfig)
+end
+
 local function isWater(result: RaycastResult): boolean
 	return result.Material == Enum.Material.Water
 		or result.Instance.Name == "Water"
@@ -42,7 +48,8 @@ local function isWater(result: RaycastResult): boolean
 end
 
 -- Looks straight down from (x, fromY, z) for `reach` studs. Parts without collision are looked through (the map has
--- non-colliding sand and path layers just above its real floor, and garlands), water ends the search.
+-- non-colliding sand and path layers just above its real floor, and garlands), and so are the walls that only stop
+-- players (Config/Map.playersOnlyFolders); water ends the search.
 function MapQuery.ground(x: number, fromY: number, z: number, reach: number, ignore: { Instance }): Ground
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -58,7 +65,8 @@ function MapQuery.ground(x: number, fromY: number, z: number, reach: number, ign
 		if isWater(result) then
 			return { y = nil, water = true, hit = result }
 		end
-		if result.Instance:IsA("Terrain") or (result.Instance :: BasePart).CanCollide then
+		local solid = result.Instance:IsA("Terrain") or (result.Instance :: BasePart).CanCollide
+		if solid and not MapQuery.playersOnly(result.Instance) then
 			return { y = result.Position.Y, water = false, hit = result }
 		end
 		table.insert(skipped, result.Instance)

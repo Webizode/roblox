@@ -88,7 +88,8 @@ end
 
 -- How far the camera may go from `pivot` along `offset` before it would sit in a solid part: a sphere of
 -- Look.wallRadius is swept along the way, so roof edges and palm leaves cannot slip past a thin ray into the near
--- plane. Parts without collision (garlands, decoration layers) are looked through, and so is everything drawn in
+-- plane. Parts without collision (garlands, decoration layers) and the walls that only stop players
+-- (MapQuery.playersOnly) are looked through, and so is everything drawn in
 -- LocalVisuals (the own tower and its waffle, scoops, balls): they never push the camera.
 local function unblocked(pivot: Vector3, offset: Vector3, character: Model): Vector3
 	local params = RaycastParams.new()
@@ -104,7 +105,8 @@ local function unblocked(pivot: Vector3, offset: Vector3, character: Model): Vec
 		if not wall then
 			return offset
 		end
-		if wall.Instance:IsA("Terrain") or (wall.Instance :: BasePart).CanCollide then
+		local solid = wall.Instance:IsA("Terrain") or (wall.Instance :: BasePart).CanCollide
+		if solid and not MapQuery.playersOnly(wall.Instance) then
 			return offset.Unit * math.max(MIN_DISTANCE, wall.Distance - WALL_MARGIN)
 		end
 		table.insert(skipped, wall.Instance)

@@ -16,6 +16,7 @@ export type Config = {
 	throwPassFolders: { string },
 	throwPassNames: { string },
 	coverFitTolerance: number,
+	playersOnlyFolders: { string },
 }
 
 local MapRules = {}
@@ -23,13 +24,20 @@ local MapRules = {}
 -- Whether a ball flying into this part stops there. Parts without collision never stop it (zones, trigger volumes,
 -- decoration layers), and neither does the thin decoration the config lets through.
 function MapRules.blocksThrow(folder: string?, name: string, canCollide: boolean, config: Config): boolean
-	if not canCollide then
+	if not canCollide or MapRules.playersOnly(folder, config) then
 		return false
 	end
 	if folder and table.find(config.throwPassFolders, folder) then
 		return false
 	end
 	return table.find(config.throwPassNames, name) == nil
+end
+
+-- Whether a part only stops players: the invisible walls in config.playersOnlyFolders (the barrier over the arena
+-- rim). Throws, aim and the ground and landing checks look through them; walking bodies collide. Needed because
+-- Roblox ignores CanQuery = false on parts that collide.
+function MapRules.playersOnly(folder: string?, config: Config): boolean
+	return folder ~= nil and table.find(config.playersOnlyFolders, folder) ~= nil
 end
 
 -- Whether a height lies in the sea: the sea floor under the water is not ground.

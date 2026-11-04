@@ -97,7 +97,7 @@ emblem.MaterialVariant = variant(EMBLEM, EMBLEM.radius * 2)
 -- a few big sprinkles, spread over the plates (off the emblem and the ramps) and at least 22 studs apart: capsules
 -- 3.6 long and 0.7 thick (a rod with round ends). The first ones, 36 thin rods of 1.6 x 0.4, looked like mistakes
 -- from afar. SPRINKLES = 0 leaves them out.
-local SPRINKLES = 14
+local SPRINKLES = 0
 local sprinkles = Instance.new("Folder")
 sprinkles.Name = "Streusel"
 sprinkles.Parent = plac
