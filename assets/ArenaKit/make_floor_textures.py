@@ -13,6 +13,9 @@ island's cool light), kept light so players, scoops and landing circles read on 
                        rbxassetid://84950832445484
     ArenaEmblem        the emblem round the Big Swirl, one picture for one disc (1024 px, transparent outside),
                        rbxassetid://96149400644272
+    Wyspa_Pavers       strip and hub ring: rounded pink-cream paving stones in a running bond (512 px, 12 studs
+                       per tile: stones of 4 x 3 studs), rbxassetid://135223614271030, tinted #F2C2CB in
+                       the game (studio_wyspa_floor.luau)
     LandingCircle_Ring the dark outline on a landing circle: a white ring, tinted in the game (256 px; a Decal is
                        right here, it lies on top of the circle), rbxassetid://88345459876129
 
@@ -90,6 +93,49 @@ def save(name, rgb):
 
 for tile_name, spec in TILES.items():
     save(tile_name, plate_tile(**spec))
+
+# The strip and the hub ring (Wyspa): rounded pink-cream paving stones like the plot paths (reference "Bonbon-Wege
+# für Eiscremewelten"), laid in a running bond, calm so the decoration placed on them later reads. One stone is
+# `stone_studs` wide and `row_studs` deep; every second row is shifted by half a stone. Seamless: `per_row` stones
+# fill the tile across, `rows` rows down.
+PAVERS = dict(
+    size=512,
+    per_row=3,
+    rows=4,  # 3 x 4 stones in a 12-stud tile: stones of 4 x 3 studs
+    stone="#F8DCD8",
+    grout="#ECBCC6",
+    grout_px=8,
+    corner_px=26,
+    edge_shade=0.07,
+    tone_jitter=0.025,
+    studs_per_tile=12,
+)
+
+
+def paver_tile(size, per_row, rows, stone, grout, grout_px, corner_px, edge_shade, tone_jitter, seed=3, **_):
+    rng = np.random.default_rng(seed)
+    w, h = size / per_row, size / rows
+    y, x = np.mgrid[0:size, 0:size] + 0.5
+    row = np.floor(y / h).astype(int)
+    shift = np.where(row % 2 == 1, w / 2, 0.0)
+    xs = (x + shift) % size
+    col = np.floor(xs / w).astype(int)
+    lx, ly = xs - col * w, y - row * h  # position inside the stone
+    half_g = grout_px / 2
+    qx = np.abs(lx - w / 2) - (w / 2 - half_g - corner_px)
+    qy = np.abs(ly - h / 2) - (h / 2 - half_g - corner_px)
+    outside = np.hypot(np.maximum(qx, 0), np.maximum(qy, 0)) + np.minimum(np.maximum(qx, qy), 0) - corner_px
+    inside = np.clip(-outside, 0, None)
+    coverage = np.clip(-outside + 0.5, 0, 1)
+    shade = 1 - edge_shade * np.exp(-inside / (h * 0.14))
+    tones = 1 + rng.uniform(-tone_jitter, tone_jitter, size=(rows, per_row))
+    tone = tones[row, col % per_row]
+    s, g = hex_rgb(stone), hex_rgb(grout)
+    colour = np.clip(s[None, None, :] * (tone * shade)[..., None], 0, 1)
+    return colour * coverage[..., None] + g[None, None, :] * (1 - coverage[..., None])
+
+
+save("Wyspa_Pavers", paver_tile(**PAVERS))
 
 # The arena emblem as one picture (a Decal on one disc round the Big Swirl): layered discs do not work on a textured
 # floor, Roblox draws textures a little towards the camera, so thin layers above one vanish or swap order. Drawn for
