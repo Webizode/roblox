@@ -106,6 +106,9 @@ return {
 	-- scoops from landing on it (landing.blockedFolders) and stops thrown balls (not in throwPassFolders).
 	coverFolder = "Covery",
 	coverCollision = "Collision",
+	-- studs the meshes may stick out of that box before the start makes it bigger (MapRules.coverBoxFit): scaling the
+	-- whole model scales the box with it, resizing only the meshes in Studio does not
+	coverFitTolerance = 0.25,
 
 	-- thrown balls fly through thin decoration (garlands, lamps, lollipops, palm leaves and coconuts); palm trunks,
 	-- stands, the fence and the cover in Covery stop them like any other solid part

@@ -15,6 +15,7 @@ export type Config = {
 	},
 	throwPassFolders: { string },
 	throwPassNames: { string },
+	coverFitTolerance: number,
 }
 
 local MapRules = {}
@@ -113,6 +114,33 @@ function MapRules.spotsBetween(spots: { number }, x: number, z: number, inner: n
 		table.insert(between, best)
 	end
 	return between
+end
+
+export type Bounds = { min: { number }, max: { number } } -- {x, y, z} each, in the cover box's own frame
+
+-- The box a cover model must collide with when its visible parts stick out of its Collision box by more than
+-- config.coverFitTolerance on any side (only the meshes resized in Studio, not the whole model): the union of the box
+-- (centred at the origin, `half` its half size) and `visible`, as a centre offset and a full size in the box's frame.
+-- nil when the box already covers the model.
+function MapRules.coverBoxFit(half: { number }, visible: Bounds, config: Config): ({ number }?, { number }?)
+	local tolerance = config.coverFitTolerance
+	local outside = false
+	for axis = 1, 3 do
+		if visible.min[axis] < -half[axis] - tolerance or visible.max[axis] > half[axis] + tolerance then
+			outside = true
+		end
+	end
+	if not outside then
+		return nil, nil
+	end
+	local centre, size = table.create(3), table.create(3)
+	for axis = 1, 3 do
+		local low = math.min(-half[axis], visible.min[axis])
+		local high = math.max(half[axis], visible.max[axis])
+		centre[axis] = (low + high) / 2
+		size[axis] = high - low
+	end
+	return centre, size
 end
 
 return MapRules

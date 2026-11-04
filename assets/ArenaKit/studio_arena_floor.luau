@@ -16,7 +16,7 @@
 --   Emblem        a disc 0.06 over the floor, MaterialVariant WS_ArenaEmblem (ArenaEmblem, one tile across the disc):
 --                 round the Big Swirl (whose base covers r 0-26) a Gold ring, the Waffle lattice and pink ice cream
 --                 with drips, as if looking down into a cone
---   Streusel      a few flat sprinkles between r 55 and 125
+--   Streusel      14 big sprinkles (capsules) between r 58 and 122, or none (SPRINKLES below)
 -- Pictures as MaterialVariants, never as Texture or Decal on the floor: Roblox draws Texture and Decal objects
 -- pulled towards the camera, by a lot at a player's low angle, so a textured floor swallowed whatever lay just above
 -- it (landing circles at +0.12, loot, the emblem). A material has no such offset.
@@ -25,7 +25,7 @@
 
 local FLOOR_Y = 1.2
 local PLATES = { name = "WS_ArenaPlates", picture = "rbxassetid://84950832445484", studs = 12 }
-local EMBLEM = { name = "WS_ArenaEmblem", picture = "rbxassetid://96149400644272", radius = 49 }
+local EMBLEM = { name = "WS_ArenaEmblem", picture = "rbxassetid://96149400644272", radius = 49, tint = "#D1B4A9" }
 local COLOURS = {
 	Rim = "#F06AAE",
 	Gold = "#F2A83C",
@@ -89,33 +89,59 @@ floor.MaterialVariant = variant(PLATES, PLATES.studs)
 disc(plac, "Arena_Rand", 136, FLOOR_Y - 0.02, 0.4, COLOURS.Rim, true)
 
 -- the emblem round the Big Swirl: one disc, one picture
-local emblem = disc(plac, "Emblem", EMBLEM.radius, FLOOR_Y + 0.06, 0.05, "#FFFFFF", false)
+-- tinted: untinted, sun, bloom and the colour correction made the picture's Waffle read #FFA536 and its Pink #FF8CE7;
+-- with this tint they read about #F17B28 and #FB5FB5, close to the palette (#E2782C, #F06AAE), measured on screen
+local emblem = disc(plac, "Emblem", EMBLEM.radius, FLOOR_Y + 0.06, 0.05, EMBLEM.tint, false)
 emblem.MaterialVariant = variant(EMBLEM, EMBLEM.radius * 2)
 
--- a few sprinkles, spread over the plates (off the emblem and the ramps)
+-- a few big sprinkles, spread over the plates (off the emblem and the ramps) and at least 22 studs apart: capsules
+-- 3.6 long and 0.7 thick (a rod with round ends). The first ones, 36 thin rods of 1.6 x 0.4, looked like mistakes
+-- from afar. SPRINKLES = 0 leaves them out.
+local SPRINKLES = 14
 local sprinkles = Instance.new("Folder")
 sprinkles.Name = "Streusel"
 sprinkles.Parent = plac
-local rng = Random.new(11)
+local rng = Random.new(5)
 local colours = { COLOURS.Pink, COLOURS.SkyBlue, COLOURS.Gold }
-for i = 1, 36 do
-	local r = 55 + (125 - 55) * math.sqrt(rng:NextNumber())
-	local a = rng:NextNumber() * math.pi * 2
+local LENGTH, THICK = 3.6, 0.7
+local function sprinklePart(shape, size, cframe, colour, parent)
 	local s = Instance.new("Part")
-	s.Name = "Streusel"
-	s.Shape = Enum.PartType.Cylinder -- lying on its side: a little rod
-	s.Size = Vector3.new(1.6, 0.4, 0.4)
-	s.CFrame = CFrame.new(math.sin(a) * r, FLOOR_Y + 0.05, math.cos(a) * r)
-		* CFrame.Angles(0, rng:NextNumber() * math.pi, 0)
+	s.Shape = shape
+	s.Size = size
+	s.CFrame = cframe
 	s.Anchored = true
 	s.Locked = true
 	s.Material = Enum.Material.SmoothPlastic
-	s.Color = Color3.fromHex(colours[(i - 1) % #colours + 1])
+	s.Color = Color3.fromHex(colour)
 	s.CanCollide = false
 	s.CanQuery = false
 	s.CanTouch = false
 	s.CastShadow = false
-	s.Parent = sprinkles
+	s.Parent = parent
+end
+local placed = {}
+while #placed < SPRINKLES do
+	local r = 58 + (122 - 58) * math.sqrt(rng:NextNumber())
+	local a = rng:NextNumber() * math.pi * 2
+	local pos = Vector3.new(math.sin(a) * r, FLOOR_Y + THICK / 2 - 0.12, math.cos(a) * r)
+	local free = true
+	for _, other in placed do
+		if (other - pos).Magnitude < 22 then
+			free = false
+		end
+	end
+	if free then
+		table.insert(placed, pos)
+		local model = Instance.new("Model")
+		model.Name = "Streusel"
+		local cframe = CFrame.new(pos) * CFrame.Angles(0, rng:NextNumber() * math.pi, 0)
+		local colour = colours[(#placed - 1) % #colours + 1]
+		local rod = LENGTH - THICK
+		sprinklePart(Enum.PartType.Cylinder, Vector3.new(rod, THICK, THICK), cframe, colour, model)
+		sprinklePart(Enum.PartType.Ball, Vector3.one * THICK, cframe * CFrame.new(rod / 2, 0, 0), colour, model)
+		sprinklePart(Enum.PartType.Ball, Vector3.one * THICK, cframe * CFrame.new(-rod / 2, 0, 0), colour, model)
+		model.Parent = sprinkles
+	end
 end
 
 local count = 0

@@ -25,6 +25,28 @@ describe("Map: throws", function()
 	end)
 end)
 
+describe("Map: cover box", function()
+	local half = { 6, 2.5, 1.95 }
+
+	it("leaves a box alone that covers the meshes, also when they are a hair larger", function()
+		local centre, size = MapRules.coverBoxFit(half, { min = { -6.2, -2.5, -2.1 }, max = { 6.2, 2.6, 2.1 } }, Config)
+		expect(centre).toBe(nil)
+		expect(size).toBe(nil)
+	end)
+
+	it("grows the box to meshes resized on their own, keeping what the box already covered", function()
+		local centre, size =
+			MapRules.coverBoxFit(half, { min = { -9.6, -2.5, -3.12 }, max = { 9.6, 5.5, 3.12 } }, Config)
+		assert(centre and size, "box must grow")
+		expect(size[1]).toBe(19.2)
+		expect(size[2]).toBe(8)
+		expect(size[3]).toBe(6.24)
+		expect(centre[1]).toBe(0)
+		expect(centre[2]).toBe(1.5) -- the meshes grew upwards only: the box keeps its bottom
+		expect(centre[3]).toBe(0)
+	end)
+end)
+
 describe("Map: sea", function()
 	it("heights below the water level are sea, the island is not", function()
 		expect(MapRules.belowSea(Config.waterLevel - 0.1, Config)).toBe(true)

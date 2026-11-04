@@ -154,6 +154,47 @@ local function sampleLandingSpots(center: Vector3): { number }
 	return spots
 end
 
+-- Grows a cover model's box over its visible parts when they stick out of it (MapRules.coverBoxFit): scaling the whole
+-- model in Studio scales the box with it, resizing only the meshes does not, and then scoops landed under the overhang
+-- and throws flew through its edge. The box keeps its turn; only its centre and size change.
+local function fitCoverBox(model: Model, box: BasePart)
+	local frame = box.CFrame
+	local low, high = { math.huge, math.huge, math.huge }, { -math.huge, -math.huge, -math.huge }
+	local any = false
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") and part ~= box then
+			any = true
+			local half = part.Size / 2
+			for _, corner in
+				{
+					Vector3.new(-1, -1, -1),
+					Vector3.new(1, -1, -1),
+					Vector3.new(-1, 1, -1),
+					Vector3.new(1, 1, -1),
+					Vector3.new(-1, -1, 1),
+					Vector3.new(1, -1, 1),
+					Vector3.new(-1, 1, 1),
+					Vector3.new(1, 1, 1),
+				}
+			do
+				local p = frame:PointToObjectSpace(part.CFrame:PointToWorldSpace(corner * half))
+				low = { math.min(low[1], p.X), math.min(low[2], p.Y), math.min(low[3], p.Z) }
+				high = { math.max(high[1], p.X), math.max(high[2], p.Y), math.max(high[3], p.Z) }
+			end
+		end
+	end
+	if not any then
+		return
+	end
+	local half = box.Size / 2
+	local centre, size = MapRules.coverBoxFit({ half.X, half.Y, half.Z }, { min = low, max = high }, MapConfig)
+	if centre and size then
+		box.CFrame = frame * CFrame.new(centre[1], centre[2], centre[3])
+		box.Size = Vector3.new(size[1], size[2], size[3])
+		warn(`[Map] {model:GetFullName()}: its meshes stuck out of {MapConfig.coverCollision}; made the box fit them`)
+	end
+end
+
 -- Every Model in the cover folder (Config/Map.coverFolder) collides through exactly one invisible box: its part
 -- named coverCollision, made from the model's bounding box when missing (a fresh import dragged in). All its other
 -- parts are anchored and neither collide, nor take queries or touches, so only the box stops players, thrown balls
@@ -185,6 +226,7 @@ function MapService.prepareCover(root: Instance): (number, number)
 			warn(`[Map] {model:GetFullName()} had no {MapConfig.coverCollision} box; made one from its bounding box`)
 		end
 		assert(box and box:IsA("BasePart"), "cover box ensured above")
+		fitCoverBox(model, box)
 		box.Anchored = true
 		box.CanCollide = true
 		box.CanQuery = true
