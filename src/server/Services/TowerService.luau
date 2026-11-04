@@ -17,6 +17,7 @@ local EconomyConfig = require(Config:WaitForChild("Economy"))
 local RecipeConfig = require(Config:WaitForChild("Recipes"))
 local TowerTuning = require(Config:WaitForChild("Tower"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
+local MapConfig = require(Config:WaitForChild("Map"))
 local Features = require(Config:WaitForChild("Features"))
 
 local TowerService = {}
@@ -174,6 +175,13 @@ local function onToppled(player: Player)
 		return
 	end
 	state.lastToppleAt = now()
+	-- outside the arena a tower cannot topple (TowerModel safe, Config/Tower safeTiltFraction): a report from a player
+	-- clearly outside (with the slack for the position the server sees late) is refused, and the client gets its
+	-- tower back as it was
+	if not registry.ArenaService.inArena(player, MapConfig.arena.serverSlack) then
+		publish(player, state, "spawn")
+		return
+	end
 
 	-- small towers keep everything; from the rest the bottom share stays and the others spill as free scoops
 	local keep = Economy.keepOnTopple(count, EconomyConfig)

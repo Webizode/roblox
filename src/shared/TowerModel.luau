@@ -32,6 +32,9 @@ export type Variant = {
 export type Tuning = {
 	tipAngle: number,
 	groanFraction: number,
+	safeTiltFraction: number?, -- in the safe zone the lean stops at this share of tipAngle (below groanFraction)
+	safeEaseTime: number?, -- seconds (time constant) a lean past the safe limit takes to ease back to it
+	safeGravity: number?, -- share of the gravity term that still acts in the safe zone (0: none, the tower rights itself)
 	groanDuration: number,
 	gravityGain: number,
 	baseStiffness: number,
@@ -91,6 +94,8 @@ export type Input = {
 	az: number,
 	padX: number, -- corrective input in [-1, 1], world space
 	padZ: number,
+	-- outside the arena (the safe zone): the lean is held below the groan, so the tower wobbles but never topples
+	safe: boolean?,
 }
 
 -- Events returned by step(). At most one per step.
@@ -463,13 +468,17 @@ function TowerModel.step(
 	padX = fixX + (padX - fixX) * tuning.padWrongWay
 	padZ = fixZ + (padZ - fixZ) * tuning.padWrongWay
 
-	local accelX = params.gravity * math.sin(state.x)
+	-- In the safe zone gravity does not pull the lean further (Config/Tower safeGravity): the stiffness rights the
+	-- tower, walking and dashes still sway it, so one carried home does not park at the safe limit and topple the
+	-- moment it walks back into the arena.
+	local gravity = if input.safe then params.gravity * (tuning.safeGravity or 0) else params.gravity
+	local accelX = gravity * math.sin(state.x)
 		- params.stiffness * state.x
 		- params.damping * state.vx
 		- walk * input.ax
 		+ pad * padX
 		+ driftX
-	local accelZ = params.gravity * math.sin(state.z)
+	local accelZ = gravity * math.sin(state.z)
 		- params.stiffness * state.z
 		- params.damping * state.vz
 		- walk * input.az
@@ -477,29 +486,42 @@ function TowerModel.step(
 		+ driftZ
 
 	-- semi-implicit Euler: stable at 60 Hz for the stiffness range we use
+	local prevTilt = TowerModel.tilt(state)
 	state.vx += accelX * dt
 	state.vz += accelZ * dt
 	state.x += state.vx * dt
 	state.z += state.vz * dt
 
+	-- clamp at the tip angle (in the safe zone below the groan) and remove the outward part of the velocity. A tower
+	-- that enters the safe zone leaning further is not snapped back: its excess over the safe limit eases away
+	-- (Config/Tower safeEaseTime), and it can only get more upright on the way.
+	local limit = tuning.tipAngle
+	if input.safe then
+		local safeLimit = math.min(tuning.tipAngle, (tuning.safeTiltFraction or 0.7) * tuning.tipAngle)
+		local excess = math.min(prevTilt, tuning.tipAngle) - safeLimit
+		limit = safeLimit
+		if excess > 0 then
+			limit += excess * math.exp(-dt / math.max(tuning.safeEaseTime or 0.3, 1e-3))
+		end
+	end
 	local tilt = TowerModel.tilt(state)
-	if tilt > tuning.tipAngle then
-		-- clamp at the tip angle and remove the outward part of the velocity
+	if tilt > limit then
 		local nx, nz = state.x / tilt, state.z / tilt
-		state.x, state.z = nx * tuning.tipAngle, nz * tuning.tipAngle
+		state.x, state.z = nx * limit, nz * limit
 		local outward = state.vx * nx + state.vz * nz
 		if outward > 0 then
 			state.vx -= outward * nx
 			state.vz -= outward * nz
 		end
-		tilt = tuning.tipAngle
+		tilt = limit
 	end
 
 	if params.count >= tuning.steady.minScoops and tilt < tuning.steady.fraction * tuning.tipAngle then
 		state.steadySeconds += dt
 	end
 
-	if tilt >= tuning.groanFraction * tuning.tipAngle then
+	-- in the safe zone it never groans, even while it is still easing down from a lean past the groan
+	if not input.safe and tilt >= tuning.groanFraction * tuning.tipAngle then
 		local wasGroaning = state.groan > 0
 		state.groan += dt
 		if state.groan >= tuning.groanDuration then

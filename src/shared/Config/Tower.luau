@@ -25,6 +25,17 @@ return {
 	tipAngle = 0.55, -- radians at the top before the tower is clamped
 	groanFraction = 0.8, -- above this share of tipAngle the tower groans
 	groanDuration = 0.5, -- seconds of groaning before it topples
+	-- outside the arena (the safe zone, ArenaZone) the tower still wobbles but its lean stops at this share of
+	-- tipAngle, below groanFraction: it never groans or topples there, and one groaning as it leaves is saved. The
+	-- server refuses a topple from a player clearly outside (Config/Map arena.serverSlack).
+	safeTiltFraction = 0.7,
+	-- a tower leaning past that limit as it leaves the arena is not snapped back: the excess eases away with this
+	-- time constant in seconds (about 95 % gone after three times this)
+	safeEaseTime = 0.3,
+	-- and outside it rights itself: only this share of the gravity term acts there (0 = none), so the stiffness brings
+	-- it back upright while walking and dashes still sway it. Without this a tall tower parked leaning at the limit
+	-- and toppled as soon as it walked back into the arena (playtest 04.11.2026)
+	safeGravity = 0,
 
 	-- dynamics: tilt'' = gravity*sin(tilt) - stiffness*tilt - damping*tilt' - accelGain*accel + padAuthority*pad + drift
 	gravityGain = 1.0, -- per centre-of-mass index, so taller towers get more unstable

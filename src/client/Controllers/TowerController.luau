@@ -17,12 +17,14 @@ local Stance = require(Shared:WaitForChild("Stance"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local Dash = require(Shared:WaitForChild("Dash"))
+local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 local Features = require(Config:WaitForChild("Features"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local Palette = require(Config:WaitForChild("Palette"))
 local Tuning = require(Config:WaitForChild("Tower"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
+local MapConfig = require(Config:WaitForChild("Map"))
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
@@ -169,7 +171,7 @@ local function onTowerChanged(newScoops: { string }, reason: string)
 	visual:setFlavors(scoops)
 end
 
-local function simulate(dt: number, humanoid: Humanoid)
+local function simulate(dt: number, humanoid: Humanoid, safe: boolean)
 	local variant = Tuning.variant
 	local smoothing = Tuning.accelSmoothing
 	accumulator = math.min(accumulator + dt, MAX_FRAME)
@@ -193,6 +195,7 @@ local function simulate(dt: number, humanoid: Humanoid)
 			az = az,
 			padX = padX,
 			padZ = padZ,
+			safe = safe,
 		}, variant, Tuning, STEP)
 		if event then
 			onEvent(event)
@@ -289,7 +292,8 @@ local function onRenderStep(dt: number)
 		stopStance(true)
 	end
 	TowerModel.setStance(state, meter.active)
-	simulate(dt, humanoid)
+	-- outside the arena the tower wobbles on but cannot topple (Config/Tower safeTiltFraction)
+	simulate(dt, humanoid, not ArenaZone.contains(root.Position.X, root.Position.Z, MapConfig.arena))
 	updateHud(root)
 	replicateTilt(dt)
 end

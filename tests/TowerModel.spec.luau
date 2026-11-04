@@ -675,3 +675,158 @@ describe("The danger comes from players, not from the physics alone", function()
 		end
 	end)
 end)
+
+describe("Outside the arena (safe zone): the tower wobbles but never topples", function()
+	local limit = Tuning.safeTiltFraction * Tuning.tipAngle
+
+	-- the worst a player can do: no help, hard turns back and forth, a dash kick and a hit-sized shove now and
+	-- then, wild drift on a heavy tower; `safe` decides the zone. Returns the events, the highest lean and whether
+	-- it toppled.
+	local function abuse(count: number, seed: number, safe: boolean, seconds: number): ({ string }, number, boolean)
+		local state = TowerModel.newState(seed)
+		local params = paramsFor(stack("test_heavy", count))
+		local events, peak = {}, 0
+		local steps = math.floor(seconds / DT + 0.5)
+		for step = 1, steps do
+			local t = step * DT
+			if step % 90 == 0 then
+				TowerModel.dashKick(state, Tuning.dash, count, if (step // 90) % 2 == 0 then 1 else -1, 0)
+			end
+			if step % 150 == 0 then
+				TowerModel.impulse(state, 0, 1.5)
+			end
+			local flip = if math.floor(t / 0.6) % 2 == 0 then 1 else -1
+			local event = TowerModel.step(state, params, {
+				ax = 60 * flip,
+				az = 40 * -flip,
+				padX = flip,
+				padZ = flip,
+				safe = safe,
+			}, PAD, Tuning, DT)
+			if event then
+				table.insert(events, event)
+			end
+			peak = math.max(peak, TowerModel.tilt(state))
+			if state.toppled then
+				break
+			end
+		end
+		return events, peak, state.toppled
+	end
+
+	it("the safe limit lies below the groan, so it can never groan there", function()
+		expect(Tuning.safeTiltFraction < Tuning.groanFraction).toBe(true)
+		expect(Tuning.safeTiltFraction > 0).toBe(true)
+	end)
+
+	it("inside the arena the same abuse topples it (so the test can tell)", function()
+		local toppledSomewhere = false
+		for seed = 1, 5 do
+			local _, _, toppled = abuse(30, seed, false, 30)
+			toppledSomewhere = toppledSomewhere or toppled
+		end
+		expect(toppledSomewhere).toBe(true)
+	end)
+
+	it("outside, no tower of any height topples or even groans, for a full minute of abuse", function()
+		for _, count in { 1, 5, 12, 25, 40 } do
+			for seed = 1, 3 do
+				local events, peak, toppled = abuse(count, seed, true, 60)
+				expect(toppled).toBe(false)
+				expect(#events).toBe(0)
+				expect(peak <= limit + 1e-9).toBe(true)
+			end
+		end
+	end)
+
+	it("it still wobbles outside: the lean moves, it is not frozen upright", function()
+		local _, peak = abuse(20, 1, true, 10)
+		expect(peak > 0.5 * limit).toBe(true)
+	end)
+
+	it("a tower groaning as it leaves the arena is saved at once", function()
+		local state = TowerModel.newState(3)
+		local params = paramsFor(stack("vanilla", 20))
+		-- lean it into the groan inside the arena
+		state.x = Tuning.groanFraction * Tuning.tipAngle + 0.02
+		state.vx = 0.5
+		local first = TowerModel.step(state, params, TowerModel.NO_INPUT, PAD, Tuning, DT)
+		expect(first).toBe("groan")
+		local inputSafe = { ax = 0, az = 0, padX = 0, padZ = 0, safe = true }
+		local next = TowerModel.step(state, params, inputSafe, PAD, Tuning, DT)
+		expect(next).toBe("saved")
+		expect(state.groan).toBe(0)
+		-- and stays up however long it is held there
+		local events = simulate(state, params, PAD, 20, function()
+			return inputSafe
+		end)
+		expect(#events).toBe(0)
+		expect(state.toppled).toBe(false)
+	end)
+
+	it("leaving the arena at the edge, it rights itself smoothly instead of snapping back", function()
+		local state = TowerModel.newState(5)
+		local params = paramsFor(stack("vanilla", 20))
+		state.x = Tuning.tipAngle -- right at the edge, past the groan
+		state.vx = 0.3 -- still falling outward
+		local inputSafe = { ax = 0, az = 0, padX = 0, padZ = 0, safe = true }
+		local previous = TowerModel.tilt(state)
+		local biggestDrop = 0
+		for _ = 1, math.ceil(3 * Tuning.safeEaseTime / DT) do
+			expect(TowerModel.step(state, params, inputSafe, PAD, Tuning, DT)).toBe(nil)
+			local tilt = TowerModel.tilt(state)
+			-- never leans further while above the limit, and never drops in one big jump
+			expect(tilt <= previous + 1e-9).toBe(true)
+			biggestDrop = math.max(biggestDrop, previous - tilt)
+			previous = tilt
+		end
+		local excess = Tuning.tipAngle - limit
+		expect(biggestDrop < 0.1 * excess).toBe(true)
+		-- after three time constants at most 5 % of the excess is left
+		expect(TowerModel.tilt(state) <= limit + 0.06 * excess).toBe(true)
+		expect(state.toppled).toBe(false)
+	end)
+
+	it("outside it rights itself, so walking back into the arena does not topple it (playtest 04.11.2026)", function()
+		for _, case in
+			{ { "vanilla", 5 }, { "vanilla", 17 }, { "vanilla", 40 }, { "test_heavy", 17 }, { "test_heavy", 40 } }
+		do
+			local state = TowerModel.newState(6)
+			local params = paramsFor(stack(case[1], case[2]))
+			state.x = limit -- parked at the safe limit, as the playtest showed before the fix
+			local inputSafe = { ax = 0, az = 0, padX = 0, padZ = 0, safe = true }
+			simulate(state, params, PAD, 4, function()
+				return inputSafe
+			end)
+			expect(TowerModel.tilt(state) < 0.1 * Tuning.tipAngle).toBe(true)
+			-- back in the arena without any help, it stands for 2 s, or (a very tall one falls even from upright without
+			-- help, that is the arena's job) most of the time a tower starting upright there gets. Parked at the limit,
+			-- a 17-scoop tower used to fall in 0.9 s.
+			local function secondsUp(s): number
+				local t = 0
+				while not s.toppled and t < 10 do
+					TowerModel.step(s, params, TowerModel.NO_INPUT, PAD, Tuning, DT)
+					t += DT
+				end
+				return t
+			end
+			local fresh = secondsUp(TowerModel.newState(6))
+			expect(secondsUp(state) >= math.min(2, 0.6 * fresh)).toBe(true)
+		end
+	end)
+
+	it("back in the arena the normal rules apply again", function()
+		local state = TowerModel.newState(4)
+		local params = paramsFor(stack("vanilla", 20))
+		state.x = Tuning.tipAngle
+		local event = nil
+		for _ = 1, math.ceil(Tuning.groanDuration / DT) + 5 do
+			event = TowerModel.step(state, params, TowerModel.NO_INPUT, PAD, Tuning, DT) or event
+			state.x = math.max(state.x, Tuning.tipAngle) -- held at the edge
+			if state.toppled then
+				break
+			end
+		end
+		expect(state.toppled).toBe(true)
+	end)
+end)
