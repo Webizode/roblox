@@ -114,9 +114,9 @@ return {
 	-- stands, the fence and the cover in Covery stop them like any other solid part
 	throwPassFolders = { "Girlandy", "Latarnie", "Lizaki" },
 
-	-- invisible walls that only stop players (MapRules.playersOnly): Sperre stands over the arena rim and along both
-	-- edges of every ramp up to its top, so a jump or a dash never takes anyone over the rim or off a ramp's side; in
-	-- and out of the arena only over the 12 ramp tops. Throws, aim and the ground and landing rays pass through.
+	-- invisible walls that only stop players (MapRules.playersOnly): Sperre stands over the arena rim between the
+	-- ramps, exactly as thick as the wall and its pillars, so a jump or a dash never takes anyone over the rim; the
+	-- ramps stay open at their sides. Throws, aim, the cameras and the ground and landing rays pass through.
 	playersOnlyFolders = { "Sperre" },
 	throwPassNames = { "PalmLeaf", "Coconut" },
 }

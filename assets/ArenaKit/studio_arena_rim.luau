@@ -7,22 +7,23 @@
 --                        studs along the arc from each ramp line and two wall pieces meeting in the middle of the
 --                        gap, all at r RIM_R on the strip (top y 9), their front (-Z) towards the arena centre
 --   Dekoracje.Wejscia    an entrance arch over every ramp's top edge (r 159)
---   Sperre               invisible walls that only stop players (Config/Map.playersOnlyFolders): over every wall
---                        piece and rim pillar up to TOP, a cylinder on every seam between two wall pieces, and along
---                        both edges of every ramp from the arena edge to its top edge. A jump (about 4 studs at
---                        jump power 40) or a dash (up to 25 studs, the power dash) never takes anyone over the rim or
---                        off a ramp's side: in and out only over the 12 ramp tops. Roblox ignores CanQuery = false on
---                        parts that collide, so throws, aim, the cameras and the ground and landing rays look through
---                        this folder by rule (MapRules.playersOnly), not by CanQuery.
--- Tested 05.11.2026 in a playtest: walking, jumping, dash, quick and power dash against the rim from the strip and from
--- the arena, at a wall's middle, a seam and a pillar, and off and onto a ramp's side; all stopped. Out and back in
--- over ramp 01 walks through freely, and the landing spots stay 13,347.
+--   Sperre               invisible walls that only stop players (Config/Map.playersOnlyFolders), only over the rim
+--                        between the ramps: over every wall piece with exactly its outline, and over every rim pillar
+--                        as wide as its collision, up to TOP. A jump (about 4 studs at jump power 40) or a dash (up to
+--                        25 studs, the power dash) never takes anyone over the rim. The ramps stay open at their
+--                        sides: a ramp belongs to the arena, the safe zone starts at its top edge. Roblox ignores
+--                        CanQuery = false on parts that collide, so throws, aim, the cameras and the ground and
+--                        landing rays look through this folder by rule (MapRules.playersOnly), not by CanQuery.
+-- Nothing sticks out of the visible wall, inside or out: one can walk right along it and along the pillars.
 
 local STRIP_Y = 9
 local RIM_R, RIM_SPAN, PILLAR_OFF = 137.5, 11.19, 8.7 -- PILLAR_OFF: at 8.0 a pillar's foot hung over the ramp
 local ENTRANCE_R = 159
 local TOP = 40
-local RAMP_HALF, RAMP_R0, RAMP_R1, EDGE = 6.0, 133.5, 159.0, 0.5
+-- the wall's own collision and the barrier over it: as thick as the glazed top of the wall (arena_pack ArenaRim:
+-- glaze RIM_R +- 1.42, top 3.4 above the strip), in WALL_SEGMENTS pieces along its arc (each 4.5 studs, off the arc
+-- by 0.02 at most)
+local WALL_HALF, WALL_TOP, WALL_SEGMENTS = 1.42, 9 + 3.4, 6
 
 local map = workspace["Ice Cream Map"]
 local kit = game:GetService("ServerStorage").ArenaKit
@@ -80,16 +81,40 @@ for k = 0, 11 do
 		put("ArenaRim", at(RIM_R, mid - RIM_SPAN / 2), rim, "RandWand_" .. i .. "a"),
 		put("ArenaRim", at(RIM_R, mid + RIM_SPAN / 2), rim, "RandWand_" .. i .. "b"),
 	}
-	for _, m in pieces do
+	for p, m in pieces do
 		local c = m.Collision
-		if m.Name:find("RandWand") then -- over the wall's box up to TOP
-			local top = c.Position.Y + c.Size.Y / 2
-			local h = TOP - top
-			wall(
-				"Sperre_" .. m.Name,
-				c.CFrame * CFrame.new(0, c.Size.Y / 2 + h / 2, 0),
-				Vector3.new(c.Size.X, h, c.Size.Z)
-			)
+		if m.Name:find("RandWand") then
+			-- the template's straight box stuck out of the bent wall by up to 0.66 studs (inwards in the middle,
+			-- outwards at the ends) and caught players walking along it: the wall collides through WALL_SEGMENTS
+			-- short boxes along its arc instead, exactly as thick as its glazed top (RIM_R +- WALL_HALF), and the
+			-- barrier stands on them with the same outline, from the wall's top up to TOP
+			local phi0 = math.rad(p == 3 and mid - RIM_SPAN / 2 or mid + RIM_SPAN / 2)
+			m.WorldPivot = m:GetPivot()
+			m.PrimaryPart = nil
+			c:Destroy()
+			local step = math.rad(RIM_SPAN) / WALL_SEGMENTS
+			local chord = 2 * RIM_R * math.sin(step / 2) + 0.02 -- a hair longer, so the pieces close up
+			for s = 1, WALL_SEGMENTS do
+				local phi = phi0 - math.rad(RIM_SPAN) / 2 + step * (s - 0.5)
+				local base =
+					CFrame.lookAt(Vector3.new(RIM_R * math.sin(phi), 0, RIM_R * math.cos(phi)), Vector3.new(0, 0, 0))
+				local box = Instance.new("Part")
+				box.Name = "Collision_" .. s
+				box.Size = Vector3.new(chord, WALL_TOP - STRIP_Y, 2 * WALL_HALF)
+				box.CFrame = base + Vector3.new(0, (STRIP_Y + WALL_TOP) / 2, 0)
+				box.Anchored = true
+				box.CanCollide = true
+				box.CanQuery = true
+				box.CanTouch = false
+				box.Transparency = 1
+				box.CastShadow = false
+				box.Parent = m
+				wall(
+					string.format("Sperre_%s_%d", m.Name, s),
+					base + Vector3.new(0, (WALL_TOP + TOP) / 2, 0),
+					Vector3.new(chord, TOP - WALL_TOP, 2 * WALL_HALF)
+				)
+			end
 		else -- a pillar: from the strip up to TOP, as wide as its collision
 			local h = TOP - STRIP_Y
 			wall(
@@ -99,28 +124,6 @@ for k = 0, 11 do
 				true
 			)
 		end
-	end
-	-- the seam where the gap's two wall pieces meet: their straight boxes leave a thin wedge there
-	local a = math.rad(mid)
-	wall(
-		"Sperre_Naht_" .. i,
-		CFrame.new(math.sin(a) * RIM_R, STRIP_Y + (TOP - STRIP_Y) / 2, math.cos(a) * RIM_R) * UP,
-		Vector3.new(TOP - STRIP_Y, 4.2, 4.2),
-		true
-	)
-	-- both edges of the ramp, from the arena floor up to TOP
-	local r = math.rad(ramp)
-	local dir = Vector3.new(math.sin(r), 0, math.cos(r))
-	local side = Vector3.new(dir.Z, 0, -dir.X)
-	for _, s in { -1, 1 } do
-		local centre = dir * ((RAMP_R0 + RAMP_R1) / 2)
-			+ side * s * (RAMP_HALF + EDGE / 2)
-			+ Vector3.new(0, (1.2 + TOP) / 2, 0)
-		wall(
-			string.format("Sperre_Rampa_%s_%s", i, s < 0 and "L" or "R"),
-			CFrame.lookAt(centre, centre + dir),
-			Vector3.new(EDGE, TOP - 1.2, RAMP_R1 - RAMP_R0)
-		)
 	end
 end
 rim.Parent = deco

@@ -9,7 +9,7 @@
 --                                       through one invisible box named Collision (prepareCover makes it when
 --                                       missing), e.g. copies of ServerStorage.ArenaKit.CoverBlock
 --     .Sperre                           optional: invisible walls that only stop players (Config/Map.playersOnlyFolders),
---                                       over the arena rim and along the ramps' edges; rays look through them
+--                                       over the arena rim between the ramps; rays look through them
 --   Workspace.Pier                      Folder with the invisible helpers
 --     .Plots.<Name>                     one Model per player plot (Plot_01, ...; ModelStreamingMode Persistent, so
 --                                       every client has every ServePoint), each with
