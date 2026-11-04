@@ -60,7 +60,7 @@ type Shot = {
 	scoopAt: number?, -- server time it shows in that arm's cup
 }
 
-local CIRCLE_SIZE = 7
+local CIRCLE_SIZE = Look.landingCircle.size
 local CIRCLE_ROTATION = CFrame.Angles(0, 0, math.rad(90))
 local FLIGHT_SCALE = 2 / ScoopModel.SIZE -- 2 studs across in flight, a little smaller than on a tower
 local SCOOP_OFFSET = CFrame.new(ArmConfig.scoopOffset[1], ArmConfig.scoopOffset[2], ArmConfig.scoopOffset[3])
@@ -165,6 +165,15 @@ local function endTrail(trail: Trail?)
 	end)
 end
 
+-- Hides a landing circle with its outline (a Decal stays visible on a see-through part).
+local function hideCircle(circle: Part)
+	circle.Transparency = 1
+	local outline = circle:FindFirstChild("Outline") :: Decal?
+	if outline then
+		outline.Transparency = 1
+	end
+end
+
 local function remove(id: number)
 	local shot = shots[id]
 	if shot then
@@ -215,9 +224,17 @@ local function onShotFired(
 	circle.Shape = Enum.PartType.Cylinder
 	circle.Size = Vector3.new(0.2, CIRCLE_SIZE, CIRCLE_SIZE)
 	circle.CFrame = CFrame.new(to + Vector3.new(0, 0.12, 0)) * CIRCLE_ROTATION
-	circle.Transparency = 0.5
+	circle.Transparency = Look.landingCircle.transparency
 	TowerVisual.applyFlavor(circle, flavorId)
 	circle.Material = Enum.Material.Neon
+	-- the dark outline: a ring picture on the disc's top face (the cylinder's +X face points up), so it reads on the
+	-- light floor; it shrinks with the disc and goes with it
+	local outline = Instance.new("Decal")
+	outline.Name = "Outline"
+	outline.Face = Enum.NormalId.Right
+	outline.Texture = Look.landingCircle.outlineImage
+	outline.Color3 = Color3.fromHex(Look.landingCircle.outline)
+	outline.Parent = circle
 
 	local trail = if Features.towerScoopFlight then makeTrail(flavorId) else nil
 	if trail then
@@ -299,7 +316,7 @@ end
 local function claim(id: number, shot: Shot, alpha: number, tiltX: number, tiltZ: number)
 	shot.claimed = true
 	shot.scoop:setSign(nil) -- it is a tower scoop now: those carry no sign
-	shot.circle.Transparency = 1
+	hideCircle(shot.circle)
 	local _, axis, angle, spin = flying(shot, alpha, workspace:GetServerTimeNow())
 	shot.claimedAt, shot.claimAxis, shot.claimAngle, shot.claimSpin = os.clock(), axis, angle, spin
 	Remotes.CatchClaim:FireServer(id, shot.t0 + alpha * shot.flight, tiltX, tiltZ)
@@ -369,7 +386,7 @@ local function onRenderStep()
 			part.CFrame =
 				scoop:at(CFrame.new(shot.to + Vector3.new(0, scoop:restHeight(), 0)) * CFrame.Angles(0, shot.spin0, 0))
 			moveTrail(shot.trail, shot.to)
-			shot.circle.Transparency = 1
+			hideCircle(shot.circle)
 		else
 			local position, axis, angle, spin = flying(shot, alpha, now)
 			part.CFrame = scoop:at(CFrame.new(position) * turned(axis, angle, spin))

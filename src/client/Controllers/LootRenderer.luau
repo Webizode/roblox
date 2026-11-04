@@ -363,7 +363,7 @@ local function noteFull(scoop: Drawn, now: number, root: BasePart, humanoid: Hum
 		return
 	end
 	lastFullNote = os.clock()
-	registry.Hud.toast("CONE FULL! Serve at your cart", Palette.awning)
+	registry.Hud.toast("CONE FULL! Serve at your plot", Palette.awning)
 end
 
 -- The safe zone around the own plot's ServePoint: a faint disc, fainter while a throw from it has lifted the

@@ -65,6 +65,7 @@ for _, name in
 		"ArenaZone",
 		"MouseRules",
 		"HitPoints",
+		"PlotLayout",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", name }, "ModuleScript")

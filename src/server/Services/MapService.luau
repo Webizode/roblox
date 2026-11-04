@@ -5,17 +5,22 @@
 --   Workspace."Ice Cream Map"           the hub island with the arena (Config/Map.root, arena size in Config/Map.arena)
 --                                       and the plot islands, with the Big Swirl's spot
 --     .Plac.Arena_Znacznik              BasePart in the middle of the plaza (Config/Map.machineMarker)
+--     .Covery                           optional: the arena cover. Every Model in it is cover and collides only
+--                                       through one invisible box named Collision (prepareCover makes it when
+--                                       missing), e.g. copies of ServerStorage.ArenaKit.CoverBlock
 --   Workspace.Pier                      Folder with the invisible helpers
 --     .Plots.<Name>                     one Model per player plot (Plot_01, ...; ModelStreamingMode Persistent, so
 --                                       every client has every ServePoint), each with
 --       .ServePoint                     BasePart (invisible, no collision or queries), about 3 studs above the ground
---                                       on the plot island at its bridge: where the player serves (the safe zone is
---                                       around it)
---       .Body.Label                     optional BillboardGui with a TextLabel, shows the owner
+--                                       on the plot island at its bridgehead, in the Sell Cart zone: where the player
+--                                       serves (the old safe zone is around it)
+--       .Body.Label                     optional BillboardGui with a TextLabel, shows the owner (over the plot sign)
 --       .Area                           optional ObjectValue, the plot island in the map (Ice Cream Map.Plots)
 --       .Spawn                          optional SpawnLocation (invisible, no collision) in the middle of the plot
 --                                       island: where the player spawns and the "my plot" button brings them; without
 --                                       it they spawn a few studs in front of the ServePoint
+--                                       ServePoint, Spawn and Body sit where PlotLayout (Config/Map.plot: 110 x 60
+--                                       islands with four zones) puts them; MapService warns when they do not
 --       .ArenaEntry                     optional BasePart (invisible, no collision or queries) on the strip above the
 --                                       plot's ramp: where the "arena" button brings the player
 --     .BigSwirl.Nozzle                  built here on the marker when missing; scoops launch from the Nozzle
@@ -32,6 +37,7 @@ local MapConfig = require(Config:WaitForChild("Map"))
 local LauncherConfig = require(Config:WaitForChild("Launcher"))
 local MapRules = require(Shared:WaitForChild("MapRules"))
 local MapQuery = require(Shared:WaitForChild("MapQuery"))
+local PlotLayout = require(Shared:WaitForChild("PlotLayout"))
 
 local MapService = {}
 
@@ -148,6 +154,88 @@ local function sampleLandingSpots(center: Vector3): { number }
 	return spots
 end
 
+-- Every Model in the cover folder (Config/Map.coverFolder) collides through exactly one invisible box: its part
+-- named coverCollision, made from the model's bounding box when missing (a fresh import dragged in). All its other
+-- parts are anchored and neither collide, nor take queries or touches, so only the box stops players, thrown balls
+-- and the landing rays (the folder name keeps scoops from landing on it). Loose parts directly in the folder (the
+-- old graybox walls with their *_Kolizja boxes) are left as they are. Returns how many models it prepared and how
+-- many boxes it had to make.
+function MapService.prepareCover(root: Instance): (number, number)
+	local folder = root:FindFirstChild(MapConfig.coverFolder)
+	if not folder then
+		return 0, 0
+	end
+	local prepared, made = 0, 0
+	for _, model in folder:GetChildren() do
+		if not model:IsA("Model") then
+			continue
+		end
+		local box = model:FindFirstChild(MapConfig.coverCollision)
+		if not (box and box:IsA("BasePart")) then
+			local cframe, size = model:GetBoundingBox()
+			local part = Instance.new("Part")
+			part.Name = MapConfig.coverCollision
+			part.CFrame = cframe
+			part.Size = size
+			part.Transparency = 1
+			part.CastShadow = false
+			part.Parent = model
+			box = part
+			made += 1
+			warn(`[Map] {model:GetFullName()} had no {MapConfig.coverCollision} box; made one from its bounding box`)
+		end
+		assert(box and box:IsA("BasePart"), "cover box ensured above")
+		box.Anchored = true
+		box.CanCollide = true
+		box.CanQuery = true
+		box.CanTouch = false
+		for _, part in model:GetDescendants() do
+			if part:IsA("BasePart") and part ~= box then
+				part.Anchored = true
+				part.CanCollide = false
+				part.CanQuery = false
+				part.CanTouch = false
+			end
+		end
+		prepared += 1
+	end
+	return prepared, made
+end
+
+-- Warns when a plot's helpers are not where PlotLayout puts them (Config/Map.plot): a place built for another plot
+-- size still runs, but serving, spawning and the sign would sit off their zones.
+local PLOT_TOLERANCE = 2 -- studs
+local function checkPlots(plots: { Instance })
+	local plot = MapConfig.plot
+	local problems = {}
+	for _, model in plots do
+		local index = PlotLayout.indexOf(model.Name)
+		if not index then
+			table.insert(problems, `{model.Name}: not named Plot_NN`)
+			continue
+		end
+		local frame = PlotLayout.frame(PlotLayout.laneAngle(index, MapConfig), MapConfig)
+		local expected = {
+			ServePoint = { PlotLayout.servePoint(plot) },
+			Spawn = { PlotLayout.spawn(plot) },
+			Body = { PlotLayout.sign(plot) },
+		}
+		for name, spot in expected do
+			local helper = model:FindFirstChild(name)
+			if helper and helper:IsA("BasePart") then
+				local x, z = PlotLayout.toWorld(frame, spot[1], spot[2])
+				local off = Vector2.new(helper.Position.X - x, helper.Position.Z - z).Magnitude
+				if off > PLOT_TOLERANCE then
+					table.insert(problems, string.format("%s.%s %.1f studs off", model.Name, name, off))
+				end
+			end
+		end
+	end
+	if #problems > 0 then
+		warn(`[Map] plot helpers do not match Config/Map.plot (PlotLayout): {table.concat(problems, ", ")}`)
+	end
+end
+
 function MapService.Init()
 	local missing = {}
 	local root = workspace:FindFirstChild(MapConfig.root)
@@ -191,11 +279,15 @@ function MapService.Init()
 	table.sort(MapService.plots, function(a, b)
 		return a.Name < b.Name
 	end)
+	checkPlots(MapService.plots)
+	-- before the landing spots are sampled: they must see the cover boxes, not the meshes
+	local coverModels = MapService.prepareCover(root)
 	MapService.landingSpots = sampleLandingSpots(MapService.center)
 	print(
 		string.format(
-			"[Map] %d plots, Big Swirl at (%.0f, %.1f, %.0f), %d landing spots",
+			"[Map] %d plots, %d cover models, Big Swirl at (%.0f, %.1f, %.0f), %d landing spots",
 			#MapService.plots,
+			coverModels,
 			MapService.center.X,
 			MapService.center.Y,
 			MapService.center.Z,

@@ -141,6 +141,20 @@ Materialien: `WSB_Vanilla` `#FFE7C0`, Roughness 0,42; `WSB_Ink` `#2B2D42`, Rough
 
 Für den Prototyp gilt: Eine Kollisionskugel mit Radius 0,6 bleibt die Trefferform, das Mesh ist nur Optik. Das gilt auch für das finale Modell.
 
+## Map-Modelle: Arena-Kit-Stil (vom Nutzer freigegeben am 04.11.2026)
+
+Der Cover Block (`assets/ArenaKit`, Referenz im Obsidian-Vault „Eiscreme-Arena_ Cover-Block Präsentation.png“) legt den Stil für **alle weiteren Map-Modelle** fest: Arena (Waffle Crate, Pillar, Arena-Rand, Eingänge und spätere Hindernisse) und, soweit passend, Plot- und Hub-Modelle.
+
+- **Look:** glänzender Cartoon wie die Big Swirl, alle Kanten gerundet, klobige Formen. Wiederkehrende Motive: Waffelstruktur, cremefarbene Glasur mit runden Tropfen, wenige große Streusel, rosa Ecken/Pfosten/Kappen, abgerundeter Sockel, Eistüten-Emblem.
+- **Farbpalette Map-Modelle** (`PALETTE` in `arenakit.py`): Creme `#FFF5E8`, Pink `#F06AAE`, Waffel `#D98A32`, Sky Blue `#75D6F2`, Gold `#F5C451`. Nur diese fünf; die Waffelgitter-Stege sind Gold auf Waffel. **In Roblox** wirken sie im Licht der Insel (Farbfilter `CartoonColor` mit +22 % Sättigung, himmelblaues Umgebungslicht) kühler, deshalb gelten dort die Spielfarben `GAME_COLOURS` (04.11.2026): Creme `#FFE9D0`, Pink `#F06AAE`, Waffel `#E2782C` (wärmeres Orange), Sky Blue `#75D6F2`, Gold `#F2A83C` (Honiggelb). Die Beleuchtung der Map bleibt unverändert.
+- **Bausteine statt Einzelstücke:** Jedes Modell entsteht aus den Funktionen in `assets/ArenaKit/arenakit.py` (`rounded_box`, `waffle_panel`, `glaze`, `sprinkles`, `cone_emblem`), ein Bauskript pro Modell (`build_<modell>.py`). Fehlt ein Baustein, kommt er ins Kit, nicht ins Modellskript.
+- **Keine Texturen:** Gitter, Tropfen und Streusel sind Geometrie. Material in Blender glänzend (Roughness 0,12, Coat 0,5), in Roblox SmoothPlastic mit `Color`.
+- **Farbe ist die Variante:** Der Export (`export_arenakit.py`) verschmilzt ein Modell zu einem Mesh pro Farbe (`<Modell>_<Farbe>`); Varianten ändern nur `MeshPart.Color`, nie das Mesh.
+- **Polybudget:** wenige Dreiecke, der Cover Block hat 3.304 (Richtwert für große Deckung). Rundungen mit Bevel 1–2 Segmenten, Kugeln niedrig aufgelöst; die Tropfen sind der teuerste Teil.
+- **In Roblox:** jedes Modell ein eigenes Model, Drehpunkt unten in der Mitte, verankert, nicht mit der Map verschweißt, frei verschiebbar. Meshes ohne Kollision und Abfragen; Deckung bekommt eine unsichtbare Box als Kollision, Deko keine störende Kollision. Leuchten und Transparenz sparsam (Handy).
+- **Böden** (Arena 04.11.2026, Streifen und Hub folgen): hell, eine gekachelte Textur pro Boden, als **MaterialVariant** auf der begehbaren Fläche (`StudsPerTile`), nie als `Texture`/`Decal`: die werden zur Kamera versetzt gezeichnet und verschlucken aus Spielersicht alles knapp darüber (Landekreise, Beute). Ein Einzelbild (Emblem) ebenso als MaterialVariant mit einer Kachel so groß wie die Scheibe. Bilder erzeugt `assets/ArenaKit/make_floor_textures.py`. Bodenteile sperren (`Locked`).
+- **Cover Block:** 12 lang × 3,9 tief × 5 hoch: verdeckt den Körper einer stehenden Figur, Kopf knapp und Turm deutlich sichtbar (im Playtest am 04.11.2026 geprüft). Vorlage in Studio: `ServerStorage.ArenaKit.CoverBlock` (unsichtbare Box `Collision` als PrimaryPart, Pivot unten in der Mitte, 5 MeshParts mit Attribut `Colour`); in der Arena platziert werden Kopien davon in `Covery`.
+
 ## Blender-Konventionen
 
 - Arbeit in der Collection `WobbleScoops_Prototype`, Objekte mit Präfix `WS_`, Materialien mit Präfix `WS_`.

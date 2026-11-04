@@ -30,7 +30,7 @@ local LEVEL_DOT = 14
 -- ready, so the player learns when to react.
 local HINTS = {
 	catch = "Stand in a landing circle to catch scoops",
-	cart = "Carry your tower to your cart",
+	cart = "Carry your tower to your plot",
 	steady = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 		then "It's tipping! Hold Steady"
 		else "It's tipping! Hold F to steady it",
@@ -395,7 +395,7 @@ local function buildCartMarker()
 	tag.Font = Ui.FONT
 	tag.TextSize = 20
 	tag.TextColor3 = COLORS.ink
-	tag.Text = "YOUR CART"
+	tag.Text = "YOUR PLOT"
 	tag.ZIndex = 2
 	Ui.corner(tag)
 	Ui.stroke(tag, "ink", 2)

@@ -29,6 +29,7 @@ require("./MusicPlaylist.spec")
 require("./ArenaZone.spec")
 require("./MouseRules.spec")
 require("./HitPoints.spec")
+require("./PlotLayout.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

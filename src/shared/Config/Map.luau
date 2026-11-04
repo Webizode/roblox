@@ -46,6 +46,36 @@ return {
 	-- seconds a player's teleport requests are at least apart: only against floods, nobody clicks that fast
 	teleportMinInterval = 0.25,
 
+	-- The 12 plot islands (PlotLayout), one on every lane (arena.firstRamp + k * 360 / arena.ramps), each at the end of
+	-- its bridge. A rectangle `width` along the ring by `depth` along the lane, its inner long side facing the arena; the
+	-- bridge meets that side in the middle. Since 04.11.2026 (before: 70 x 70 round r 327). Local coordinates: `u`
+	-- along the ring, right as seen from the bridge looking out (0 on the lane), `v` along the lane, outward from the
+	-- island's centre. The place has to match (MapService warns): Ice Cream Map.Plots.Plot_NN, Pier.Plots.Plot_NN.
+	plot = {
+		centerRadius = 322, -- studs from the machine to the island's centre
+		width = 110, -- along the ring
+		depth = 60, -- along the lane
+		rim = 3, -- studs of island edge round the walkable surface (104 x 54)
+		corner = 6, -- radius of the rounded corners
+		surfaceY = 9, -- top of the walkable surface (the strip and the bridges are at this height too)
+		bridgeHalfWidth = 9, -- the bridge (Ice Cream Map.Mosty, 18 wide, unchanged) meets the inner side here
+		bridgeEnd = 295, -- studs from the machine to where the bridge ends, a little onto the island
+		-- the zones side by side along the ring, left to right as seen from the bridge, from u = -width/2 + rim to
+		-- width/2 - rim. Flat markers with a name for now; the Sell Cart sits at the bridge with the ServePoint in it.
+		zones = {
+			{ id = "WorkingStation", name = "WORKING STATION", width = 39, color = "#9DE0C4" },
+			{ id = "SellCart", name = "SELL CART", width = 26, color = "#FFD23F" },
+			{ id = "ScoopChest", name = "SCOOP CHEST", width = 19.5, color = "#FF8FA3" },
+			{ id = "Upgrades", name = "UPGRADES", width = 19.5, color = "#A0C4FF" },
+		},
+		serveInset = 6, -- studs from the inner side to the ServePoint, on the lane (the bridgehead)
+		signAt = { u = 13, inset = 2 }, -- the plot sign: beside the bridgehead, facing the bridge
+		-- room kept round every island for a sand rim to the water later (tropical look): the islands stay at least
+		-- minGap apart with it
+		sandReserve = 10,
+		minGap = 15,
+	},
+
 	-- where the Big Swirl may land a scoop: MapService samples a grid of spots once at the start and keeps those
 	-- where a player could stand (footprint flat, surface not blocked, not water)
 	landing = {
@@ -69,6 +99,13 @@ return {
 		},
 		blockedNamePrefixes = { "Poręcz", "Gałka" }, -- platform railings and the knobs on them
 	},
+
+	-- the cover in the arena (MapService.prepareCover): every Model in this folder is cover, however many copies and
+	-- however turned. It collides only through one invisible box, its part named `coverCollision` (made from the
+	-- model's bounding box when missing); its other parts neither collide nor take queries. Being in this folder keeps
+	-- scoops from landing on it (landing.blockedFolders) and stops thrown balls (not in throwPassFolders).
+	coverFolder = "Covery",
+	coverCollision = "Collision",
 
 	-- thrown balls fly through thin decoration (garlands, lamps, lollipops, palm leaves and coconuts); palm trunks,
 	-- stands, the fence and the cover in Covery stop them like any other solid part
