@@ -285,6 +285,17 @@ function LootService.spill(player: Player, flavorIds: { string }, keep: number, 
 			heights[index] = groundAt(base.X + sample.x, fromY, base.Z + sample.z)
 		end
 		local profile = Loot.rollProfile(samples, heights, LootConfig)
+		-- where it comes to rest must be ground a player reaches: not on top of or inside cover, not on the rim
+		-- (MapService.settle); otherwise it falls onto the nearest free ground beside it instead
+		local restY = if profile.sinkAt then nil else Loot.groundHeight(profile, profile.stopShare)
+		if restY then
+			local share = profile.stopShare
+			local rest = Vector3.new(base.X + path.lx + path.rx * share, restY, base.Z + path.lz + path.rz * share)
+			local spot, moved = registry.MapService.settle(rest)
+			if moved then
+				path, profile = Loot.settle(path, spot.X - base.X, spot.Z - base.Z, spot.Y)
+			end
+		end
 		local endAt = time + LootConfig.lifetime
 		local sinks = profile.sinkAt ~= nil
 		if profile.sinkAt then
@@ -321,12 +332,15 @@ end
 
 -- A scoop from the Big Swirl came down at `position` (its landing point) at server time `landedAt` and nobody caught
 -- it: it lies there for landedLifetime seconds, anybody may pick it up (Loot.landed). Returns false when there is no
--- ground under it (the water): then it is simply gone.
+-- ground under it (the water): then it is simply gone. Where nobody can reach it (on cover, the rim or an arch) it is
+-- put on the nearest free ground beside it (MapService.settle).
 function LootService.landed(flavorId: string, position: Vector3, landedAt: number): boolean
 	local groundY = groundAt(position.X, position.Y + 2, position.Z)
 	if not groundY then
 		return false
 	end
+	local spot = registry.MapService.settle(Vector3.new(position.X, groundY, position.Z))
+	position, groundY = spot, spot.Y
 	local landed = ofKind(true)
 	for index = 1, Loot.landedRoom(#landed, LootConfig) do
 		remove(landed[index], nil, "room")

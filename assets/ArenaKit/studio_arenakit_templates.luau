@@ -22,7 +22,8 @@ local GAME_COLOURS = {
 local COLLISION = {
 	CoverBlock = { kind = "box" },
 	WaffleCrate = { kind = "box" },
-	IcePillar = { kind = "cylinder", diameter = 4.6 },
+	-- as wide as its cream foot (5.27 x 5.35): with 4.6 the foot stuck out 0.4 and the start grew every copy's box
+	IcePillar = { kind = "cylinder", diameter = 5.4 },
 	ArenaRim = { kind = "box" },
 	ArenaRimPillar = { kind = "cylinder", diameter = 4.2 },
 	ArenaEntrance = { kind = "pillars", diameter = 5.2, offset = 9.4 },

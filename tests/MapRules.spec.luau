@@ -73,14 +73,34 @@ describe("Map: landing spots", function()
 	it("flat ground in the open is a landing surface", function()
 		expect(MapRules.landingSurface("Plac", "Arena_Obwod", 1, Config)).toBe(true)
 		expect(MapRules.landingSurface("Mosty", "Part", 1, Config)).toBe(true)
-		expect(MapRules.landingSurface(nil, "Part", 1, Config)).toBe(true)
+		expect(MapRules.landingSurface(MapRules.terrain, "Terrain", 1, Config)).toBe(true)
 	end)
 
-	it("roofs, palms, lamps, lollipops, bushes, the fence, the cover and the machine are not", function()
-		for _, folder in { "Stoiska", "Covery", "Palmy", "Latarnie", "Lizaki", "Trawa", "Plot", "BigSwirl" } do
-			expect(MapRules.landingSurface(folder, "Part", 1, Config)).toBe(false)
-		end
+	it("a part outside the map is never ground (a pillar copied into Workspace instead of Covery)", function()
+		expect(MapRules.landingSurface(nil, "Collision", 1, Config)).toBe(false)
 	end)
+
+	it(
+		"roofs, palms, lamps, lollipops, bushes, the fence, the cover, the rim, the barrier and the machine are not",
+		function()
+			for _, folder in
+				{
+					"Stoiska",
+					"Covery",
+					"Palmy",
+					"Latarnie",
+					"Lizaki",
+					"Trawa",
+					"Plot",
+					"Dekoracje",
+					"Sperre",
+					"BigSwirl",
+				}
+			do
+				expect(MapRules.landingSurface(folder, "Part", 1, Config)).toBe(false)
+			end
+		end
+	)
 
 	it("platform railings and knobs are not, the platform deck is", function()
 		expect(MapRules.landingSurface("Platformy", "Poręcz_0", 1, Config)).toBe(false)
@@ -111,5 +131,103 @@ describe("Map: landing spots", function()
 		expect(#nearest).toBe(1)
 		expect(nearest[1]).toBe(3)
 		expect(#MapRules.spotsNear({}, 0, 0, 5)).toBe(0)
+	end)
+end)
+
+-- The bug of 05.11.2026: a Watermelon from the Big Swirl lay on top of an Ice Cream Pillar, out of reach. A small map
+-- with the arena floor (y 1.2), the pillar at (-71.3, 9.1) (its Collision box 8.4 x 8.4, top y 20.5, in Covery) and
+-- a stretch of the arena rim (Dekoracje), seen from above the way MapService does: the surface's height when scoops
+-- may lie on it (MapRules.landingSurface), nil otherwise.
+describe("Map: free scoops settle on free ground", function()
+	local FLOOR, PILLAR_TOP = 1.2, 20.5
+	local px, pz, half = -71.3, 9.1, 4.2
+
+	local function surface(x: number, z: number): number?
+		if math.abs(x - px) <= half and math.abs(z - pz) <= half then
+			return if MapRules.landingSurface("Covery", "Collision", 1, Config) then PILLAR_TOP else nil
+		end
+		if x >= 135 and x <= 140 then -- the rim wall
+			return if MapRules.landingSurface("Dekoracje", "Collision", 1, Config) then 10 else nil
+		end
+		return if MapRules.landingSurface("Plac", "Arena_Boden", 1, Config) then FLOOR else nil
+	end
+
+	-- free ground with the footprint round it, like MapService.settle's probe
+	local function probe(x: number, z: number): number?
+		local foot = Config.landing.footprint
+		local y = surface(x, z)
+		if not y then
+			return nil
+		end
+		for _, offset in { { foot, 0 }, { -foot, 0 }, { 0, foot }, { 0, -foot } } do
+			if not surface(x + offset[1], z + offset[2]) then
+				return nil
+			end
+		end
+		return y
+	end
+
+	local offsets = MapRules.searchOffsets(Config.landing.settleStep, Config.landing.settleRadius)
+
+	it("searches from the point itself outwards, nearest first", function()
+		expect(offsets[1][1]).toBe(0)
+		expect(offsets[1][2]).toBe(0)
+		for index = 2, #offsets do
+			local a, b = offsets[index - 1], offsets[index]
+			expect(a[1] * a[1] + a[2] * a[2] <= b[1] * b[1] + b[2] * b[2]).toBe(true)
+		end
+		local last = offsets[#offsets]
+		expect(math.sqrt(last[1] * last[1] + last[2] * last[2]) <= Config.landing.settleRadius).toBe(true)
+	end)
+
+	it("a scoop from the Big Swirl on top of the pillar does not rest well there", function()
+		expect(MapRules.restsWell(surface(px, pz), PILLAR_TOP, Config)).toBe(false)
+	end)
+
+	it("and goes onto the floor right beside the pillar, clear of it", function()
+		local x, y, z = MapRules.nearestFree(px, pz, offsets, probe)
+		assert(x and y and z, "free ground beside the pillar")
+		expect(y).toBe(FLOOR)
+		local outside = math.max(math.abs(x - px), math.abs(z - pz)) - half
+		expect(outside >= Config.landing.footprint).toBe(true) -- a player can stand beside it and pick it up
+		expect(outside <= Config.landing.footprint + Config.landing.settleStep).toBe(true) -- and it is right beside it
+	end)
+
+	it("a spilled scoop that ended inside the pillar (its ray found the floor in the box) moves out too", function()
+		expect(MapRules.restsWell(surface(px + 1, pz - 2), FLOOR, Config)).toBe(false)
+		local x, y, z = MapRules.nearestFree(px + 1, pz - 2, offsets, probe)
+		assert(x and y and z, "free ground beside the pillar")
+		expect(y).toBe(FLOOR)
+		expect(math.max(math.abs(x - px), math.abs(z - pz)) > half).toBe(true)
+	end)
+
+	it("a scoop on the floor next to the pillar stays where it is", function()
+		expect(MapRules.restsWell(surface(px + half + 0.5, pz), FLOOR, Config)).toBe(true)
+		expect(MapRules.restsWell(surface(0, 40), FLOOR, Config)).toBe(true)
+	end)
+
+	it("a scoop on the arena rim goes onto the floor beside it", function()
+		expect(MapRules.restsWell(surface(137.5, 0), 10, Config)).toBe(false)
+		local x, y = MapRules.nearestFree(137.5, 0, offsets, probe)
+		assert(x and y, "free ground beside the rim")
+		expect(y).toBe(FLOOR)
+		expect(x < 135 or x > 140).toBe(true)
+	end)
+
+	it("nothing free within reach: nil, the caller falls back to the nearest landing spot", function()
+		local x = MapRules.nearestFree(0, 0, offsets, function()
+			return nil
+		end)
+		expect(x).toBeNil()
+	end)
+end)
+
+describe("Map: arena kit cover", function()
+	it("knows the kit's cover models by name, numbered copies too, not the rim or the arches", function()
+		expect(MapRules.isCoverKit("IcePillar", Config)).toBe(true)
+		expect(MapRules.isCoverKit("WaffleCrate", Config)).toBe(true)
+		expect(MapRules.isCoverKit("CoverBlock_10", Config)).toBe(true)
+		expect(MapRules.isCoverKit("ArenaRimPillar", Config)).toBe(false)
+		expect(MapRules.isCoverKit("ArenaEntrance", Config)).toBe(false)
 	end)
 end)

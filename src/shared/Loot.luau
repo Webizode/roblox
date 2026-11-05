@@ -197,6 +197,15 @@ function Loot.groundHeight(profile: Profile, share: number): number?
 	return heights[#heights]
 end
 
+-- A spilled scoop whose rest would be where nobody reaches it (on or inside cover, on the rim; MapService.settle) is
+-- put on free ground at (lx, lz) from the tower base, ground height groundY, instead: it falls straight there from its
+-- place in the tower and does not roll. Returns the new path and its ground profile.
+function Loot.settle(path: Path, lx: number, lz: number, groundY: number): (Path, Profile)
+	local settled = table.clone(path)
+	settled.lx, settled.lz, settled.rx, settled.rz = lx, lz, 0, 0
+	return settled, { shares = { 0 }, heights = { groundY }, stopShare = 1, sinkAt = nil }
+end
+
 -- Until when only the owner may pick up a scoop that landed at `landedAt`: ownerSeconds from the moment the owner can
 -- act again, so a knockdown (ownerDownUntil) does not eat the head start.
 function Loot.ownerUntil(landedAt: number, ownerDownUntil: number, config: Config): number

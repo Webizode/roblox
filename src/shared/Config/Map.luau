@@ -83,7 +83,9 @@ return {
 		footprint = 1.5, -- studs from the spot to the four extra rays around it
 		maxStep = 0.8, -- studs of height difference within the footprint (rules out railings, lamp heads, knobs)
 		minNormalY = 0.8, -- surfaces steeper than about 37 degrees are not ground
-		-- never a landing spot: roofs, palms, lamps, lollipops, bushes, the fence, decorations, the cover, the machine
+		-- never a landing spot: roofs, palms, lamps, lollipops, bushes, the fence, decorations (the arena rim and the
+		-- entrance arches), the cover, the barrier over the rim, the machine. Parts outside the map (a copy dragged out
+		-- of it into Workspace) are never ground either (MapRules.landingSurface).
 		blockedFolders = {
 			"Stoiska",
 			"Covery",
@@ -96,8 +98,15 @@ return {
 			"Wodospady",
 			"Wysepki",
 			"BigSwirl",
+			"Sperre",
 		},
 		blockedNamePrefixes = { "Poręcz", "Gałka" }, -- platform railings and the knobs on them
+		-- a free scoop (from the Big Swirl or spilled) that comes to rest on a surface nobody stands on (the cover, the
+		-- rim, the arches) or inside cover is put on the nearest free ground instead (MapService.settle): searched in
+		-- settleStep steps out to settleRadius studs, with `footprint` studs of ground round it; past that, the nearest
+		-- landing spot
+		settleStep = 1,
+		settleRadius = 16,
 	},
 
 	-- the cover in the arena (MapService.prepareCover): every Model in this folder is cover, however many copies and
@@ -109,6 +118,9 @@ return {
 	-- studs the meshes may stick out of that box before the start makes it bigger (MapRules.coverBoxFit): scaling the
 	-- whole model scales the box with it, resizing only the meshes in Studio does not
 	coverFitTolerance = 0.25,
+	-- the names (prefixes) of the arena kit's cover models (ServerStorage.ArenaKit): the start warns about every copy
+	-- that is not in coverFolder, because only there is it cover (copies pasted into Workspace were not)
+	coverKitNames = { "CoverBlock", "WaffleCrate", "IcePillar" },
 
 	-- thrown balls fly through thin decoration (garlands, lamps, lollipops, palm leaves and coconuts); palm trunks,
 	-- stands, the fence and the cover in Covery stop them like any other solid part

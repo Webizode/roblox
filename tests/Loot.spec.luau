@@ -322,3 +322,19 @@ describe("Safe zone at the own cart", function()
 		expect(Loot.afterThrow(nil, 100, 42, Config)).toBe(42)
 	end)
 end)
+
+describe("Spilled scoops: settled on free ground", function()
+	it("one moved off cover falls straight onto the new spot and does not roll", function()
+		local path = spill(20, 0.3, 0)[1]
+		local settled, profile = Loot.settle(path, 6.5, -2, 1.2)
+		expect(settled.flavorId).toBe(path.flavorId)
+		expect(settled.sy).toBe(path.sy) -- it still starts where it sat in the tower
+		local x, y, z = Loot.position(settled, 5, Config, profile.stopShare)
+		expect(x).toBe(6.5)
+		expect(y).toBe(0)
+		expect(z).toBe(-2)
+		expect(Loot.groundHeight(profile, profile.stopShare)).toBe(1.2)
+		expect(profile.sinkAt).toBeNil()
+		expect(path.rx ~= 0 or path.rz ~= 0).toBe(true) -- the original is left alone
+	end)
+end)

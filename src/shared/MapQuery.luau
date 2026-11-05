@@ -18,8 +18,12 @@ export type Ground = {
 	hit: RaycastResult?,
 }
 
--- The map folder a part belongs to: the top-level folder under the map or under the Pier helpers, nil elsewhere.
+-- The map folder a part belongs to: the top-level folder under the map or under the Pier helpers, MapRules.terrain
+-- for the Terrain, nil elsewhere (outside the map).
 function MapQuery.folderOf(instance: Instance): string?
+	if instance:IsA("Terrain") then
+		return MapRules.terrain
+	end
 	local current = instance
 	while current.Parent do
 		local parent = current.Parent

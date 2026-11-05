@@ -197,22 +197,39 @@ local function fitCoverBox(model: Model, box: BasePart)
 	end
 end
 
--- Every Model in the cover folder (Config/Map.coverFolder) collides through exactly one invisible box: its part
--- named coverCollision, made from the model's bounding box when missing (a fresh import dragged in). All its other
--- parts are anchored and neither collide, nor take queries or touches, so only the box stops players, thrown balls
--- and the landing rays (the folder name keeps scoops from landing on it). Loose parts directly in the folder (the
--- old graybox walls with their *_Kolizja boxes) are left as they are. Returns how many models it prepared and how
--- many boxes it had to make.
+-- The cover pieces under `container`: every Model with its own box, and every Model without one that holds no other
+-- Model. Folders and Models that only group other models (a selection grouped with Ctrl+G, a folder of copies) are
+-- looked into, so a group is never taken for one big block round all its pieces.
+local function coverPieces(container: Instance, into: { Model })
+	for _, child in container:GetChildren() do
+		if child:IsA("Model") then
+			local box = child:FindFirstChild(MapConfig.coverCollision)
+			if (box and box:IsA("BasePart")) or not child:FindFirstChildWhichIsA("Model", true) then
+				table.insert(into, child)
+			else
+				coverPieces(child, into)
+			end
+		elseif child:IsA("Folder") then
+			coverPieces(child, into)
+		end
+	end
+end
+
+-- Every cover piece in the cover folder (Config/Map.coverFolder, also inside groups there) collides through exactly
+-- one invisible box: its part named coverCollision, made from the model's bounding box when missing (a fresh import
+-- dragged in). All its other parts are anchored and neither collide, nor take queries or touches, so only the box
+-- stops players, thrown balls and the landing rays (the folder name keeps scoops from landing on it). Loose parts in
+-- the folder (the old graybox walls with their *_Kolizja boxes) are left as they are. Returns how many models it
+-- prepared and how many boxes it had to make.
 function MapService.prepareCover(root: Instance): (number, number)
 	local folder = root:FindFirstChild(MapConfig.coverFolder)
 	if not folder then
 		return 0, 0
 	end
 	local prepared, made = 0, 0
-	for _, model in folder:GetChildren() do
-		if not model:IsA("Model") then
-			continue
-		end
+	local pieces = {}
+	coverPieces(folder, pieces)
+	for _, model in pieces do
 		local box = model:FindFirstChild(MapConfig.coverCollision)
 		if not (box and box:IsA("BasePart")) then
 			local cframe, size = model:GetBoundingBox()
@@ -244,6 +261,32 @@ function MapService.prepareCover(root: Instance): (number, number)
 		prepared += 1
 	end
 	return prepared, made
+end
+
+-- Warns about copies of the kit's cover models (Config/Map.coverKitNames) that are not in the cover folder: there they
+-- are no cover (their meshes may collide, throws are not told apart) and outside the map nothing lands on them
+-- (MapRules.landingSurface), but they belong in Covery.
+local function warnStrayCover(root: Instance)
+	local folder = root:FindFirstChild(MapConfig.coverFolder)
+	local stray = {}
+	for _, instance in workspace:GetDescendants() do
+		if
+			instance:IsA("Model")
+			and MapRules.isCoverKit(instance.Name, MapConfig)
+			and not (folder and instance:IsDescendantOf(folder))
+			and not Players:GetPlayerFromCharacter(instance)
+		then
+			table.insert(stray, instance:GetFullName())
+		end
+	end
+	if #stray > 0 then
+		warn(
+			`[Map] {#stray} cover models are not in {MapConfig.root}.{MapConfig.coverFolder}, so they are no cover: {table.concat(
+				stray,
+				", "
+			)}`
+		)
+	end
 end
 
 -- Warns when a plot's helpers are not where PlotLayout puts them (Config/Map.plot): a place built for another plot
@@ -326,6 +369,7 @@ function MapService.Init()
 	checkPlots(MapService.plots)
 	-- before the landing spots are sampled: they must see the cover boxes, not the meshes
 	local coverModels = MapService.prepareCover(root)
+	warnStrayCover(root)
 	MapService.landingSpots = sampleLandingSpots(MapService.center)
 	print(
 		string.format(
@@ -374,6 +418,47 @@ function MapService.landingNear(x: number, z: number, radius: number, rng: Rando
 	end
 	local index = near[rng:NextInteger(1, #near)]
 	return Vector3.new(spots[index * 3 - 2], spots[index * 3 - 1], spots[index * 3])
+end
+
+local settleOffsets: { { number } }? = nil
+
+-- Where a free scoop resting at `position` (on its ground) really lies: right there when a player can reach it
+-- (MapRules.restsWell), otherwise on the nearest free ground beside it, a spot with landing ground under it and
+-- Config/Map.landing.footprint studs round it (MapRules.nearestFree), and past settleRadius the nearest landing spot.
+-- That catches a scoop on top of a pillar or a crate, inside one, on the arena rim or an arch. The second value is
+-- whether it moved.
+function MapService.settle(position: Vector3): (Vector3, boolean)
+	local landing = MapConfig.landing
+	local fromY = math.max(MapService.center.Y, position.Y) + RAY_START
+	local ignore = characters()
+	local surface = landingHeight(position.X, position.Z, fromY, ignore)
+	if MapRules.restsWell(surface, position.Y, MapConfig) then
+		return position, false
+	end
+	local foot = landing.footprint
+	local function probe(x: number, z: number): number?
+		local y = landingHeight(x, z, fromY, ignore)
+		if not y then
+			return nil
+		end
+		for _, offset in { { foot, 0 }, { -foot, 0 }, { 0, foot }, { 0, -foot } } do
+			if not landingHeight(x + offset[1], z + offset[2], fromY, ignore) then
+				return nil
+			end
+		end
+		return y
+	end
+	settleOffsets = settleOffsets or MapRules.searchOffsets(landing.settleStep, landing.settleRadius)
+	local x, y, z = MapRules.nearestFree(position.X, position.Z, settleOffsets :: { { number } }, probe)
+	if x and y and z then
+		return Vector3.new(x, y, z), true
+	end
+	local spots = MapService.landingSpots
+	local nearest = MapRules.spotsNear(spots, position.X, position.Z, 0)[1]
+	if nearest then
+		return Vector3.new(spots[nearest * 3 - 2], spots[nearest * 3 - 1], spots[nearest * 3]), true
+	end
+	return position, false
 end
 
 return MapService

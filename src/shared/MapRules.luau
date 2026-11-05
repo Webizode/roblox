@@ -12,14 +12,20 @@ export type Config = {
 		minNormalY: number,
 		blockedFolders: { string },
 		blockedNamePrefixes: { string },
+		settleStep: number,
+		settleRadius: number,
 	},
 	throwPassFolders: { string },
 	throwPassNames: { string },
 	coverFitTolerance: number,
 	playersOnlyFolders: { string },
+	coverKitNames: { string },
 }
 
 local MapRules = {}
+
+-- what MapQuery.folderOf calls the Terrain: part of the map although it is no folder in it
+MapRules.terrain = "Terrain"
 
 -- Whether a ball flying into this part stops there. Parts without collision never stop it (zones, trigger volumes,
 -- decoration layers), and neither does the thin decoration the config lets through.
@@ -49,10 +55,12 @@ end
 function MapRules.inSea(rootY: number, config: Config): boolean
 	return rootY < config.waterLevel + config.respawnMargin
 end
--- Whether a surface a scoop would land on is ground a player could stand on.
+-- Whether a surface a scoop would land on is ground a player could stand on. `folder` is the top-level map folder
+-- (MapQuery.folderOf), MapRules.terrain for the Terrain, nil for a part outside the map: that is never ground (cover
+-- copied into Workspace instead of Covery had its tops taken for landing spots).
 function MapRules.landingSurface(folder: string?, name: string, normalY: number, config: Config): boolean
 	local landing = config.landing
-	if normalY < landing.minNormalY then
+	if folder == nil or normalY < landing.minNormalY then
 		return false
 	end
 	if folder and table.find(landing.blockedFolders, folder) then
@@ -122,6 +130,67 @@ function MapRules.spotsBetween(spots: { number }, x: number, z: number, inner: n
 		table.insert(between, best)
 	end
 	return between
+end
+
+-- Whether a free scoop resting on ground of height restY lies where a player can reach it: the surface seen from above
+-- there (surfaceY, nil when it is no landing surface: cover, rim, arch, barrier, machine) is that same ground. On top
+-- of a pillar the surface is the cover; inside a crate (its ground ray started in the box and found the floor) the
+-- surface from above is the crate's top.
+function MapRules.restsWell(surfaceY: number?, restY: number, config: Config): boolean
+	return surfaceY ~= nil and math.abs(surfaceY - restY) <= config.landing.maxStep
+end
+
+-- The offsets round a point in `step` studs out to `radius`, nearest first and the point itself first of all: where
+-- MapService.settle looks for free ground.
+function MapRules.searchOffsets(step: number, radius: number): { { number } }
+	local offsets = {}
+	local reach = math.floor(radius / step)
+	for i = -reach, reach do
+		for j = -reach, reach do
+			local dx, dz = i * step, j * step
+			if dx * dx + dz * dz <= radius * radius then
+				table.insert(offsets, { dx, dz })
+			end
+		end
+	end
+	table.sort(offsets, function(a, b)
+		local da, db = a[1] * a[1] + a[2] * a[2], b[1] * b[1] + b[2] * b[2]
+		if da ~= db then
+			return da < db
+		end
+		if a[1] ~= b[1] then
+			return a[1] < b[1]
+		end
+		return a[2] < b[2]
+	end)
+	return offsets
+end
+
+-- The first point of (x, z) + offsets where `probe` finds free ground (its height), as x, y, z; nil when none does.
+function MapRules.nearestFree(
+	x: number,
+	z: number,
+	offsets: { { number } },
+	probe: (number, number) -> number?
+): (number?, number?, number?)
+	for _, offset in offsets do
+		local px, pz = x + offset[1], z + offset[2]
+		local y = probe(px, pz)
+		if y then
+			return px, y, pz
+		end
+	end
+	return nil, nil, nil
+end
+
+-- Whether a model is one of the arena kit's cover models (config.coverKitNames, by prefix: CoverBlock_10).
+function MapRules.isCoverKit(name: string, config: Config): boolean
+	for _, prefix in config.coverKitNames do
+		if string.sub(name, 1, #prefix) == prefix then
+			return true
+		end
+	end
+	return false
 end
 
 export type Bounds = { min: { number }, max: { number } } -- {x, y, z} each, in the cover box's own frame
