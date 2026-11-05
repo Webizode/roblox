@@ -19,3 +19,6 @@ Thumbs.db
 # Blender keeps a backup of every saved .blend
 *.blend1
 assets/BigSwirl/textures/*.fbx
+
+# plot kit previews: made by assets/PlotKit/run_plotkit.py, copies in the vault (Plot Kit Vorschau)
+assets/PlotKit/previews/

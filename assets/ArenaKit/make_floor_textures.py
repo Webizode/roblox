@@ -18,9 +18,12 @@ island's cool light), kept light so players, scoops and landing circles read on 
                        the game (studio_wyspa_floor.luau)
     LandingCircle_Ring the dark outline on a landing circle: a white ring, tinted in the game (256 px; a Decal is
                        right here, it lies on top of the circle), rbxassetid://88345459876129
+    Plot_Grass         the plot islands: soft pastel cartoon grass with lighter tufts (512 px, 16 studs
+                       per tile), studio_plot_grass.luau
 
 After a change: upload the PNG again (Studio MCP upload_image or the Asset Manager) and put the new id into
-studio_arena_floor.luau.
+studio_arena_floor.luau (studio_wyspa_floor.luau, studio_plot_grass.luau).
+Set ONLY = {"Plot_Grass"} before the exec to write just those pictures and leave the others untouched.
 """
 
 import os
@@ -30,6 +33,11 @@ import numpy as np
 
 OUT = os.path.join(globals().get("ASSET_DIR") or os.path.dirname(bpy.data.filepath), "textures")
 os.makedirs(OUT, exist_ok=True)
+ONLY = globals().get("ONLY")
+
+
+def want(name):
+    return not ONLY or name in ONLY
 
 
 def hex_rgb(h):
@@ -92,7 +100,8 @@ def save(name, rgb):
 
 
 for tile_name, spec in TILES.items():
-    save(tile_name, plate_tile(**spec))
+    if want(tile_name):
+        save(tile_name, plate_tile(**spec))
 
 # The strip and the hub ring (Wyspa): rounded pink-cream paving stones like the plot paths (reference "Bonbon-Wege
 # für Eiscremewelten"), laid in a running bond, calm so the decoration placed on them later reads. One stone is
@@ -135,7 +144,8 @@ def paver_tile(size, per_row, rows, stone, grout, grout_px, corner_px, edge_shad
     return colour * coverage[..., None] + g[None, None, :] * (1 - coverage[..., None])
 
 
-save("Wyspa_Pavers", paver_tile(**PAVERS))
+if want("Wyspa_Pavers"):
+    save("Wyspa_Pavers", paver_tile(**PAVERS))
 
 # The arena emblem as one picture (a Decal on one disc round the Big Swirl): layered discs do not work on a textured
 # floor, Roblox draws textures a little towards the camera, so thin layers above one vanish or swap order. Drawn for
@@ -211,7 +221,8 @@ def save_rgba(name, rgba):
     print("wrote", image.filepath_raw, f"{size} px")
 
 
-save_rgba("ArenaEmblem", emblem_picture(**EMBLEM))
+if want("ArenaEmblem"):
+    save_rgba("ArenaEmblem", emblem_picture(**EMBLEM))
 
 
 def ring_picture(size=256, inner=0.80):
@@ -224,4 +235,82 @@ def ring_picture(size=256, inner=0.80):
     return np.concatenate([np.ones((size, size, 3)), alpha[..., None]], axis=2)
 
 
-save_rgba("LandingCircle_Ring", ring_picture())
+if want("LandingCircle_Ring"):
+    save_rgba("LandingCircle_Ring", ring_picture())
+
+# The plot islands (reference "Eiscreme-Insel: Spielerplot-Layout"): soft pastel cartoon grass (05.11.2026; first a
+# juicier yellow green #8DC64A that read too loud), calm so the plot's models, players and scoops read on it. A soft
+# mottle of two greens (only whole waves per tile, so it is seamless), small tufts of three rounded blades a little
+# lighter at their tips, and a few darker specks.
+GRASS = dict(
+    size=512,
+    base="#A6D48A",
+    shade="#97C87D",  # the darker side of the mottle
+    blade="#B9E09F",
+    tip="#CBE9B4",
+    speck="#8BBE73",
+    tufts=170,
+    specks=260,
+    studs_per_tile=16,
+)
+
+
+def grass_tile(size, base, shade, blade, tip, speck, tufts, specks, seed=11, **_):
+    rng = np.random.default_rng(seed)
+    y, x = np.mgrid[0:size, 0:size] + 0.5
+    mottle = np.zeros((size, size))
+    for _ in range(7):  # whole waves only: seamless
+        fx, fy = rng.integers(-4, 5, size=2)
+        if fx == 0 and fy == 0:
+            continue
+        mottle += np.sin(2 * np.pi * (fx * x + fy * y) / size + rng.uniform(0, 2 * np.pi))
+    mottle = (mottle - mottle.min()) / (np.ptp(mottle) + 1e-9)
+    img = hex_rgb(shade)[None, None, :] * (1 - mottle[..., None]) + hex_rgb(base)[None, None, :] * mottle[..., None]
+    img = img * (1 + rng.uniform(-0.015, 0.015, size=(size, size, 1)))  # a hair of grain
+
+    def stamp(cx, cy, reach, paint):
+        # paint(local_x, local_y) -> (alpha, rgb) on a window round (cx, cy), wrapped round the tile edges
+        for ox in (-size, 0, size):
+            for oy in (-size, 0, size):
+                px, py = cx + ox, cy + oy
+                x0, x1 = int(max(0, px - reach)), int(min(size, px + reach + 1))
+                y0, y1 = int(max(0, py - reach)), int(min(size, py + reach + 1))
+                if x0 >= x1 or y0 >= y1:
+                    continue
+                wy, wx = np.mgrid[y0:y1, x0:x1] + 0.5
+                alpha, rgb = paint(wx - px, wy - py)
+                img[y0:y1, x0:x1] = img[y0:y1, x0:x1] * (1 - alpha[..., None]) + rgb * alpha[..., None]
+
+    b, t = hex_rgb(blade), hex_rgb(tip)
+    for _ in range(tufts):
+        cx, cy = rng.uniform(0, size, size=2)
+        for lean in (-0.55, 0.0, 0.55):
+            length = rng.uniform(9, 15)
+            angle = lean + rng.uniform(-0.18, 0.18)
+            dx, dy = np.sin(angle), -np.cos(angle)  # up the picture
+            width = rng.uniform(2.2, 3.0)
+
+            def blade_paint(lx, ly, dx=dx, dy=dy, length=length, width=width):
+                s = np.clip(lx * dx + ly * dy, 0, length)
+                along = s / length
+                dist = np.hypot(lx - dx * s, ly - dy * s) - width * (1 - 0.65 * along)  # tapers to the tip
+                alpha = np.clip(0.5 - dist, 0, 1) * 0.75
+                rgb = b[None, None, :] * (1 - along[..., None]) + t[None, None, :] * along[..., None]
+                return alpha, rgb
+
+            stamp(cx, cy, 17, blade_paint)
+    s = hex_rgb(speck)
+    for _ in range(specks):
+        cx, cy = rng.uniform(0, size, size=2)
+        r = rng.uniform(1.0, 2.0)
+
+        def speck_paint(lx, ly, r=r):
+            alpha = np.clip(0.5 - (np.hypot(lx, ly * 1.6) - r), 0, 1) * 0.45
+            return alpha, np.broadcast_to(s, lx.shape + (3,))
+
+        stamp(cx, cy, 4, speck_paint)
+    return np.clip(img, 0, 1)
+
+
+if want("Plot_Grass"):
+    save("Plot_Grass", grass_tile(**GRASS))

@@ -1,0 +1,449 @@
+{
+ "FencePost": {
+  "collision": [
+   {
+    "center": [
+     0.0,
+     0,
+     2.025
+    ],
+    "kind": "box",
+    "name": "Post",
+    "size": [
+     1.6500000000000001,
+     1.6500000000000001,
+     4.05
+    ]
+   }
+  ],
+  "exported_triangles": 932,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox-assets\\PlotKit\\PlotKit_FencePost.fbx",
+  "max": [
+   1.1,
+   1.12,
+   4.9
+  ],
+  "meshes": [
+   "FencePost_Cream",
+   "FencePost_Pink",
+   "FencePost_Waffle"
+  ],
+  "min": [
+   -1.12,
+   -1.12,
+   0.0
+  ],
+  "note": "the same post as in FenceSection; closes the end of a row of sections",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\PlotKit\\previews\\FencePost.png",
+  "size": [
+   2.23,
+   2.25,
+   4.9
+  ],
+  "triangles": 932
+ },
+ "FenceSection": {
+  "collision": [
+   {
+    "center": [
+     -4.0,
+     0,
+     2.025
+    ],
+    "kind": "box",
+    "name": "Post",
+    "size": [
+     1.6500000000000001,
+     1.6500000000000001,
+     4.05
+    ]
+   },
+   {
+    "center": [
+     0.22499999999999987,
+     0,
+     1.6875
+    ],
+    "kind": "box",
+    "name": "Rails",
+    "size": [
+     7.550000000000001,
+     0.6,
+     3.375
+    ]
+   }
+  ],
+  "exported_triangles": 1324,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox-assets\\PlotKit\\PlotKit_FenceSection.fbx",
+  "max": [
+   4.0,
+   1.12,
+   4.9
+  ],
+  "meshes": [
+   "FenceSection_Cream",
+   "FenceSection_Pink",
+   "FenceSection_Waffle"
+  ],
+  "min": [
+   -5.12,
+   -1.12,
+   0.0
+  ],
+  "note": "its post at x -4, rails over to +4: in a row one post every 8 studs, a FencePost at the end; the rails' collision reaches the ground",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\PlotKit\\previews\\FenceSection.png",
+  "size": [
+   9.12,
+   2.25,
+   4.9
+  ],
+  "triangles": 1324
+ },
+ "PathCurve": {
+  "arc_centre": [
+   -5.0,
+   -5.0
+  ],
+  "collision": [],
+  "exported_triangles": 884,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox-assets\\PlotKit\\PlotKit_PathCurve.fbx",
+  "max": [
+   5.0,
+   5.0,
+   0.32
+  ],
+  "meshes": [
+   "PathCurve_Cream",
+   "PathCurve_Stone"
+  ],
+  "min": [
+   -5.0,
+   -5.0,
+   0.0
+  ],
+  "note": "quarter turn, inner radius 4, outer 10; arc centre at (-5.0, -5.0) from the pivot; its ends are 6 wide like PathStraight; no collision, pivot 0.2 under grass",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\PlotKit\\previews\\PathCurve.png",
+  "size": [
+   10.0,
+   10.0,
+   0.32
+  ],
+  "triangles": 884
+ },
+ "PathRound": {
+  "collision": [],
+  "exported_triangles": 2376,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox-assets\\PlotKit\\PlotKit_PathRound.fbx",
+  "max": [
+   7.0,
+   7.0,
+   0.55
+  ],
+  "meshes": [
+   "PathRound_Cream",
+   "PathRound_Gold",
+   "PathRound_Pink",
+   "PathRound_Stone",
+   "PathRound_Waffle"
+  ],
+  "min": [
+   -7.0,
+   -7.0,
+   0.0
+  ],
+  "note": "round plaza, 14 across, cone emblem in the middle (its point to -Y); no collision",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\PlotKit\\previews\\PathRound.png",
+  "size": [
+   14.0,
+   14.0,
+   0.55
+  ],
+  "triangles": 2376
+ },
+ "PathStraight": {
+  "collision": [],
+  "exported_triangles": 352,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox-assets\\PlotKit\\PlotKit_PathStraight.fbx",
+  "max": [
+   3.0,
+   2.0,
+   0.32
+  ],
+  "meshes": [
+   "PathStraight_Cream",
+   "PathStraight_Stone"
+  ],
+  "min": [
+   -3.0,
+   -2.0,
+   0.0
+  ],
+  "note": "6 wide x 4 long, tiles end to end along Y; no collision, pivot 0.2 under grass",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\PlotKit\\previews\\PathStraight.png",
+  "size": [
+   6.0,
+   4.0,
+   0.32
+  ],
+  "triangles": 352
+ },
+ "PlotSign": {
+  "collision": [
+   {
+    "center": [
+     0.0,
+     0.0,
+     4.485
+    ],
+    "kind": "box",
+    "size": [
+     11.18,
+     1.56,
+     8.97
+    ]
+   }
+  ],
+  "exported_triangles": 3972,
+  "face": {
+   "center": [
+    0.0,
+    -0.52,
+    5.785
+   ],
+   "part": "PlotSign_Face_Cream",
+   "size": [
+    7.28,
+    3.25
+   ],
+   "surface": "Front (-Z in Roblox)"
+  },
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox-assets\\PlotKit\\PlotKit_PlotSign.fbx",
+  "max": [
+   7.02,
+   1.33,
+   12.22
+  ],
+  "meshes": [
+   "PlotSign_Cream",
+   "PlotSign_Face_Cream",
+   "PlotSign_Gold",
+   "PlotSign_Pink",
+   "PlotSign_Waffle"
+  ],
+  "min": [
+   -7.02,
+   -1.33,
+   0.0
+  ],
+  "note": "name board; text on PlotSign_Face_Cream through a SurfaceGui (Face Front), 5.6 x 2.5 studs",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\PlotKit\\previews\\PlotSign.png",
+  "scale": 1.3,
+  "size": [
+   14.04,
+   2.66,
+   12.22
+  ],
+  "triangles": 3972
+ },
+ "ScoopChest": {
+  "collision": [
+   {
+    "center": [
+     0.0,
+     0.0,
+     4.95
+    ],
+    "kind": "box",
+    "size": [
+     13.95,
+     7.95,
+     9.9
+    ]
+   }
+  ],
+  "exported_triangles": 4938,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox-assets\\PlotKit\\PlotKit_ScoopChest.fbx",
+  "hinge": {
+   "axis": "X",
+   "opens": "lid turns up about X, front edge first, 100 deg",
+   "y": 2.55,
+   "z": 9.0
+  },
+  "max": [
+   6.99,
+   4.43,
+   13.65
+  ],
+  "meshes": [
+   "ScoopChest_Cherry",
+   "ScoopChest_Cream",
+   "ScoopChest_Gold",
+   "ScoopChest_Lid_Glass",
+   "ScoopChest_Lid_Gold",
+   "ScoopChest_Lid_Pink",
+   "ScoopChest_Pink",
+   "ScoopChest_SkyBlue",
+   "ScoopChest_Waffle"
+  ],
+  "min": [
+   -6.99,
+   -4.43,
+   -0.01
+  ],
+  "note": "customer side -Y; the glass (Lid_Glass) SkyBlue and half transparent in Studio",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\PlotKit\\previews\\ScoopChest.png",
+  "scale": 1.5,
+  "size": [
+   13.98,
+   8.85,
+   13.66
+  ],
+  "triangles": 4938
+ },
+ "SellCart": {
+  "collision": [
+   {
+    "center": [
+     0.0,
+     0.0,
+     1.763
+    ],
+    "kind": "box",
+    "size": [
+     17.4,
+     9.3,
+     3.525
+    ]
+   }
+  ],
+  "exported_triangles": 9880,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox-assets\\PlotKit\\PlotKit_SellCart.fbx",
+  "max": [
+   9.75,
+   5.25,
+   21.07
+  ],
+  "meshes": [
+   "SellCart_Cherry",
+   "SellCart_Cream",
+   "SellCart_Gold",
+   "SellCart_Pink",
+   "SellCart_SkyBlue",
+   "SellCart_Waffle"
+  ],
+  "min": [
+   -9.75,
+   -5.25,
+   -0.09
+  ],
+  "note": "customer side -Y; counter top 2.35 (3.5 scaled); awning edge 0.8 past the body",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\PlotKit\\previews\\SellCart.png",
+  "scale": 1.5,
+  "size": [
+   19.5,
+   10.5,
+   21.17
+  ],
+  "triangles": 9880
+ },
+ "WorkingStation": {
+  "collision": [
+   {
+    "center": [
+     0.0,
+     -3.0,
+     1.763
+    ],
+    "kind": "box",
+    "name": "Counter",
+    "size": [
+     16.8,
+     2.85,
+     3.525
+    ]
+   },
+   {
+    "center": [
+     0.0,
+     4.8,
+     7.05
+    ],
+    "kind": "box",
+    "name": "Wall",
+    "size": [
+     17.7,
+     1.2,
+     14.1
+    ]
+   },
+   {
+    "center": [
+     -12.675,
+     0.3,
+     6.975
+    ],
+    "kind": "box",
+    "name": "SideL",
+    "size": [
+     9.45,
+     10.2,
+     13.95
+    ]
+   },
+   {
+    "center": [
+     12.675,
+     0.3,
+     6.975
+    ],
+    "kind": "box",
+    "name": "SideR",
+    "size": [
+     9.45,
+     10.2,
+     13.95
+    ]
+   }
+  ],
+  "exported_triangles": 15816,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox-assets\\PlotKit\\PlotKit_WorkingStation.fbx",
+  "max": [
+   17.97,
+   6.3,
+   25.25
+  ],
+  "meshes": [
+   "WorkingStation_Cherry",
+   "WorkingStation_Cream",
+   "WorkingStation_Gold",
+   "WorkingStation_Pink",
+   "WorkingStation_SkyBlue",
+   "WorkingStation_Waffle"
+  ],
+  "min": [
+   -17.99,
+   -5.7,
+   -0.12
+  ],
+  "note": "customer side -Y; NPC floor between counter and wall: 10 x 3.7 at y 1.0, floor top 0.3",
+  "npc": {
+   "center": [
+    1.2,
+    1.5,
+    0.45
+   ],
+   "size": [
+    15.0,
+    6.0
+   ]
+  },
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\PlotKit\\previews\\WorkingStation.png",
+  "scale": 1.5,
+  "size": [
+   35.95,
+   12.0,
+   25.37
+  ],
+  "triangles": 15816
+ }
+}
