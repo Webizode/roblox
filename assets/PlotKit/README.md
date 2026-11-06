@@ -7,7 +7,7 @@ Am selben Tag folgte eine Korrekturrunde:
 - Der Zaun ist neu: dickere Creme-Latten, Pfosten in warmem Holz mit Pink-Kappe, derselbe Pfosten in FencePost und FenceSection.
 - Das Gras ist pastelliger.
 
-Noch nicht in Studio importiert.
+In Studio importiert und auf allen 12 Plots aufgestellt.
 
 - Blender-Datei: `assets/PlotKit/PlotKit.blend` (je Modell eine Collection `PK_<Model>`, dazu `PK_Layout` und `PK_Preview` nur für die Bilder)
 - Skripte: `plotkit.py` (Kit, R15-Figur, Vorschau, Export), `build_plot_pack.py` (die Modelle, die Skalierung `SCALE`, das Gesamtbild), `run_plotkit.py` (alles im Hintergrund-Blender), `studio_plotkit_templates.luau` (macht in Studio Vorlagen aus dem Import)
@@ -69,12 +69,13 @@ Der Turm steht 1,5 Studs hinter dem Spieler. Gerechnet ist ein Spieler direkt an
 ### Gesamtbild (`previews/PlotLayout.png`, `previews/PlotLayout_Bridge.png`)
 
 Im Rahmen des Plots (`Config/Map.plot`, `PlotLayout`: x = u entlang des Rings, rechts von der Brücke aus gesehen; y = v entlang der Spur; die Brücke trifft die Vorderkante bei v −30 mittig):
-- Der **Sell Cart** steht mittig am Brückenkopf bei (0, −17) und schaut zur Brücke. Ein Spieler an seiner Theke steht am ServePoint (0, −24).
-- Davor liegt ein Vorplatz (x −16 bis 16). Links und rechts führt je ein Weg bei x ±13 am Wagen vorbei zur **Rundplatte** (0, −1).
-- Von der Platte gehen Wege nach hinten zur **Working Station** (0, 16,5), nach rechts zur **Scoop Chest** (28, −1, zur Platte gedreht) und nach links mit PathCurve Richtung hinten.
+- Seit 06.11.2026 (in Studio, `studio_plotkit_place.luau`, Positionen in `Config/Map.plot.stations`): **Working Station** links bei (−36, −4), **Sell Cart** hinten mittig bei (0, 16) mit der Front zur Brücke, **Scoop Chest** rechts bei (32, −4). Alle schauen zur **Rundplatte** (0, −4).
+- Ein Spieler an der Theke des Sell Carts steht am ServePoint (0, 9). Der Spawn liegt auf der Platte.
+- Wege: von der Brücke (am Brückenkopf 18 breit wie die Brücke, dann 6) zur Platte, von dort zum Vorplatz des Wagens, zur Station und zur Truhe.
 - Das **Schild** steht bei (24, −26) und schaut zur Brücke.
-- Ein **Zaun** läuft bei ±48 / ±24 rundherum, mit 16 Studs Lücke für die Brücke.
-- Links und hinten bleibt Platz frei. Es gibt keinen Upgrade-Bereich, der kommt auf die Hauptinsel.
+- Ein **Zaun** läuft bei ±48 / ±24 rundherum, mit 32 Studs Lücke für die Brücke.
+- Es gibt keinen Upgrade-Bereich, der kommt auf die Hauptinsel.
+- `previews/PlotLayout.png` und `build_layout` in `build_plot_pack.py` zeigen noch die erste Anordnung vom 05.11.2026 (Wagen am Brückenkopf bei (0, −17), Station hinten, Truhe bei (28, −1)).
 
 ## Grasboden in Studio
 
@@ -97,7 +98,6 @@ Der Place muss noch gespeichert werden.
 - **Zaunpfosten:** In der Draufsicht hat die Pink-Kappe eine schmale Naht an ihrem Saum (Glasur-Vorhang). Nicht behoben.
 - **Unter den Drehpunkt** reichen Sell Cart und Working Station bis 0,12 (Radrundung, Fasen). Das fällt nicht auf.
 - **Zwei Farben über die Kit-Palette hinaus:** `Stone` #E2A4B4 für die Wegsteine und `Glass` (SkyBlue, durchsichtig) für die Truhenhaube.
-- **Schild-Position:** Laut `Config/Map.plot` steht das Schild bei u 13, dort läge es auf dem Vorplatz. Im Gesamtbild steht es bei u 24. Die Config ist nicht geändert (keine Code-Änderungen).
 - **Ungeprüft in Studio:** `studio_plotkit_templates.luau` ist nur syntaktisch geprüft, nicht ausgeführt. Die Achsen (Blender −Y wird Roblox −Z, Blender Z wird Roblox Y, der Drehpunkt bleibt am FBX-Ursprung) habe ich an der vorhandenen Vorlage `ServerStorage.ArenaKit.WaffleCrate` nachgemessen, nur lesend.
 - **Vorschaubilder** sind aus EEVEE, ohne Glühen. Die Figur ist ein klobiger R15-Platzhalter, ihr Turm hat 20 Kugeln. Den größten Turm (65 Kugeln, rund 100 Studs) prüfen die Abstände oben.
 

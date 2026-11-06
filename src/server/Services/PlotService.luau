@@ -1,5 +1,5 @@
--- Gives every player their own plot (Workspace.Pier.Plots), spawns them on it (its Spawn, the middle of the plot
--- island), sets the jump power (Config/Economy.jumpPower; jumping is on since the dash came in) and brings back players
+-- Gives every player their own plot (Workspace.Pier.Plots), spawns them on it (its Spawn, on the plot's round
+-- plaza), sets the jump power (Config/Economy.jumpPower; jumping is on since the dash came in) and brings back players
 -- who end up in the sea: they respawn at their plot, like after any other respawn with an empty cone. ArenaService
 -- uses the same spots for the teleport buttons.
 
@@ -26,7 +26,7 @@ local owners: { [Instance]: Player } = {}
 local assigned: { [Player]: Model } = {}
 local respawning: { [Player]: boolean } = {}
 
--- Where a new character of the player appears: the plot's Spawn (the middle of the island), or on a map without one
+-- Where a new character of the player appears: the plot's Spawn (on its plaza), or on a map without one
 -- serveRadius + 4 in front of the ServePoint, outside the serve radius, so the first catches are not served away as
 -- one-scoop towers the moment they land.
 function PlotService.spawnSpot(player: Player): Vector3?

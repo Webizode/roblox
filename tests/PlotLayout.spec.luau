@@ -71,11 +71,13 @@ describe("Plot islands: size and place on the ring", function()
 	end)
 end)
 
-describe("Plot zones", function()
+describe("Plot zones and stations", function()
 	local spans = PlotLayout.zones(plot)
+	local stations = plot.stations
+	local CART_HALF_DEPTH = 9.3 / 2 -- the Sell Cart's collision box (assets/PlotKit/studio_plotkit_templates.luau)
 
-	it("four zones side by side fill the walkable surface exactly, without gaps", function()
-		expect(#spans).toBe(4)
+	it("three zones side by side fill the walkable surface exactly, without gaps", function()
+		expect(#spans).toBe(3)
 		local halfU = PlotLayout.surfaceHalf(plot)
 		expect(near(spans[1].from, -halfU)).toBe(true)
 		expect(near(spans[#spans].to, halfU)).toBe(true)
@@ -85,35 +87,51 @@ describe("Plot zones", function()
 		end
 	end)
 
-	it("in this order from the left: Working Station, Sell Cart, Scoop Chest, Upgrades", function()
+	it("in this order from the left: Working Station, Sell Cart, Scoop Chest", function()
 		local ids = {}
 		for _, span in spans do
 			table.insert(ids, span.id)
 		end
-		expect(table.concat(ids, ",")).toBe("WorkingStation,SellCart,ScoopChest,Upgrades")
+		expect(table.concat(ids, ",")).toBe("WorkingStation,SellCart,ScoopChest")
 	end)
 
-	it("the Sell Cart sits on the lane, centred at the bridge, and wider than the bridge", function()
-		local sell = spans[2]
-		expect(near(sell.from + sell.to, 0)).toBe(true)
-		expect(sell.to - sell.from > 2 * plot.bridgeHalfWidth).toBe(true)
+	it("every station stands in its own zone, on the walkable surface", function()
+		local halfU, halfV = PlotLayout.surfaceHalf(plot)
+		for id, station in stations do
+			expect(PlotLayout.zoneAt(plot, station.u, station.v)).toBe(id)
+			expect(math.abs(station.u) < halfU and math.abs(station.v) < halfV).toBe(true)
+		end
 	end)
 
-	it("the ServePoint is in the Sell Cart zone at the bridgehead", function()
+	it("from the bridge: station left, cart at the back in the middle, chest right", function()
+		expect(stations.WorkingStation.u < 0).toBe(true)
+		expect(stations.ScoopChest.u > 0).toBe(true)
+		expect(stations.SellCart.u).toBe(0)
+		expect(stations.SellCart.v > plot.plaza.v).toBe(true)
+		-- all facing the plaza: the cart to the bridge, the station to +u, the chest to -u
+		expect(stations.SellCart.turn).toBe(0)
+		expect(stations.WorkingStation.turn).toBe(90)
+		expect(stations.ScoopChest.turn).toBe(-90)
+		expect(stations.WorkingStation.v).toBe(plot.plaza.v)
+		expect(stations.ScoopChest.v).toBe(plot.plaza.v)
+	end)
+
+	it("the ServePoint is in front of the Sell Cart's counter, in the Sell Cart zone", function()
 		local u, v = PlotLayout.servePoint(plot)
+		local cart = stations.SellCart
 		expect(PlotLayout.zoneAt(plot, u, v)).toBe("SellCart")
-		expect(near(PlotLayout.innerRadius(plot) + plot.serveInset, 298)).toBe(true)
-		-- the bridge ends before it: arriving players walk into the serve radius
-		expect(plot.centerRadius + v - EconomyConfig.serveRadius < plot.bridgeEnd + EconomyConfig.serveRadius).toBe(
-			true
-		)
+		expect(u).toBe(cart.u)
+		local gap = cart.v - CART_HALF_DEPTH - v -- from the cart's front to the ServePoint
+		expect(gap > 1 and gap < 4).toBe(true)
 	end)
 
-	it("the Spawn is in the middle, out of the serve radius, so a fresh catch is not served away", function()
+	it("the Spawn is on the plaza, out of the serve radius, so a fresh catch is not served away", function()
 		local su, sv = PlotLayout.spawn(plot)
 		local pu, pv = PlotLayout.servePoint(plot)
-		expect(su == 0 and sv == 0).toBe(true)
+		expect(math.sqrt((su - plot.plaza.u) ^ 2 + (sv - plot.plaza.v) ^ 2) < 7).toBe(true)
 		expect(math.sqrt((su - pu) ^ 2 + (sv - pv) ^ 2) > EconomyConfig.serveRadius + 4).toBe(true)
+		-- and the bridge's end is out of it too: players coming in do not serve on the bridge
+		expect(plot.centerRadius + pv - EconomyConfig.serveRadius > plot.bridgeEnd).toBe(true)
 	end)
 
 	it("the plot sign stands beside the bridgehead, on the island, off the bridge", function()

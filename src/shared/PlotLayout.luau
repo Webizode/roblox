@@ -7,6 +7,8 @@
 -- lane, outward from the island's centre. World coordinates are x and z around the arena centre.
 
 export type Zone = { id: string, name: string, width: number, color: string }
+-- a plot kit model on the island: its pivot at (u, v), turned `turn` degrees (0: its front to the bridge, -v)
+export type Station = { u: number, v: number, turn: number }
 export type PlotConfig = {
 	centerRadius: number,
 	width: number,
@@ -17,7 +19,10 @@ export type PlotConfig = {
 	bridgeHalfWidth: number,
 	bridgeEnd: number,
 	zones: { Zone },
-	serveInset: number,
+	stations: { [string]: Station },
+	plaza: { u: number, v: number },
+	serveAt: { u: number, v: number },
+	spawnAt: { u: number, v: number },
 	signAt: { u: number, inset: number },
 	sandReserve: number,
 	minGap: number,
@@ -104,12 +109,12 @@ function PlotLayout.zoneAt(plot: PlotConfig, u: number, v: number): string?
 	return nil
 end
 
--- Local spots: the ServePoint at the bridgehead on the lane, the Spawn in the middle, the sign beside the bridgehead.
+-- Local spots: the ServePoint in front of the Sell Cart, the Spawn on the plaza, the sign beside the bridgehead.
 function PlotLayout.servePoint(plot: PlotConfig): (number, number)
-	return 0, -plot.depth / 2 + plot.serveInset
+	return plot.serveAt.u, plot.serveAt.v
 end
-function PlotLayout.spawn(_plot: PlotConfig): (number, number)
-	return 0, 0
+function PlotLayout.spawn(plot: PlotConfig): (number, number)
+	return plot.spawnAt.u, plot.spawnAt.v
 end
 function PlotLayout.sign(plot: PlotConfig): (number, number)
 	return plot.signAt.u, -plot.depth / 2 + plot.rim + plot.signAt.inset

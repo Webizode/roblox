@@ -29,8 +29,9 @@ local GLASS_TRANSPARENCY = 0.55
 
 -- per model: boxes or upright cylinders, { kind, size = Vector3 (x, y, z; a cylinder: height, diameter, diameter),
 -- centre = Vector3 }; none for the paths
--- (assets/PlotKit/plotkit_models.json, Blender x y z turned into Roblox x z y; Sell Cart, Working Station and Scoop
--- Chest built 1.5 times, the Plot Sign 1.3 times the first size; the counters of cart and station at 3.5)
+-- (assets/PlotKit/plotkit_models.json, Blender x y z turned into Roblox -x z y: the import keeps the front at -Z and
+-- turns X round, measured on the imported Scoop Chest 05.11.2026. Sell Cart, Working Station and Scoop Chest built
+-- 1.5 times, the Plot Sign 1.3 times the first size; the counters of cart and station at 3.5)
 local COLLISION = {
 	SellCart = { { kind = "box", size = Vector3.new(17.4, 3.525, 9.3), centre = Vector3.new(0, 1.7625, 0) } },
 	WorkingStation = {
@@ -46,11 +47,12 @@ local COLLISION = {
 	},
 	ScoopChest = { { kind = "box", size = Vector3.new(13.95, 9.9, 7.95), centre = Vector3.new(0, 4.95, 0) } },
 	PlotSign = { { kind = "box", size = Vector3.new(11.18, 8.97, 1.56), centre = Vector3.new(0, 4.485, 0) } },
-	-- the same post in both fence pieces: in a FenceSection it stands at its left end (x -4)
+	-- the same post in both fence pieces: in a FenceSection it stands at its left end (x +4 here: seen from the front,
+	-- +x is on the left)
 	FencePost = { { kind = "box", size = Vector3.new(1.65, 4.05, 1.65), centre = Vector3.new(0, 2.025, 0) } },
 	FenceSection = {
-		{ kind = "box", name = "Post", size = Vector3.new(1.65, 4.05, 1.65), centre = Vector3.new(-4, 2.025, 0) },
-		{ kind = "box", name = "Rails", size = Vector3.new(7.55, 3.375, 0.6), centre = Vector3.new(0.225, 1.6875, 0) },
+		{ kind = "box", name = "Post", size = Vector3.new(1.65, 4.05, 1.65), centre = Vector3.new(4, 2.025, 0) },
+		{ kind = "box", name = "Rails", size = Vector3.new(7.55, 3.375, 0.6), centre = Vector3.new(-0.225, 1.6875, 0) },
 	},
 	PathStraight = {},
 	PathCurve = {},
@@ -159,6 +161,7 @@ for _, model in workspace:GetChildren() do
 	if old then
 		old:Destroy()
 	end
+	model:PivotTo(CFrame.new()) -- the template stands at the origin, upright, its front to -Z
 	model.Name = name
 	model.Parent = folder
 	table.insert(

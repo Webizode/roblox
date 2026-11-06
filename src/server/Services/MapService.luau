@@ -14,15 +14,15 @@
 --     .Plots.<Name>                     one Model per player plot (Plot_01, ...; ModelStreamingMode Persistent, so
 --                                       every client has every ServePoint), each with
 --       .ServePoint                     BasePart (invisible, no collision or queries), about 3 studs above the ground
---                                       on the plot island at its bridgehead, in the Sell Cart zone: where the player
---                                       serves (the old safe zone is around it)
+--                                       on the plot island in front of the Sell Cart's counter (the cart at the
+--                                       back, in the middle): where the player serves (the old safe zone is around it)
 --       .Body.Label                     optional BillboardGui with a TextLabel, shows the owner (over the plot sign)
 --       .Area                           optional ObjectValue, the plot island in the map (Ice Cream Map.Plots)
---       .Spawn                          optional SpawnLocation (invisible, no collision) in the middle of the plot
---                                       island: where the player spawns and the "my plot" button brings them; without
---                                       it they spawn a few studs in front of the ServePoint
+--       .Spawn                          optional SpawnLocation (invisible, no collision) on the plot's round plaza,
+--                                       out of the serve radius: where the player spawns and the "my plot" button
+--                                       brings them; without it they spawn a few studs in front of the ServePoint
 --                                       ServePoint, Spawn and Body sit where PlotLayout (Config/Map.plot: 110 x 60
---                                       islands with four zones) puts them; MapService warns when they do not
+--                                       islands with three stations) puts them; MapService warns when they do not
 --       .ArenaEntry                     optional BasePart (invisible, no collision or queries) on the strip above the
 --                                       plot's ramp: where the "arena" button brings the player
 --     .BigSwirl.Nozzle                  built here on the marker when missing; scoops launch from the Nozzle

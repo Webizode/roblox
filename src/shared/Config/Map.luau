@@ -61,15 +61,33 @@ return {
 		bridgeHalfWidth = 9, -- the bridge (Ice Cream Map.Mosty, 18 wide, unchanged) meets the inner side here
 		bridgeEnd = 295, -- studs from the machine to where the bridge ends, a little onto the island
 		-- the zones side by side along the ring, left to right as seen from the bridge, from u = -width/2 + rim to
-		-- width/2 - rim. Flat markers with a name for now; the Sell Cart sits at the bridge with the ServePoint in it.
+		-- width/2 - rim, one round each station (since 06.11.2026; before four, with Upgrades on the right: upgrades
+		-- go to the hub island). The graybox markers (Strefy) are hidden, the plot kit's models stand there.
 		zones = {
-			{ id = "WorkingStation", name = "WORKING STATION", width = 39, color = "#9DE0C4" },
-			{ id = "SellCart", name = "SELL CART", width = 26, color = "#FFD23F" },
-			{ id = "ScoopChest", name = "SCOOP CHEST", width = 19.5, color = "#FF8FA3" },
-			{ id = "Upgrades", name = "UPGRADES", width = 19.5, color = "#A0C4FF" },
+			{ id = "WorkingStation", name = "WORKING STATION", width = 34, color = "#9DE0C4" },
+			{ id = "SellCart", name = "SELL CART", width = 36, color = "#FFD23F" },
+			{ id = "ScoopChest", name = "SCOOP CHEST", width = 34, color = "#FF8FA3" },
 		},
-		serveInset = 6, -- studs from the inner side to the ServePoint, on the lane (the bridgehead)
-		signAt = { u = 13, inset = 2 }, -- the plot sign: beside the bridgehead, facing the bridge
+		-- The plot kit's models (assets/PlotKit/studio_plotkit_place.luau), as seen from the bridge since 06.11.2026:
+		-- the Working Station on the left, the Sell Cart at the back in the middle, the Scoop Chest on the right, all
+		-- facing the round plaza in the middle; paths from the bridge over the plaza to all three. Each at (u, v), its
+		-- pivot (bottom middle), turned `turn` degrees (0: its front to the bridge, -v; 90: to +u). Until 05.11.2026 the
+		-- Sell Cart stood at the bridgehead (0, -17), the station at the back (0, 16.5), the chest at (28, -1).
+		stations = {
+			SellCart = { u = 0, v = 16, turn = 0 },
+			WorkingStation = { u = -36, v = -4, turn = 90 },
+			ScoopChest = { u = 32, v = -4, turn = -90 },
+		},
+		plaza = { u = 0, v = -4 }, -- the round plaza (PathRound, 14 across)
+		-- the ServePoint: in front of the Sell Cart's counter, where a player at it stands (the cart's collision ends
+		-- at v 11.35); until 05.11.2026 at the bridgehead (v -24)
+		serveAt = { u = 0, v = 9 },
+		-- the Spawn, also where "MY PLOT" brings the player: the middle of the plaza, out of the serve radius (13 studs
+		-- from the ServePoint, so a fresh catch is not served away); until 05.11.2026 the island's centre (0, 0)
+		spawnAt = { u = 0, v = -4 },
+		-- the plot sign at the bridgehead, right of the path, facing the bridge (the plot kit's Plot Sign; until
+		-- 05.11.2026 the graybox sign at u 13, inset 2)
+		signAt = { u = 24, inset = 1 },
 		-- room kept round every island for a sand rim to the water later (tropical look): the islands stay at least
 		-- minGap apart with it
 		sandReserve = 10,
