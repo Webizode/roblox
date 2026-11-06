@@ -151,3 +151,65 @@ Maße in Studs: Breite (X) × Tiefe (Z) × Höhe (Y), so wie sie in Roblox stehe
 6. **Datei → Speichern** (Strg+S) bzw. veröffentlichen.
 
 Platzieren kommt danach: Vorlagen kopieren und auf den Hub-Ring setzen, das Hafentor an den späteren Hafen.
+
+## Im Place: Deko und Wege auf dem Hub-Ring
+
+Seit 06.11.2026 vom Nutzer freigegeben, Skript `studio_hub_decor.luau` (Befehlsleiste, Edit-Modus). Es braucht die Vorlagen in `ServerStorage.HubKit`.
+
+Alles liegt in `Workspace."Ice Cream Map".Dekoracje.Hub`. `Dekoracje` ist für Landepunkte gesperrt (`Config/Map.landing.blockedFolders`), deshalb stört der Ordner keine Regel. Mit einem Klick auf `Hub` lässt sich alles ausblenden oder entfernen. Vorher `RESTORE_PLOT_PATHS = true` laufen lassen, sonst schweben die angehobenen Wegsteine der Plots.
+
+Inhalt von `Hub`:
+
+- **`Sektor_01` bis `Sektor_12`:**
+  - `Wege`: von der Rampe zur Brücke und vier Stücke des Ringwegs.
+  - `PlotWege`: die Wege auf dem Plot.
+  - Vorplatz am Brückenkopf: zwei Laternen links und rechts, die Arme zeigen zur Brücke. Dazu eine Bank und ein Mülleimer am Wegrand und ein Waffel-Blumentopf.
+  - Außerhalb des Ringwegs, Richtung Sektor k + 1: eine Baumgruppe aus 2 oder 3 Eisbäumen, zwei Blumenbüschen und einem Felsen. Die Kronen sind in der Sortenfarbe des Sektors und des Nachbarn.
+  - Innerhalb des Ringwegs auf der anderen Seite: drei Kisten, eine davon gestapelt, und zwei Fässer. Die Rahmen sind bunt gemischt, in den Sortenfarben und in Holz.
+- **`Einzelstuecke`:**
+  - Bei 180° der Brunnen mit zwei Bänken und dem Picknicktisch.
+  - Bei 300° am Außenrand das Hafentor „Coming Soon“, davor der Wegweiser „SHOP / UPGRADES / ISLANDS“.
+  - Je ein Stichweg vom Ringweg zu beiden.
+- **`Platzhalter`:**
+  - Je eine flache, halb durchsichtige Platte 44 × 30 (r 200 bis 230) mit Namen für `UpgradeShop` (0°), `CosmeticShop` (120°) und `QuestHub` (240°). Sie haben keine Kollision und keine Abfragen.
+  - Je ein Stichweg vom Ringweg. Dort steht keine Deko.
+
+**Wege:**
+
+- **Aufbau:** Die Oberseite liegt 0,52 über dem Boden. Im Hub ist sie Ring-Pflaster `WS_Pavers` in #FFF4E4, auf den Plots Creme. Beidseitig läuft ein runder Bordstein in Karamell #C98A4F, 0,6 breit, dessen Rundung knapp unter der Oberseite endet. Wo sich zwei Wege kreuzen, verdeckt jede Oberseite den Bordstein des anderen, die Kreuzungen sind glatt.
+- **Rampe bis Brücke:** Bis r 211 ist der Weg 12 breit, denn der Eingangsbogen lässt nur 12,9 zwischen seinen Füßen. Danach folgt der Vorplatz, 18 breit wie die Brücke, und endet auf ihr.
+- **Ringweg:** 8 breit bei r 192, aus 48 geraden Stücken.
+- **Wo keine Wege sind:** Die Wege beginnen erst an der Rampenoberkante, in der Arena und auf den Rampen bleibt alles eben.
+- **Plots:** Einstieg von der Brücke, Weg zum Wagen, Querachse zu Station und Truhe, runder Platz. Die Wegsteine des Plot Kits sind dafür 0,42 angehoben (Attribut `WalkwayLift`).
+
+**Regeln, die das Skript einhält und prüft:**
+
+- **Weg frei:** Kein Modell ragt in den 20 Studs breiten Weg von der Rampenoberkante (r 159) zur Brücke (r 232). Geprüft wird der gedrehte Umriss, Baumkronen und Schirm eingeschlossen. Die Ausgabe nennt jede Verletzung.
+- **Wiederholbar:** Ein erneuter Lauf baut die gewählten Sektoren und Stücke neu. Die Wegsteine werden dabei nur einmal angehoben.
+
+**Stand am 06.11.2026:**
+
+- **Umfang:** 137 Modelle, 1.807 Teile, alle verankert. Davon sind 649 Teile Wege. Dazu kommen 24 PointLights (eine je Laterne) und 31 Sitze.
+
+  | Modell | Anzahl |
+  |---|---|
+  | Lantern | 24 |
+  | Crate | 21 |
+  | IceTree | 15 |
+  | Barrel | 14 |
+  | FlowerBush | 14 |
+  | ParkBench | 14 |
+  | TrashBin | 12 |
+  | WafflePlanter | 12 |
+  | Rock | 7 |
+  | Fountain, PicnicTable, HarborGate, Signpost | je 1 |
+
+- **Überschneidungen:** Keine Kollision eines Modells schneidet einen Weg, ein anderes Modell oder die Map.
+- **Playtest:**
+  - Gehen (20,9), Sprint (27,1) und Dash bleiben an jeder Kante ohne Tempoverlust: Rampe zum Weg, Bordstein quer, Ringweg, Vorplatz zur Brücke, Plot-Wege. Geprüft in Sektor 1 und von der Rampe bis zur Brücke in den Sektoren 3, 7, 10 und 12, dazu der Ringweg über die Shop-Lücke bei 0° und die Brunnen-Lücke bei 180°.
+  - Der Teleport zu Arena und Plot funktioniert.
+  - Der ServePoint ist über den Weg vor dem Wagen erreichbar, die Figur steht dort 1,2 vom Punkt entfernt (Grenze 12). Ein echtes Servieren mit gefangenen Kugeln habe ich nicht getestet.
+- **Konsole beim Start:** 11.837 Landepunkte, wie vor dem vollen Ausbau. Die Landepunkte liegen nur im Umkreis 135 um die Big Swirl, der Hub kann sie nicht verändern. Keine neue Warnung. Die drei Meldungen `Covery.CoverBlock_10: its meshes stuck out of Collision` betreffen die Arena-Deckung, an der der Hub nichts ändert. Sie standen schon im ersten Playtest mit nur Sektor 1 da.
+- **Screenshots:** im Vault unter „Hub Deko Vorschau“.
+
+**Nach einem neuen Lauf von `assets/PlotKit/studio_plotkit_place.luau`** liegen die Wegsteine wieder tief. Dann `studio_hub_decor.luau` noch einmal laufen lassen.
