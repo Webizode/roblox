@@ -75,6 +75,12 @@ Im Rahmen des Plots (`Config/Map.plot`, `PlotLayout`: x = u entlang des Rings, r
 - Das **Schild** steht bei (24, −26) und schaut zur Brücke.
 - Ein **Zaun** läuft bei ±48 / ±24 rundherum, mit 32 Studs Lücke für die Brücke.
 - Es gibt keinen Upgrade-Bereich, der kommt auf die Hauptinsel.
+- Am 06.11.2026 in Studio auf allen 12 Plots ausgeführt (je 62 Modelle), danach Playtest auf Plot 01:
+  - Spawn auf dem Platz frei, der Start meldet keinen Versatz bei ServePoint, Spawn oder Schild.
+  - „ARENA“ setzt auf die eigene Rampenkante, „MY PLOT“ genau auf den Spawn. In der Arena lehnt der Server wie vorgesehen ab.
+  - 17 Kugeln am ServePoint vor der Theke serviert, 335 Coins.
+  - Zaunlücke: von der Brücke bei u −8, 0 und 8 frei auf die Insel.
+  - Offen fürs Design: Von der Brücke aus verdeckt das Schild (24, −26) die Scoop Chest fast ganz.
 - `previews/PlotLayout.png` und `build_layout` in `build_plot_pack.py` zeigen noch die erste Anordnung vom 05.11.2026 (Wagen am Brückenkopf bei (0, −17), Station hinten, Truhe bei (28, −1)).
 
 ## Grasboden in Studio
