@@ -22,3 +22,7 @@ assets/BigSwirl/textures/*.fbx
 
 # plot kit previews: made by assets/PlotKit/run_plotkit.py, copies in the vault (Plot Kit Vorschau)
 assets/PlotKit/previews/
+
+# hub kit previews and FBX: made by assets/HubKit/run_hubkit.py, previews copied to the vault (Hub Kit Vorschau)
+assets/HubKit/previews/
+assets/HubKit/fbx/

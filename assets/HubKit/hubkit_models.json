@@ -1,0 +1,871 @@
+{
+ "Barrel": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.65
+    ],
+    "height": 3.3,
+    "kind": "cylinder",
+    "name": "Barrel",
+    "radius": 1.45
+   }
+  ],
+  "exported_triangles": 1252,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_Barrel.fbx",
+  "max": [
+   1.51,
+   1.51,
+   3.3
+  ],
+  "meshes": [
+   "Barrel_Body_Wood",
+   "Barrel_Cream",
+   "Barrel_Gold",
+   "Barrel_Pink",
+   "Barrel_Waffle"
+  ],
+  "min": [
+   -1.51,
+   -1.81,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\Barrel.png",
+  "size": [
+   3.02,
+   3.32,
+   3.3
+  ],
+  "triangles": 1252,
+  "variants": {
+   "Blue": {
+    "Body": "SkyBlue"
+   },
+   "Pink": {
+    "Body": "Pink"
+   }
+  }
+ },
+ "Crate": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.5
+    ],
+    "kind": "box",
+    "name": "Crate",
+    "size": [
+     3.0,
+     3.0,
+     3.0
+    ]
+   }
+  ],
+  "exported_triangles": 1780,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_Crate.fbx",
+  "max": [
+   1.65,
+   1.65,
+   3.0
+  ],
+  "meshes": [
+   "Crate_Frame_Wood",
+   "Crate_Gold",
+   "Crate_Panel_Waffle"
+  ],
+  "min": [
+   -1.65,
+   -1.65,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\Crate.png",
+  "size": [
+   3.3,
+   3.3,
+   3.0
+  ],
+  "triangles": 1780,
+  "variants": {
+   "Blue": {
+    "Frame": "SkyBlue",
+    "Panel": "Cream"
+   },
+   "Pink": {
+    "Frame": "Pink",
+    "Panel": "Cream"
+   }
+  }
+ },
+ "FlowerBush": {
+  "collision": [
+   {
+    "center": [
+     0.0,
+     -0.045,
+     2.174
+    ],
+    "kind": "box",
+    "name": "FlowerBush",
+    "size": [
+     6.63,
+     5.551,
+     4.347
+    ]
+   }
+  ],
+  "exported_triangles": 5308,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_FlowerBush.fbx",
+  "max": [
+   3.9,
+   3.22,
+   4.67
+  ],
+  "meshes": [
+   "FlowerBush_Cream",
+   "FlowerBush_Gold",
+   "FlowerBush_Leaf",
+   "FlowerBush_LeafDark",
+   "FlowerBush_Pink",
+   "FlowerBush_Rock"
+  ],
+  "min": [
+   -3.9,
+   -3.31,
+   -0.16
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\FlowerBush.png",
+  "size": [
+   7.8,
+   6.53,
+   4.83
+  ],
+  "triangles": 5308
+ },
+ "Fountain": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.2
+    ],
+    "height": 2.4,
+    "kind": "cylinder",
+    "name": "Basin",
+    "radius": 7.6
+   },
+   {
+    "center": [
+     0,
+     0,
+     2.3
+    ],
+    "height": 4.6,
+    "kind": "cylinder",
+    "name": "Bowl",
+    "radius": 3.6
+   },
+   {
+    "center": [
+     0,
+     0,
+     4.5
+    ],
+    "height": 9.0,
+    "kind": "cylinder",
+    "name": "Top",
+    "radius": 1.3
+   }
+  ],
+  "exported_triangles": 8988,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_Fountain.fbx",
+  "max": [
+   8.1,
+   8.1,
+   9.1
+  ],
+  "meshes": [
+   "Fountain_Cherry",
+   "Fountain_Cream",
+   "Fountain_Gold",
+   "Fountain_Pink",
+   "Fountain_SkyBlue",
+   "Fountain_Waffle",
+   "Fountain_Water"
+  ],
+  "min": [
+   -8.1,
+   -8.1,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\Fountain.png",
+  "size": [
+   16.2,
+   16.2,
+   9.1
+  ],
+  "triangles": 8988
+ },
+ "HarborGate": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     4.5
+    ],
+    "kind": "box",
+    "name": "Gate",
+    "size": [
+     17.0,
+     1.6,
+     9.0
+    ]
+   },
+   {
+    "center": [
+     -10.925,
+     0.3,
+     2.5
+    ],
+    "kind": "box",
+    "name": "FenceL",
+    "size": [
+     4.85,
+     1.6,
+     5.0
+    ]
+   },
+   {
+    "center": [
+     10.925,
+     0.3,
+     2.5
+    ],
+    "kind": "box",
+    "name": "FenceR",
+    "size": [
+     4.85,
+     1.6,
+     5.0
+    ]
+   }
+  ],
+  "exported_triangles": 9064,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_HarborGate.fbx",
+  "max": [
+   13.35,
+   1.35,
+   14.45
+  ],
+  "meshes": [
+   "HarborGate_Choco",
+   "HarborGate_Cream",
+   "HarborGate_Gold",
+   "HarborGate_Pink",
+   "HarborGate_Stone",
+   "HarborGate_Waffle",
+   "HarborGate_Wood"
+  ],
+  "min": [
+   -13.35,
+   -1.19,
+   -0.01
+  ],
+  "note": "locked: the collision closes doors, posts and rope fences; the lettering is geometry (HarborGate_Cream holds it), no SurfaceGui needed",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\HarborGate.png",
+  "size": [
+   26.7,
+   2.54,
+   14.45
+  ],
+  "triangles": 9064
+ },
+ "IceTree": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     3.1
+    ],
+    "height": 6.2,
+    "kind": "cylinder",
+    "name": "Trunk",
+    "radius": 2.1
+   }
+  ],
+  "exported_triangles": 5436,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_IceTree.fbx",
+  "max": [
+   5.96,
+   5.97,
+   16.41
+  ],
+  "meshes": [
+   "IceTree_Cherry",
+   "IceTree_Cream",
+   "IceTree_Crown_Pink",
+   "IceTree_Gold",
+   "IceTree_Leaf",
+   "IceTree_LeafDark",
+   "IceTree_SkyBlue",
+   "IceTree_Waffle"
+  ],
+  "min": [
+   -5.97,
+   -5.97,
+   0.0
+  ],
+  "note": "crown (dome and drips) is the part Crown: IceTree_Crown_Pink; variants IceTree_Blue, IceTree_Choco",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\IceTree.png",
+  "size": [
+   11.93,
+   11.94,
+   16.41
+  ],
+  "triangles": 5436,
+  "variants": {
+   "Blue": {
+    "Crown": "SkyBlue"
+   },
+   "Choco": {
+    "Crown": "Choco"
+   }
+  }
+ },
+ "Lantern": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.15
+    ],
+    "height": 2.3,
+    "kind": "cylinder",
+    "name": "Base",
+    "radius": 1.6
+   },
+   {
+    "center": [
+     0,
+     0,
+     7.4
+    ],
+    "height": 10.2,
+    "kind": "cylinder",
+    "name": "Pole",
+    "radius": 0.65
+   }
+  ],
+  "exported_triangles": 7156,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_Lantern.fbx",
+  "light": [
+   2.75,
+   0.0,
+   7.65
+  ],
+  "max": [
+   3.82,
+   2.14,
+   12.6
+  ],
+  "meshes": [
+   "Lantern_Cherry",
+   "Lantern_Cream",
+   "Lantern_Gold",
+   "Lantern_Lamp",
+   "Lantern_Pink",
+   "Lantern_SkyBlue",
+   "Lantern_Stone",
+   "Lantern_Waffle"
+  ],
+  "min": [
+   -2.13,
+   -2.14,
+   0.0
+  ],
+  "note": "glass Lantern_Lamp: Neon and a PointLight in Studio; the arm reaches 2.75 + 0.85 out along +X (Roblox -X), the lamp's foot at 6.4",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\Lantern.png",
+  "size": [
+   5.95,
+   4.27,
+   12.6
+  ],
+  "triangles": 7156
+ },
+ "ParkBench": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.95
+    ],
+    "kind": "box",
+    "name": "Seat",
+    "size": [
+     8.6,
+     2.6,
+     1.9
+    ]
+   },
+   {
+    "center": [
+     0,
+     1.05,
+     3.55
+    ],
+    "kind": "box",
+    "name": "Back",
+    "size": [
+     7.0,
+     0.7,
+     3.3
+    ]
+   },
+   {
+    "center": [
+     -3.55,
+     0,
+     1.55
+    ],
+    "kind": "box",
+    "name": "ArmL",
+    "size": [
+     1.5,
+     2.7,
+     3.1
+    ]
+   },
+   {
+    "center": [
+     3.55,
+     0,
+     1.55
+    ],
+    "kind": "box",
+    "name": "ArmR",
+    "size": [
+     1.5,
+     2.7,
+     3.1
+    ]
+   }
+  ],
+  "exported_triangles": 3304,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_ParkBench.fbx",
+  "max": [
+   4.32,
+   1.68,
+   6.15
+  ],
+  "meshes": [
+   "ParkBench_Cream",
+   "ParkBench_Gold",
+   "ParkBench_Pink",
+   "ParkBench_SkyBlue",
+   "ParkBench_Waffle",
+   "ParkBench_Wood"
+  ],
+  "min": [
+   -4.32,
+   -1.68,
+   -0.11
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\ParkBench.png",
+  "seats": [
+   {
+    "at": [
+     -1.6,
+     -0.05,
+     1.9
+    ],
+    "look": [
+     -1.6,
+     -1.05,
+     1.9
+    ]
+   },
+   {
+    "at": [
+     1.6,
+     -0.05,
+     1.9
+    ],
+    "look": [
+     1.6,
+     -1.05,
+     1.9
+    ]
+   }
+  ],
+  "size": [
+   8.65,
+   3.35,
+   6.26
+  ],
+  "triangles": 3304
+ },
+ "PicnicTable": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.35
+    ],
+    "height": 2.7,
+    "kind": "cylinder",
+    "name": "Table",
+    "radius": 3.0
+   },
+   {
+    "center": [
+     0.0,
+     -4.3,
+     0.975
+    ],
+    "height": 1.95,
+    "kind": "cylinder",
+    "name": "Stool0",
+    "radius": 0.9
+   },
+   {
+    "center": [
+     3.724,
+     2.15,
+     0.975
+    ],
+    "height": 1.95,
+    "kind": "cylinder",
+    "name": "Stool1",
+    "radius": 0.9
+   },
+   {
+    "center": [
+     -3.724,
+     2.15,
+     0.975
+    ],
+    "height": 1.95,
+    "kind": "cylinder",
+    "name": "Stool2",
+    "radius": 0.9
+   }
+  ],
+  "exported_triangles": 3408,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_PicnicTable.fbx",
+  "max": [
+   4.61,
+   4.4,
+   9.34
+  ],
+  "meshes": [
+   "PicnicTable_Cream",
+   "PicnicTable_Pink",
+   "PicnicTable_Wood"
+  ],
+  "min": [
+   -4.61,
+   -5.2,
+   0.0
+  ],
+  "note": "umbrella edge at 7.4: a seated player's tower goes through it",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\PicnicTable.png",
+  "seats": [
+   {
+    "at": [
+     0.0,
+     -4.3,
+     1.95
+    ],
+    "look": [
+     0,
+     0,
+     1.95
+    ]
+   },
+   {
+    "at": [
+     3.724,
+     2.15,
+     1.95
+    ],
+    "look": [
+     0,
+     0,
+     1.95
+    ]
+   },
+   {
+    "at": [
+     -3.724,
+     2.15,
+     1.95
+    ],
+    "look": [
+     0,
+     0,
+     1.95
+    ]
+   }
+  ],
+  "size": [
+   9.22,
+   9.6,
+   9.34
+  ],
+  "triangles": 3408
+ },
+ "Rock": {
+  "collision": [
+   {
+    "center": [
+     1.0,
+     0.9,
+     2.38
+    ],
+    "kind": "box",
+    "name": "Rock0",
+    "size": [
+     2.808,
+     2.34,
+     4.76
+    ]
+   },
+   {
+    "center": [
+     -1.7,
+     0.3,
+     1.657
+    ],
+    "kind": "box",
+    "name": "Rock1",
+    "size": [
+     2.652,
+     2.184,
+     3.315
+    ]
+   },
+   {
+    "center": [
+     2.3,
+     -0.9,
+     1.147
+    ],
+    "kind": "box",
+    "name": "Rock2",
+    "size": [
+     2.964,
+     2.184,
+     2.295
+    ]
+   },
+   {
+    "center": [
+     -3.7,
+     -0.4,
+     0.977
+    ],
+    "kind": "box",
+    "name": "Rock3",
+    "size": [
+     1.872,
+     1.716,
+     1.955
+    ]
+   },
+   {
+    "center": [
+     -0.5,
+     -1.7,
+     0.722
+    ],
+    "kind": "box",
+    "name": "Rock4",
+    "size": [
+     2.184,
+     1.56,
+     1.445
+    ]
+   }
+  ],
+  "exported_triangles": 3072,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_Rock.fbx",
+  "max": [
+   4.9,
+   2.29,
+   5.35
+  ],
+  "meshes": [
+   "Rock_Cream",
+   "Rock_Gold",
+   "Rock_Leaf",
+   "Rock_Rock"
+  ],
+  "min": [
+   -4.73,
+   -2.84,
+   -0.03
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\Rock.png",
+  "size": [
+   9.63,
+   5.13,
+   5.38
+  ],
+  "triangles": 3072
+ },
+ "Signpost": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     6.5
+    ],
+    "height": 13.0,
+    "kind": "cylinder",
+    "name": "Pole",
+    "radius": 0.9
+   }
+  ],
+  "exported_triangles": 6696,
+  "face": {
+   "note": "free front of each arrow: x -0.6..3.4 (Blender), the centre 1.4 along the board; boards at z 9.1, 7.3, 5.5",
+   "size": [
+    4.0,
+    1.2
+   ]
+  },
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_Signpost.fbx",
+  "max": [
+   4.35,
+   2.6,
+   13.0
+  ],
+  "meshes": [
+   "Signpost_Arrow1_Pink",
+   "Signpost_Arrow2_SkyBlue",
+   "Signpost_Arrow3_Gold",
+   "Signpost_Cherry",
+   "Signpost_Cream",
+   "Signpost_Gold",
+   "Signpost_Leaf",
+   "Signpost_LeafDark",
+   "Signpost_Pink",
+   "Signpost_Rock",
+   "Signpost_SkyBlue",
+   "Signpost_Waffle"
+  ],
+  "min": [
+   -2.6,
+   -2.6,
+   0.0
+  ],
+  "note": "Signpost_Arrow1_Pink, _Arrow2_SkyBlue, _Arrow3_Gold carry TextFace Front; turn an arrow about the pole (the model's Y axis in Roblox) to point it elsewhere",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\Signpost.png",
+  "size": [
+   6.95,
+   5.2,
+   13.0
+  ],
+  "triangles": 6696
+ },
+ "TrashBin": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     2.6
+    ],
+    "height": 5.2,
+    "kind": "cylinder",
+    "name": "Bin",
+    "radius": 1.8
+   }
+  ],
+  "exported_triangles": 4640,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_TrashBin.fbx",
+  "max": [
+   2.34,
+   2.11,
+   6.26
+  ],
+  "meshes": [
+   "TrashBin_Cherry",
+   "TrashBin_Choco",
+   "TrashBin_Cream",
+   "TrashBin_Gold",
+   "TrashBin_LeafDark",
+   "TrashBin_Pink",
+   "TrashBin_SkyBlue",
+   "TrashBin_Stone",
+   "TrashBin_Waffle"
+  ],
+  "min": [
+   -2.34,
+   -2.11,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\TrashBin.png",
+  "size": [
+   4.68,
+   4.22,
+   6.26
+  ],
+  "triangles": 4640
+ },
+ "WafflePlanter": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.45
+    ],
+    "height": 2.9,
+    "kind": "cylinder",
+    "name": "Pot",
+    "radius": 2.25
+   }
+  ],
+  "exported_triangles": 5256,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_WafflePlanter.fbx",
+  "max": [
+   2.46,
+   2.56,
+   4.65
+  ],
+  "meshes": [
+   "WafflePlanter_Cherry",
+   "WafflePlanter_Cream",
+   "WafflePlanter_Gold",
+   "WafflePlanter_Leaf",
+   "WafflePlanter_LeafDark",
+   "WafflePlanter_Pink",
+   "WafflePlanter_SkyBlue",
+   "WafflePlanter_Stone",
+   "WafflePlanter_Waffle"
+  ],
+  "min": [
+   -2.47,
+   -2.56,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\WafflePlanter.png",
+  "size": [
+   4.93,
+   5.13,
+   4.65
+  ],
+  "triangles": 5256
+ }
+}

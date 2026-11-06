@@ -1,0 +1,149 @@
+# Hub Kit
+
+Die Deko für den Hub-Ring (r 171–232) im Eiscreme-Stil der Referenzbilder, gebaut am 06.11.2026 wie das Plot Kit aus den Bausteinen und Farben des Arena-Kits (`assets/ArenaKit/arenakit.py`): glänzender Cartoon-Stil, runde Kanten, Farbe als Variante, keine Texturen. Noch nicht in Studio importiert, kein Place geändert.
+
+- Blender-Datei: `assets/HubKit/HubKit.blend` (je Modell eine Collection `HK_<Model>`, dazu `HK_Preview` nur für die Bilder)
+- Skripte:
+  - `hubkit.py`: Kit, R15-Figur, Vorschau, Export. Abgeleitet von `plotkit.py`, mit den zusätzlichen Farben.
+  - `build_hub_pack.py`: die Modelle, die Vorschau mit Varianten und der Generator für das Studio-Skript.
+  - `run_hubkit.py`: macht alles im Hintergrund-Blender.
+  - `studio_hubkit_templates.luau`: macht in Studio Vorlagen aus dem Import. Die Datei wird **erzeugt**, Änderungen gehören in `build_hub_pack.py`.
+- FBX: `assets/HubKit/fbx/HubKit_<Model>.fbx`, ein FBX pro Modell
+- Vorschauen: `assets/HubKit/previews/<Model>.png` und im Vault `Wobble Scoops\Hub Kit Vorschau\`. Jedes Bild zeigt von links nach rechts vorne, schräg und oben, mit derselben R15-Figur wie im Plot Kit (5,2 Studs, Waffel-Rucksack, Turm aus 20 Kugeln). Bei Eisbaum, Fass und Kiste stehen die Farbvarianten daneben.
+- Maße und Daten maschinenlesbar: `assets/HubKit/hubkit_models.json`
+
+Neu bauen (Blender muss nicht offen sein):
+```
+"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --python assets/HubKit/run_hubkit.py -- IceTree Lantern
+```
+Ohne Namen baut es alle 13 Modelle. Jeder Lauf schreibt die FBX, die Vorschau, die JSON und das Studio-Skript neu.
+
+## Regeln (wie im Plot Kit)
+
+- 1 Blender-Einheit = 1 Stud, Größen an der R15-Figur (5,2) und an den Maßangaben der Referenzbögen.
+- Drehpunkt unten mittig (0, 0, 0). Die Vorderseite ist in Blender −Y, in Roblox −Z.
+- Pro Farbe ein Mesh `<Model>_<Farbe>`. Teile, die Studio getrennt behandelt, heißen `<Model>_<Teil>_<Farbe>`:
+  - `Crown`, `Body`, `Frame`, `Panel` werden für die Varianten umgefärbt.
+  - `Arrow1` bis `Arrow3` sind die Schildflächen am Wegweiser.
+- Neue Farben über die Arena-Palette hinaus:
+  - `Leaf` #86C94B und `LeafDark` #55A13C für Blätter, Busch, Moos und Gras
+  - `Rock` #A99CC0 für die Felsen
+  - `Choco` #7A4528 für die Schoko-Variante, die Mülleimer-Öffnung und das Schlüsselloch
+  - `Wood` #C9783C für Bretter
+  - `Lamp` #FFD66E für das Laternenglas
+  - `Water` #86DDF7 für das Brunnenwasser
+  - aus dem Plot Kit übernommen: `Stone` (Pflaster) und `Glass`
+
+## Modelle
+
+Maße in Studs: Breite (X) × Tiefe (Z) × Höhe (Y), so wie sie in Roblox stehen. Dreiecke wie exportiert, mit angewandten Modifiern. Die Kollision ist eine unsichtbare Box oder ein unsichtbarer Zylinder (Größe in der JSON und im Studio-Skript).
+
+| Modell | Referenz | Maße | Dreiecke | Kollision | Extras |
+|---|---|---|---|---|---|
+| IceTree | Erdbeer-Eisbaum – Konzeptübersicht | 11,9 × 11,9 × 16,4 | 5.436 | Zylinder am Stamm (Ø 4,2, 6,2 hoch) | Varianten `IceTree` (pink), `IceTree_Blue`, `IceTree_Choco` |
+| FlowerBush | Wobble Scoops Blumenbusch Asset-Sheet | 7,8 × 6,5 × 4,8 | 5.308 | Box 6,6 × 5,6 × 4,3 | – |
+| Rock | Stilisierte Felsformation mit Gras und Blumen | 9,6 × 5,1 × 5,4 | 3.072 | 5 Boxen, eine je großem Stein | – |
+| Lantern | Glänzende Eiscreme-Straßenlaterne | 6,0 × 4,3 × 12,6 | 7.156 | Sockel-Zylinder und Mast-Zylinder | Glas `Lantern_Lamp`: Neon und PointLight |
+| WafflePlanter | Glänzender Waffelblumen-Übertopf | 4,9 × 5,1 × 4,7 | 5.256 | Zylinder Ø 4,5, 2,9 hoch | – |
+| ParkBench | Wobble Scoops Parkbank – Asset-Übersicht | 8,7 × 3,4 × 6,3 | 3.304 | 4 Boxen (Sitz, Lehne, Armlehnen) | 2 Seats, Sitzfläche auf 1,9 |
+| PicnicTable | Pastellfarbener Park mit Bank und Picknicktisch | 9,2 × 9,6 × 9,3 | 3.408 | Tisch-Zylinder und 3 Hocker-Zylinder | 3 Seats auf 1,95, zum Tisch gedreht |
+| TrashBin | Verspielter Eiscreme-Mülleimer | 4,7 × 4,2 × 6,3 | 4.640 | Zylinder Ø 3,6, 5,2 hoch | – |
+| Signpost | Verspielter Eiscreme-Wegweiser im Cartoon-Stil | 7,0 × 5,2 × 13,0 | 6.696 | Zylinder am Mast | 3 Pfeile als eigene Teile mit `TextFace = Front` |
+| Fountain | Verspielter Eiscreme-Brunnen mit Wasserfontänen | 16,2 × 16,2 × 9,1 | 8.988 | 3 Zylinder (Becken 2,4 hoch, Schale, Spitze) | Wasser `Fountain_Water` durchsichtig |
+| Barrel | Verspielte Eiscreme-Fässer und Kisten | 3,0 × 3,3 × 3,3 | 1.252 | Zylinder Ø 2,9 | Varianten `Barrel` (Holz), `Barrel_Pink`, `Barrel_Blue` |
+| Crate | dieselbe | 3,3 × 3,3 × 3,0 (Kasten 3 × 3 × 3) | 1.780 | Box 3 × 3 × 3 | Varianten `Crate` (Holz), `Crate_Pink`, `Crate_Blue` |
+| HarborGate | Wobble Scoops_ Gesperrter Süßigkeitenhafen | 26,7 × 2,5 × 14,4 | 9.064 | Tor-Box 17 × 9 × 1,6 und zwei Seitenzaun-Boxen | Schrift „COMING SOON“ als Geometrie |
+
+### Details je Modell
+
+- **IceTree:**
+  - Stamm: Waffelkegel, unten Ø 3,2, oben Ø 5.
+  - Krone (`IceTree_Crown_Pink`): zwei glasierte Stufen mit langen Tropfen, Streuseln, Sahnehaube und Erdbeere.
+  - Unter der Krone ist an der Mitte 5,1 Platz. Am Rand hängen die Tropfen bis etwa 4 herunter. Die Kollision gibt es nur am Stamm.
+- **FlowerBush:**
+  - Kugelbusch in zwei Grüntönen mit Blättern.
+  - 7 Blüten in Pink und Weiß, dazu zwei Kiesel.
+  - Die Kollision ist eine Box, aus den Maßen gerechnet (85 %).
+- **Rock:** fünf facettierte Steine, zwei davon mit Moos, dazu Kiesel, Grasbüschel und zwei Gänseblümchen.
+- **Lantern:**
+  - Unten: Pflasterring, Sahnekugel mit Pink-Glasur, Waffelmast mit Ringen. Oben: eine Kugel auf einem Waffelbecher.
+  - Der goldene Arm reicht 2,75 aus der Mastmitte, die Laterne hängt mit ihrem Fuß auf 6,4.
+  - Arm und Laterne zeigen in Blender nach +X, in Roblox nach −X, also von vorne gesehen nach rechts.
+  - Das Glas ist ein eigenes Mesh in der Farbe `Lamp`. Studio macht es Neon und setzt eine PointLight hinein: Helligkeit 2, Reichweite 18, warmes Gelb, ohne Schatten.
+- **WafflePlanter:** Waffeltopf auf Pflaster, Pink-Glasurrand mit Tropfen und Streuseln, Blättermound, ein großer pinker und ein blauer Hibiskus, drei Gänseblümchen.
+- **ParkBench:**
+  - Waffelbeine mit Gittermuster, Armlehnen mit Creme-Glasur und Streuseln.
+  - Drei Sitzbretter, Oberkante auf 1,9. Die Lehne hat drei Bretter, oben sitzt das Eis-Medaillon.
+  - Zwei Seats bei x ±1,6, Blick nach vorne.
+- **PicnicTable:**
+  - Runder Holztisch auf 2,7, Schirm in 8 Bahnen Pink und Creme. Die Kante liegt auf 7,4, der Schirm hat Ø 8,8.
+  - Drei Hocker mit Pink-Kissen, Seats auf 1,95 zum Tisch gedreht.
+- **TrashBin:**
+  - Waffelbecher auf Pflaster mit Pink-Glasurkragen.
+  - Darauf ein Creme-Deckel mit dunkler Öffnung vorne (`TrashBin_Choco`) und eine Kirsche.
+  - Vorne ein Pink-Schild mit Mülleimer-Symbol.
+- **Signpost:**
+  - Grashügel mit Steinen und Blumen, Waffelmast, oben eine glasierte Kugel.
+  - Drei Pfeile in Pink, Blau und Gold auf 9,1, 7,3 und 5,5, je 6,4 lang und 1,5 hoch, mit Creme-Glasur am Ende.
+  - **Freie Fläche** je Pfeil: etwa 4 × 1,2 vorne in der Mitte. Der Text kommt später per SurfaceGui (Face = Front, wie beim Plot Sign).
+  - Alle Pfeile zeigen nach rechts. Um sie in andere Richtungen zeigen zu lassen, die Pfeil-MeshParts in Studio um die Mastachse drehen.
+- **Fountain:**
+  - Stufe, Mauerring aus 16 Creme-Fliesen mit abwechselnd pinken und cremefarbenen Deckplatten.
+  - Vorne eine Plakette mit Eis-Symbol, im Becken Wasser.
+  - Darüber Sockel und Schale mit Pink-Glasurrand und Wasser, ein Waffelkegel mit glasierter Kugel und Kirsche.
+  - 6 + 6 Wasserbögen mit Schaum. Das Wasser wird in Studio mit Transparenz 0,35 eingestellt.
+- **Barrel:** bauchiges Fass mit 16 Dauben, zwei Creme-Reifen und Medaillon. Der Körper (`Barrel_Body_Wood`) wird für die Varianten umgefärbt.
+- **Crate:** Holzrahmen mit X-Streben auf vier Seiten und oben, Goldnieten. Rahmen (`Crate_Frame_Wood`) und Füllung (`Crate_Panel_Waffle`) werden für die Varianten umgefärbt: Pink oder Blau auf Creme.
+  - Andere Größen wie in der Referenz: in Studio das ganze Model skalieren (`Model:ScaleTo`).
+- **HarborGate:**
+  - Zwei Holzpfosten mit Pink-Bändern und Creme-Kugeln. Dazwischen zwei Bogentüren, 12,8 breit und in der Mitte 7,8 hoch, mit Creme-Rahmen, zwei Pink-Bändern und goldenem Vorhängeschloss.
+  - Darüber das Pink-Schild „COMING SOON“ (Schrift in Creme, als Mesh) mit Medaillon.
+  - Außen zwei Fahnenmasten mit Wimpeln und je ein Seilzaun bis zu einem niedrigen Pfosten bei ±12,6.
+  - Die Kollision schließt Tor und Seitenzäune, es kommt niemand durch.
+
+## Verbesserungsrunden (höchstens zwei pro Modell)
+
+| Modell | Runde 1 | Runde 2 |
+|---|---|---|
+| IceTree | Krone runder und höher, 11 statt 9 längere Tropfen, Erdbeere größer | Stamm und Krone 0,8 tiefer: Höhe 16,4 statt 17,2 |
+| Rock | großer Stein auf volle Höhe (5,4 statt 3,9), schärfere Facetten, Moos mit mehr Tropfen | Moos flacher und breiter |
+| FlowerBush | Blüten 1,5-mal so groß | – |
+| Barrel | stärkerer Bauch, schmalere Enden (sah aus wie ein Eimer) | – |
+| Crate | Rahmen 0,5 statt 0,42, Streben 0,6 statt 0,36 breit | – |
+| HarborGate | Medaillon vor das Schild gesetzt (war fast verdeckt) | – |
+| alle anderen | keine nötig | – |
+
+## Was offen bleibt
+
+- **Nicht in Studio geprüft:**
+  - Nichts ist importiert. `studio_hubkit_templates.luau` ist nur syntaktisch geprüft (StyLua parst die Datei), nicht ausgeführt.
+  - Die Achsen sind vom Plot Kit übernommen: Blender (x, y, z) wird Roblox (−x, z, y).
+  - Ob die Seats richtig sitzen und die PointLight hell genug ist, zeigt erst ein Playtest.
+- **Moos am Felsen** wirkt auch nach Runde 2 eher wie eine runde Kappe als wie überhängendes Moos. Die Runden sind aufgebraucht.
+- **Türme ragen durch Überhänge:** Kronen (Tropfen ab etwa 4), Laternenarm (2,75 vom Mast) und Schirm (Kante 7,4) haben keine Kollision. Ein Spielerturm geht hindurch, wie bei jeder Deko ohne Dach-Kollision. Die Modelle deshalb nicht direkt an Laufwege setzen.
+- **Unter den Drehpunkt** reichen FlowerBush (0,16, Kugelrundung), ParkBench (0,11) und Rock (0,03). Das fällt nicht auf.
+- **Tor:** Die Schrift ist Geometrie in der eingebauten Blender-Schrift (Inter, etwas fetter gemacht). Für einen anderen Text müssen Skript und Export neu laufen.
+- **Vorschaubilder** kommen aus EEVEE. Das Laternenglas leuchtet nur schwach, das Glühen kommt erst in Studio mit Neon.
+- `assets/HubKit/previews/` steht nicht in `.gitignore`, anders als beim Plot Kit. Ich habe nichts außerhalb von `assets/HubKit` geändert. Wenn die Bilder nicht ins Repo sollen: `assets/HubKit/previews/` in `.gitignore` eintragen. Dasselbe gilt für die FBX in `assets/HubKit/fbx/`.
+
+## Import in Studio (Klicks)
+
+1. Studio mit dem Place öffnen, Edit-Modus (kein Playtest).
+2. **Datei → 3D importieren** (File → Import 3D). Im Dateidialog nach `C:\Users\Wobble\Desktop\roblox\assets\HubKit\fbx` gehen und `HubKit_IceTree.fbx` wählen. Wenn der Dialog Mehrfachauswahl erlaubt, Strg halten und alle 13 `HubKit_*.fbx` anklicken, dann **Öffnen**. Sonst die Schritte 2 und 3 je Datei wiederholen.
+3. Im Importfenster:
+   - Die Meshes **nicht zusammenführen**: Jede Farbe und jedes Teil muss ein eigener MeshPart bleiben, sonst gehen Varianten, Licht und Pfeilflächen verloren.
+   - „In Workspace einfügen“ angehakt lassen.
+   - Die Einheit bleibt Studs, die Größe 1:1.
+   - Dann **Importieren**. Jedes Modell landet als `HubKit_<Model>` im Workspace.
+4. **Ansicht → Befehlsleiste** (View → Command Bar) öffnen. Den ganzen Inhalt von `assets/HubKit/studio_hubkit_templates.luau` hineinkopieren und **Enter** drücken. Das Skript macht Folgendes:
+   - Es setzt Farben, Kollision, Seats, Neon und Licht der Laterne, das durchsichtige Wasser und die Pfeilflächen.
+   - Es legt alle Modelle als Vorlagen in `ServerStorage.HubKit`, dazu die Varianten `IceTree_Blue`, `IceTree_Choco`, `Barrel_Pink`, `Barrel_Blue`, `Crate_Pink` und `Crate_Blue`. Im Workspace sind sie danach verschwunden.
+   - Die Ausgabe nennt je Modell die Zahl der Meshes, Kollisionsteile, Seats, Lichter und Varianten.
+5. Prüfen: `ServerStorage.HubKit` aufklappen und je eine Vorlage in den Workspace ziehen.
+   - `Lantern`: Leuchtet das Glas, steckt eine PointLight im MeshPart `Lantern_Lamp`?
+   - `IceTree_Choco`: Ist die Krone braun?
+   - `ParkBench`: Mit Play setzen, sitzt die Figur auf der Bank?
+   - Danach die Kopien wieder löschen.
+6. **Datei → Speichern** (Strg+S) bzw. veröffentlichen.
+
+Platzieren kommt danach: Vorlagen kopieren und auf den Hub-Ring setzen, das Hafentor an den späteren Hafen.
