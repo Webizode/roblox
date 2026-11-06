@@ -91,12 +91,10 @@
   "triangles": 1780,
   "variants": {
    "Blue": {
-    "Frame": "SkyBlue",
-    "Panel": "Cream"
+    "Frame": "SkyBlue"
    },
    "Pink": {
-    "Frame": "Pink",
-    "Panel": "Cream"
+    "Frame": "Pink"
    }
   }
  },
@@ -291,20 +289,20 @@
     "center": [
      0,
      0,
-     3.1
+     5.975
     ],
-    "height": 6.2,
+    "height": 11.95,
     "kind": "cylinder",
     "name": "Trunk",
-    "radius": 2.1
+    "radius": 2.0
    }
   ],
-  "exported_triangles": 5436,
+  "exported_triangles": 7436,
   "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_IceTree.fbx",
   "max": [
-   5.96,
-   5.97,
-   16.41
+   6.52,
+   6.43,
+   19.03
   ],
   "meshes": [
    "IceTree_Cherry",
@@ -317,18 +315,18 @@
    "IceTree_Waffle"
   ],
   "min": [
-   -5.97,
-   -5.97,
+   -6.33,
+   -5.63,
    0.0
   ],
-  "note": "crown (dome and drips) is the part Crown: IceTree_Crown_Pink; variants IceTree_Blue, IceTree_Choco",
+  "note": "crown (three scoops and drips) is the part Crown: IceTree_Crown_Pink; variants IceTree_Blue, IceTree_Choco",
   "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\IceTree.png",
   "size": [
-   11.93,
-   11.94,
-   16.41
+   12.85,
+   12.07,
+   19.03
   ],
-  "triangles": 5436,
+  "triangles": 7436,
   "variants": {
    "Blue": {
     "Crown": "SkyBlue"
@@ -736,12 +734,23 @@
     "radius": 0.9
    }
   ],
-  "exported_triangles": 6696,
+  "exported_triangles": 6478,
   "face": {
-   "note": "free front of each arrow: x -0.6..3.4 (Blender), the centre 1.4 along the board; boards at z 9.1, 7.3, 5.5",
+   "area": [
+    0.2344,
+    0.8594,
+    0.0867,
+    0.6467
+   ],
+   "labels": [
+    "SHOP",
+    "UPGRADES",
+    "ISLANDS"
+   ],
+   "note": "free front of each arrow between the icing and the rivet: x -0.5..3.5, z -0.22..0.62 from the board's middle (Blender); boards at z 9.1, 7.3, 5.5",
    "size": [
     4.0,
-    1.2
+    0.84
    ]
   },
   "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_Signpost.fbx",
@@ -769,14 +778,14 @@
    -2.6,
    0.0
   ],
-  "note": "Signpost_Arrow1_Pink, _Arrow2_SkyBlue, _Arrow3_Gold carry TextFace Front; turn an arrow about the pole (the model's Y axis in Roblox) to point it elsewhere",
+  "note": "Signpost_Arrow1_Pink, _Arrow2_SkyBlue, _Arrow3_Gold carry TextFace Front and a SurfaceGui Sign with the words SHOP, UPGRADES, ISLANDS (template script); turn an arrow about the pole (the model's Y axis in Roblox) to point it elsewhere",
   "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\Signpost.png",
   "size": [
    6.95,
    5.2,
    13.0
   ],
-  "triangles": 6696
+  "triangles": 6478
  },
  "TrashBin": {
   "collision": [

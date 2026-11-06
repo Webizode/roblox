@@ -3,7 +3,8 @@
 -- HubKit_<Model> (as the 3D importer names HubKit_<Model>.fbx from assets/HubKit/fbx, assets/HubKit/README.md).
 --   * each MeshPart <Model>_<Colour> (and <Model>_<Part>_<Colour>) gets its game colour, the attribute Colour,
 --     SmoothPlastic, Anchored, and neither collides nor takes queries or touches. Lamp glass is Neon with a
---     PointLight, Water and Glass are see-through. Signpost arrows (_Arrow) get the attribute TextFace = "Front".
+--     PointLight, Water and Glass are see-through. Signpost arrows (_Arrow) get the attribute TextFace = "Front" and a SurfaceGui Sign with
+--     their word (SIGNS).
 --   * the model gets the simple collision of COLLISION: invisible Parts `Collision` (the first, the PrimaryPart) and
 --     `Collision_<Name>`; benches and stools get invisible Seats (SEATS). The pivot stays at the bottom centre.
 --   * the import moves to ServerStorage.HubKit.<Model>; VARIANTS add recoloured copies <Model>_<Variant> (a template
@@ -54,7 +55,7 @@ local COLLISION = {
 		{ kind = "box", name = "FenceR", size = Vector3.new(4.85, 5, 1.6), centre = Vector3.new(-10.925, 2.5, 0.3) },
 	},
 	IceTree = {
-		{ kind = "cylinder", name = "Trunk", size = Vector3.new(6.2, 4.2, 4.2), centre = Vector3.new(0, 3.1, 0) },
+		{ kind = "cylinder", name = "Trunk", size = Vector3.new(11.95, 4, 4), centre = Vector3.new(0, 5.975, 0) },
 	},
 	Lantern = {
 		{ kind = "cylinder", name = "Base", size = Vector3.new(2.3, 3.2, 3.2), centre = Vector3.new(0, 1.15, 0) },
@@ -101,10 +102,14 @@ local SEATS = {
 		{ at = Vector3.new(3.724, 1.95, 2.15), look = Vector3.new(0, 1.95, 0) },
 	},
 }
+-- words on parts _Arrow<n>_: the field is left, right, top, bottom as fractions of the part's Front face
+local SIGNS = {
+	Signpost = { area = { 0.2344, 0.8594, 0.0867, 0.6467 }, labels = { "SHOP", "UPGRADES", "ISLANDS" } },
+}
 -- recoloured copies: variant = { part = colour }
 local VARIANTS = {
 	Barrel = { Blue = { Body = "SkyBlue" }, Pink = { Body = "Pink" } },
-	Crate = { Blue = { Frame = "SkyBlue", Panel = "Cream" }, Pink = { Frame = "Pink", Panel = "Cream" } },
+	Crate = { Blue = { Frame = "SkyBlue" }, Pink = { Frame = "Pink" } },
 	IceTree = { Blue = { Crown = "SkyBlue" }, Choco = { Crown = "Choco" } },
 }
 
@@ -130,6 +135,35 @@ end
 
 local UP = CFrame.Angles(0, 0, math.rad(90)) -- a cylinder's axis (X) pointing up
 
+-- a SurfaceGui "Sign" on the part's Front face with one word in the field (fractions of the face)
+local function makeSign(part, area, word)
+	local old = part:FindFirstChild("Sign")
+	if old then
+		old:Destroy()
+	end
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Sign"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 60
+	gui.LightInfluence = 0.6
+	local label = Instance.new("TextLabel")
+	label.Name = "Word"
+	label.BackgroundTransparency = 1
+	label.Position = UDim2.fromScale(area[1], area[3])
+	label.Size = UDim2.fromScale(area[2] - area[1], area[4] - area[3])
+	label.Font = Enum.Font.FredokaOne
+	label.Text = word
+	label.TextScaled = true
+	label.TextColor3 = Color3.new(1, 1, 1)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromHex(GAME_COLOURS.Choco)
+	stroke.Thickness = 3
+	stroke.Parent = label
+	label.Parent = gui
+	gui.Parent = part
+end
+
 local function recolour(model, partName, colour)
 	for _, part in model:GetDescendants() do
 		if part:IsA("MeshPart") and part.Name:find("_" .. partName .. "_", 1, true) then
@@ -146,7 +180,7 @@ for _, model in workspace:GetChildren() do
 	end
 	local name = model.Name:sub(8)
 	local pivot = model:GetPivot()
-	local coloured, lights, unknown = 0, 0, {}
+	local coloured, lights, signs, unknown = 0, 0, 0, {}
 	for _, part in model:GetDescendants() do
 		if part:IsA("MeshPart") then
 			local colour = part.Name:match("_(%a+)$")
@@ -179,6 +213,12 @@ for _, model in workspace:GetChildren() do
 			end
 			if part.Name:find("_Arrow", 1, true) then
 				part:SetAttribute("TextFace", "Front")
+				local index = tonumber(part.Name:match("_Arrow(%d+)_"))
+				local sign = SIGNS[name]
+				if sign and index and sign.labels[index] then
+					makeSign(part, sign.area, sign.labels[index])
+					signs += 1
+				end
 			end
 		end
 	end
@@ -246,7 +286,7 @@ for _, model in workspace:GetChildren() do
 	end
 	table.insert(
 		report,
-		`{name}: {coloured} meshes coloured{#unknown > 0 and " (no colour: " .. table.concat(unknown, ", ") .. ")" or ""}, {#(COLLISION[name] or {})} collision parts, {#(SEATS[name] or {})} seats, {lights} lights{#variants > 0 and ", variants " .. table.concat(variants, ", ") or ""}`
+		`{name}: {coloured} meshes coloured{#unknown > 0 and " (no colour: " .. table.concat(unknown, ", ") .. ")" or ""}, {#(COLLISION[name] or {})} collision parts, {#(SEATS[name] or {})} seats, {lights} lights, {signs} signs{#variants > 0 and ", variants " .. table.concat(variants, ", ") or ""}`
 	)
 end
 return #report > 0 and table.concat(report, "\n") or "no HubKit_* model in Workspace"

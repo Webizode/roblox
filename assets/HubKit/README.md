@@ -40,7 +40,7 @@ Maße in Studs: Breite (X) × Tiefe (Z) × Höhe (Y), so wie sie in Roblox stehe
 
 | Modell | Referenz | Maße | Dreiecke | Kollision | Extras |
 |---|---|---|---|---|---|
-| IceTree | Erdbeer-Eisbaum – Konzeptübersicht | 11,9 × 11,9 × 16,4 | 5.436 | Zylinder am Stamm (Ø 4,2, 6,2 hoch) | Varianten `IceTree` (pink), `IceTree_Blue`, `IceTree_Choco` |
+| IceTree | Erdbeer-Eisbaum – Konzeptübersicht | 12,9 × 12,1 × 19,0 | 7.436 | Zylinder am Stamm (Ø 4,0, 12 hoch) | Varianten `IceTree` (pink), `IceTree_Blue`, `IceTree_Choco` |
 | FlowerBush | Wobble Scoops Blumenbusch Asset-Sheet | 7,8 × 6,5 × 4,8 | 5.308 | Box 6,6 × 5,6 × 4,3 | – |
 | Rock | Stilisierte Felsformation mit Gras und Blumen | 9,6 × 5,1 × 5,4 | 3.072 | 5 Boxen, eine je großem Stein | – |
 | Lantern | Glänzende Eiscreme-Straßenlaterne | 6,0 × 4,3 × 12,6 | 7.156 | Sockel-Zylinder und Mast-Zylinder | Glas `Lantern_Lamp`: Neon und PointLight |
@@ -48,7 +48,7 @@ Maße in Studs: Breite (X) × Tiefe (Z) × Höhe (Y), so wie sie in Roblox stehe
 | ParkBench | Wobble Scoops Parkbank – Asset-Übersicht | 8,7 × 3,4 × 6,3 | 3.304 | 4 Boxen (Sitz, Lehne, Armlehnen) | 2 Seats, Sitzfläche auf 1,9 |
 | PicnicTable | Pastellfarbener Park mit Bank und Picknicktisch | 9,2 × 9,6 × 9,3 | 3.408 | Tisch-Zylinder und 3 Hocker-Zylinder | 3 Seats auf 1,95, zum Tisch gedreht |
 | TrashBin | Verspielter Eiscreme-Mülleimer | 4,7 × 4,2 × 6,3 | 4.640 | Zylinder Ø 3,6, 5,2 hoch | – |
-| Signpost | Verspielter Eiscreme-Wegweiser im Cartoon-Stil | 7,0 × 5,2 × 13,0 | 6.696 | Zylinder am Mast | 3 Pfeile als eigene Teile mit `TextFace = Front` |
+| Signpost | Verspielter Eiscreme-Wegweiser im Cartoon-Stil | 7,0 × 5,2 × 13,0 | 6.478 | Zylinder am Mast | 3 Pfeile als eigene Teile, je mit SurfaceGui „SHOP“, „UPGRADES“, „ISLANDS“ |
 | Fountain | Verspielter Eiscreme-Brunnen mit Wasserfontänen | 16,2 × 16,2 × 9,1 | 8.988 | 3 Zylinder (Becken 2,4 hoch, Schale, Spitze) | Wasser `Fountain_Water` durchsichtig |
 | Barrel | Verspielte Eiscreme-Fässer und Kisten | 3,0 × 3,3 × 3,3 | 1.252 | Zylinder Ø 2,9 | Varianten `Barrel` (Holz), `Barrel_Pink`, `Barrel_Blue` |
 | Crate | dieselbe | 3,3 × 3,3 × 3,0 (Kasten 3 × 3 × 3) | 1.780 | Box 3 × 3 × 3 | Varianten `Crate` (Holz), `Crate_Pink`, `Crate_Blue` |
@@ -57,9 +57,9 @@ Maße in Studs: Breite (X) × Tiefe (Z) × Höhe (Y), so wie sie in Roblox stehe
 ### Details je Modell
 
 - **IceTree:**
-  - Stamm: Waffelkegel, unten Ø 3,2, oben Ø 5.
-  - Krone (`IceTree_Crown_Pink`): zwei glasierte Stufen mit langen Tropfen, Streuseln, Sahnehaube und Erdbeere.
-  - Unter der Krone ist an der Mitte 5,1 Platz. Am Rand hängen die Tropfen bis etwa 4 herunter. Die Kollision gibt es nur am Stamm.
+  - Stamm (seit 06.11.2026 doppelt so lang, 11,6): Waffelstamm, unten breit (Ø 4) und nach oben schlanker (Ø 2,7), damit er wie ein Baum wirkt und nicht wie eine Eistüte.
+  - Krone (`IceTree_Crown_Pink`): drei überlappende glasierte Kugeln wie im Referenzbild, jede mit langen Tropfen und Streuseln. Die zwei vorderen sind größer und tiefer, die hintere kleiner und höher. Oben in der Mitte sitzen Sahnehaube und Erdbeere.
+  - Unter der Krone ist an der Mitte etwa 9,7 Platz. Die Tropfen hängen bis etwa 8,5 herunter. Die Kollision gibt es nur am Stamm.
 - **FlowerBush:**
   - Kugelbusch in zwei Grüntönen mit Blättern.
   - 7 Blüten in Pink und Weiß, dazu zwei Kiesel.
@@ -85,7 +85,7 @@ Maße in Studs: Breite (X) × Tiefe (Z) × Höhe (Y), so wie sie in Roblox stehe
 - **Signpost:**
   - Grashügel mit Steinen und Blumen, Waffelmast, oben eine glasierte Kugel.
   - Drei Pfeile in Pink, Blau und Gold auf 9,1, 7,3 und 5,5, je 6,4 lang und 1,5 hoch, mit Creme-Glasur am Ende.
-  - **Freie Fläche** je Pfeil: etwa 4 × 1,2 vorne in der Mitte. Der Text kommt später per SurfaceGui (Face = Front, wie beim Plot Sign).
+  - **Schrift** je Pfeil: Das Template-Skript setzt in jeden Pfeil-MeshPart eine SurfaceGui `Sign` (Face = Front, 60 Pixel je Stud) mit einem TextLabel `Word`: oben „SHOP“, Mitte „UPGRADES“, unten „ISLANDS“. Die Schrift ist weiß in FredokaOne mit Schoko-Rand und passt sich der Fläche an. Die Fläche ist 4 × 0,84 groß und liegt zwischen der Creme-Glasur und der Goldniete. Sie steht als Bruchteil der Pfeilfront in `SIGNS` und kommt aus `SIGN_TEXT` in `build_hub_pack.py`. Andere Wörter gehören dort hinein, danach das Skript neu laufen lassen. In Studio lässt sich auch einfach `Word.Text` ändern.
   - Alle Pfeile zeigen nach rechts. Um sie in andere Richtungen zeigen zu lassen, die Pfeil-MeshParts in Studio um die Mastachse drehen.
 - **Fountain:**
   - Stufe, Mauerring aus 16 Creme-Fliesen mit abwechselnd pinken und cremefarbenen Deckplatten.
@@ -93,7 +93,7 @@ Maße in Studs: Breite (X) × Tiefe (Z) × Höhe (Y), so wie sie in Roblox stehe
   - Darüber Sockel und Schale mit Pink-Glasurrand und Wasser, ein Waffelkegel mit glasierter Kugel und Kirsche.
   - 6 + 6 Wasserbögen mit Schaum. Das Wasser wird in Studio mit Transparenz 0,35 eingestellt.
 - **Barrel:** bauchiges Fass mit 16 Dauben, zwei Creme-Reifen und Medaillon. Der Körper (`Barrel_Body_Wood`) wird für die Varianten umgefärbt.
-- **Crate:** Holzrahmen mit X-Streben auf vier Seiten und oben, Goldnieten. Rahmen (`Crate_Frame_Wood`) und Füllung (`Crate_Panel_Waffle`) werden für die Varianten umgefärbt: Pink oder Blau auf Creme.
+- **Crate:** Holzrahmen mit X-Streben auf vier Seiten und oben, Goldnieten. Rahmen (`Crate_Frame_Wood`) und Füllung (`Crate_Panel_Waffle`): Für die Varianten wird nur der Rahmen umgefärbt, Pink oder Blau. Die Waffel-Füllung bleibt bei allen drei, die Seitenwände sind also überall geschlossen. Bis 06.11.2026 war die Füllung der Varianten Creme, dann sahen die Kisten hohl aus und man sah nur den Rahmen.
   - Andere Größen wie in der Referenz: in Studio das ganze Model skalieren (`Model:ScaleTo`).
 - **HarborGate:**
   - Zwei Holzpfosten mit Pink-Bändern und Creme-Kugeln. Dazwischen zwei Bogentüren, 12,8 breit und in der Mitte 7,8 hoch, mit Creme-Rahmen, zwei Pink-Bändern und goldenem Vorhängeschloss.
@@ -105,7 +105,7 @@ Maße in Studs: Breite (X) × Tiefe (Z) × Höhe (Y), so wie sie in Roblox stehe
 
 | Modell | Runde 1 | Runde 2 |
 |---|---|---|
-| IceTree | Krone runder und höher, 11 statt 9 längere Tropfen, Erdbeere größer | Stamm und Krone 0,8 tiefer: Höhe 16,4 statt 17,2 |
+| IceTree (Umbau 06.11.2026) | drei Kugeln verschieden groß und hoch, damit man von vorn drei Kugeln sieht und keinen flachen Hut; Tropfen länger; Stamm unten breit und oben schlank statt umgekehrt (sah aus wie eine Eistüte) | – |
 | Rock | großer Stein auf volle Höhe (5,4 statt 3,9), schärfere Facetten, Moos mit mehr Tropfen | Moos flacher und breiter |
 | FlowerBush | Blüten 1,5-mal so groß | – |
 | Barrel | stärkerer Bauch, schmalere Enden (sah aus wie ein Eimer) | – |
@@ -119,12 +119,14 @@ Maße in Studs: Breite (X) × Tiefe (Z) × Höhe (Y), so wie sie in Roblox stehe
   - Nichts ist importiert. `studio_hubkit_templates.luau` ist nur syntaktisch geprüft (StyLua parst die Datei), nicht ausgeführt.
   - Die Achsen sind vom Plot Kit übernommen: Blender (x, y, z) wird Roblox (−x, z, y).
   - Ob die Seats richtig sitzen und die PointLight hell genug ist, zeigt erst ein Playtest.
-- **Moos am Felsen** wirkt auch nach Runde 2 eher wie eine runde Kappe als wie überhängendes Moos. Die Runden sind aufgebraucht.
+- **Moos am Felsen** wirkt eher wie eine runde Kappe als wie überhängendes Moos. Der Nutzer hat den Felsen am 06.11.2026 so abgenommen.
 - **Türme ragen durch Überhänge:** Kronen (Tropfen ab etwa 4), Laternenarm (2,75 vom Mast) und Schirm (Kante 7,4) haben keine Kollision. Ein Spielerturm geht hindurch, wie bei jeder Deko ohne Dach-Kollision. Die Modelle deshalb nicht direkt an Laufwege setzen.
 - **Unter den Drehpunkt** reichen FlowerBush (0,16, Kugelrundung), ParkBench (0,11) und Rock (0,03). Das fällt nicht auf.
 - **Tor:** Die Schrift ist Geometrie in der eingebauten Blender-Schrift (Inter, etwas fetter gemacht). Für einen anderen Text müssen Skript und Export neu laufen.
 - **Vorschaubilder** kommen aus EEVEE. Das Laternenglas leuchtet nur schwach, das Glühen kommt erst in Studio mit Neon.
-- `assets/HubKit/previews/` steht nicht in `.gitignore`, anders als beim Plot Kit. Ich habe nichts außerhalb von `assets/HubKit` geändert. Wenn die Bilder nicht ins Repo sollen: `assets/HubKit/previews/` in `.gitignore` eintragen. Dasselbe gilt für die FBX in `assets/HubKit/fbx/`.
+- `assets/HubKit/previews/` und `assets/HubKit/fbx/` stehen in `.gitignore`, wie beim Plot Kit. Beide erzeugt `run_hubkit.py`, die Vorschauen liegen zusätzlich im Vault unter „Hub Kit Vorschau“.
+- **Pfeilschrift nicht in Studio gesehen:** Die SurfaceGui-Fläche ist aus der Pfeilform gerechnet. Die Richtung, Front = Blender −Y, ist dieselbe wie beim Plot Sign. Ob das Wort ganz auf dem Brett sitzt und nicht spiegelverkehrt ist, zeigt erst der Import.
+- **IceTree ist mit 19 höher als die Referenz** (14 bis 16), weil der Stamm doppelt so lang sein sollte.
 
 ## Import in Studio (Klicks)
 
@@ -136,12 +138,14 @@ Maße in Studs: Breite (X) × Tiefe (Z) × Höhe (Y), so wie sie in Roblox stehe
    - Die Einheit bleibt Studs, die Größe 1:1.
    - Dann **Importieren**. Jedes Modell landet als `HubKit_<Model>` im Workspace.
 4. **Ansicht → Befehlsleiste** (View → Command Bar) öffnen. Den ganzen Inhalt von `assets/HubKit/studio_hubkit_templates.luau` hineinkopieren und **Enter** drücken. Das Skript macht Folgendes:
-   - Es setzt Farben, Kollision, Seats, Neon und Licht der Laterne, das durchsichtige Wasser und die Pfeilflächen.
+   - Es setzt Farben, Kollision, Seats, Neon und Licht der Laterne, das durchsichtige Wasser und die Schrift auf den Pfeilen.
    - Es legt alle Modelle als Vorlagen in `ServerStorage.HubKit`, dazu die Varianten `IceTree_Blue`, `IceTree_Choco`, `Barrel_Pink`, `Barrel_Blue`, `Crate_Pink` und `Crate_Blue`. Im Workspace sind sie danach verschwunden.
-   - Die Ausgabe nennt je Modell die Zahl der Meshes, Kollisionsteile, Seats, Lichter und Varianten.
+   - Die Ausgabe nennt je Modell die Zahl der Meshes, Kollisionsteile, Seats, Lichter, Schilder und Varianten.
 5. Prüfen: `ServerStorage.HubKit` aufklappen und je eine Vorlage in den Workspace ziehen.
    - `Lantern`: Leuchtet das Glas, steckt eine PointLight im MeshPart `Lantern_Lamp`?
    - `IceTree_Choco`: Ist die Krone braun?
+   - `Signpost`: Stehen „SHOP“, „UPGRADES“ und „ISLANDS“ lesbar und nicht gespiegelt auf den Pfeilen?
+   - `Crate_Pink`: Sind die Seiten geschlossen?
    - `ParkBench`: Mit Play setzen, sitzt die Figur auf der Bank?
    - Danach die Kopien wieder löschen.
 6. **Datei → Speichern** (Strg+S) bzw. veröffentlichen.

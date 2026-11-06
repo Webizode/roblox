@@ -377,30 +377,40 @@ def cyl(radius, height, center=(0, 0), z0=0.0, name=None):
 
 
 # --------------------------------------------------------------------------------------------------------------------
-# Ice Tree: a tapered waffle trunk, a glazed two-tier crown with drips, a cream swirl and a strawberry on top. The crown
-# (dome and drips) is the part Crown: Pink in the FBX, SkyBlue and Choco as variants in Studio. 15 to 16 high, crown 11
-# wide (reference: 14 to 16 high, 10 to 12 wide); the crown starts at 5.1 over the trunk, its rim (drips) at about 4 to 6.8.
+# Ice Tree: a long tapered waffle trunk under a crown of three overlapping glazed scoops with drips and sprinkles, a
+# cream swirl and a strawberry in the middle on top. The crown (the three scoops with their drips) is the part Crown:
+# Pink in the FBX, SkyBlue and Choco as variants in Studio. Change of 06.11.2026 (user): trunk about twice as long, the
+# crown three drip balls as in the reference, so it reads as a tree and not as a cone; about 20 high, crown 13 wide.
+
+TREE = dict(trunk=11.6, ring=2.4, r=4.0, below=2.0, above=3.4)
+# improvement 1: the three scoops differ in size and height (front two lower, the back one higher), so the crown shows
+# three balls from the front and not one flat cap; longer drips
+SCOOPS = [(-math.pi / 6, 4.1, -0.5), (math.pi + math.pi / 6, 3.9, -0.3), (math.pi / 2, 3.7, 1.1)]
 
 
 def build_ice_tree():
     col = hk_collection("IceTree")
+    t = TREE
     cylinder(col, "Foot", "Waffle", 2.15, 0.5, 0, radius_top=1.8, segments=20, bevel=0.15)
-    # improvement 2: trunk 0.8 shorter and everything above 0.8 lower, so the tree is about 16 high
-    waffle_cone(col, "Trunk", 1.6, 2.5, 5.8, 0.35, spacing=1.45, ridge=0.42, segments=20)
-    # improvement 1 (06.11.2026): the crown rounder and higher, longer drips, a bigger strawberry
-    iced_dome(col, "CrownLow", "Pink", 5.6, 5.1, 6.8, 10.2, drips=11, drop=(1.2, 2.6), width=(1.5, 2.3),
-              thickness=0.42, seed=11, segments=28, part="Crown")
-    iced_dome(col, "CrownHigh", "Pink", 4.3, 8.8, 10.1, 12.4, drips=8, drop=(0.8, 1.8), width=(1.3, 1.9),
-              thickness=0.36, seed=12, segments=24, part="Crown")
-    dome_sprinkles(col, "SprinklesLow", 5.6, 6.8, 10.2, 14, seed=7, t_range=(0.12, 0.5))
-    dome_sprinkles(col, "SprinklesHigh", 4.3, 10.1, 12.4, 12, seed=8, t_range=(0.15, 0.9))
-    parts, top = soft_serve(col, "Cream", "Cream", 1.55, 12.05, tiers=2, cherry=False)
+    # improvement 1: wide at the root and slimmer up to the crown, like the reference, so it no longer reads as a cone
+    waffle_cone(col, "Trunk", 2.0, 1.35, t["trunk"], 0.35, spacing=1.45, ridge=0.42, segments=20)
+    z_mid = 0.35 + t["trunk"] + 0.3
+    for k, (a, r, dz) in enumerate(SCOOPS):
+        c = (t["ring"] * math.cos(a), t["ring"] * math.sin(a))
+        m = z_mid + dz
+        iced_dome(col, f"Crown{k + 1}", "Pink", r, m - t["below"], m, m + t["above"] * r / t["r"], drips=9,
+                  drop=(1.5, 3.2), width=(1.4, 2.1), thickness=0.4, seed=11 + k, center=c, segments=26, part="Crown",
+                  sprinkles=11)
+    # the three scoops meet over the trunk at z_mid + above * sqrt(1 - (ring / r)^2): the swirl sits in that dip
+    dip = z_mid + t["above"] * math.sqrt(1 - (t["ring"] / t["r"]) ** 2)
+    parts, top = soft_serve(col, "Cream", "Cream", 1.55, dip - 0.3, tiers=2, cherry=False)
     strawberry(col, "Berry", (0, 0, top - 0.4), 1.45)
     SPECS["IceTree"] = dict(
-        collision=[cyl(2.1, 6.2, name="Trunk")],
+        collision=[cyl(2.0, 0.35 + t["trunk"], name="Trunk")],
         variants={"Blue": {"Crown": "SkyBlue"}, "Choco": {"Crown": "Choco"}},
-        figure=(-6.5, -7.0),
-        note="crown (dome and drips) is the part Crown: IceTree_Crown_Pink; variants IceTree_Blue, IceTree_Choco",
+        figure=(-7.5, -7.5),
+        note="crown (three scoops and drips) is the part Crown: IceTree_Crown_Pink; variants IceTree_Blue, "
+        "IceTree_Choco",
     )
 
 
@@ -690,6 +700,17 @@ def build_trash_bin():
 
 ARROWS = [(9.1, "Pink"), (7.3, "SkyBlue"), (5.5, "Gold")]
 ARROW = dict(x0=-2.0, x1=4.4, head=1.0, h=1.5, y=-0.5, t=0.42)
+# the text field on each arrow (Blender x along the board, z from the board's middle) and its words, top to bottom
+SIGN_TEXT = dict(x0=-0.5, x1=3.5, z0=-0.22, z1=0.62, labels=["SHOP", "UPGRADES", "ISLANDS"])
+
+
+def sign_area():
+    """The text field as fractions of the arrow's front (a SurfaceGui on Face Front): left, right, top, bottom. Seen
+    from the front, Blender +x is to the right and Roblox Front is Blender -Y."""
+    a, s = ARROW, SIGN_TEXT
+    w = a["x1"] - a["x0"]
+    return [round((s["x0"] - a["x0"]) / w, 4), round((s["x1"] - a["x0"]) / w, 4),
+            round((a["h"] / 2 - s["z1"]) / a["h"], 4), round((a["h"] / 2 - s["z0"]) / a["h"], 4)]
 
 
 def build_signpost():
@@ -729,10 +750,13 @@ def build_signpost():
     SPECS["Signpost"] = dict(
         collision=[cyl(0.9, 13.0, name="Pole")],
         figure=(-4.6, -3.0),
-        face=dict(size=[4.0, 1.2], note="free front of each arrow: x -0.6..3.4 (Blender), the centre 1.4 along the "
-                  "board; boards at z 9.1, 7.3, 5.5"),
-        note="Signpost_Arrow1_Pink, _Arrow2_SkyBlue, _Arrow3_Gold carry TextFace Front; turn an arrow about the "
-        "pole (the model's Y axis in Roblox) to point it elsewhere",
+        face=dict(size=[SIGN_TEXT["x1"] - SIGN_TEXT["x0"], SIGN_TEXT["z1"] - SIGN_TEXT["z0"]],
+                  area=sign_area(), labels=SIGN_TEXT["labels"],
+                  note="free front of each arrow between the icing and the rivet: x -0.5..3.5, z -0.22..0.62 from the "
+                  "board's middle (Blender); boards at z 9.1, 7.3, 5.5"),
+        note="Signpost_Arrow1_Pink, _Arrow2_SkyBlue, _Arrow3_Gold carry TextFace Front and a SurfaceGui Sign with the "
+        "words SHOP, UPGRADES, ISLANDS (template script); turn an arrow about the pole (the model's Y axis in Roblox) "
+        "to point it elsewhere",
     )
 
 
@@ -804,8 +828,8 @@ def build_barrel():
 
 
 # Crate: a wooden frame with X braces on the sides and the top and gold rivets, the panels behind it. Frame and braces
-# are the part Frame, the panels the part Panel: Wood and Waffle in the FBX; Pink and SkyBlue frames on Cream panels as
-# variants. 3 x 3 x 3.
+# are the part Frame, the panels the part Panel: Wood and Waffle in the FBX; Pink and SkyBlue frames as variants, the
+# panels stay Waffle (06.11.2026: on Cream panels the variants looked hollow, only the frame showed). 3 x 3 x 3.
 
 CRATE = 3.0
 
@@ -847,8 +871,7 @@ def build_crate():
                 ball(col, f"RivetS{n}", "Gold", 0.13, (sx * (h + 0.02), sy * e, z), segments=8)
                 n += 1
     SPECS["Crate"] = dict(collision=[box((S, S, S), (0, 0, h), "Crate")],
-                          variants={"Pink": {"Frame": "Pink", "Panel": "Cream"},
-                                    "Blue": {"Frame": "SkyBlue", "Panel": "Cream"}},
+                          variants={"Pink": {"Frame": "Pink"}, "Blue": {"Frame": "SkyBlue"}},
                           figure=(-3.4, -2.4))
 
 
@@ -1048,7 +1071,8 @@ LUAU_HEAD = """--!nocheck
 -- HubKit_<Model> (as the 3D importer names HubKit_<Model>.fbx from assets/HubKit/fbx, assets/HubKit/README.md).
 --   * each MeshPart <Model>_<Colour> (and <Model>_<Part>_<Colour>) gets its game colour, the attribute Colour,
 --     SmoothPlastic, Anchored, and neither collides nor takes queries or touches. Lamp glass is Neon with a
---     PointLight, Water and Glass are see-through. Signpost arrows (_Arrow) get the attribute TextFace = "Front".
+--     PointLight, Water and Glass are see-through. Signpost arrows (_Arrow) get the attribute TextFace = "Front" and a SurfaceGui Sign with
+--     their word (SIGNS).
 --   * the model gets the simple collision of COLLISION: invisible Parts `Collision` (the first, the PrimaryPart) and
 --     `Collision_<Name>`; benches and stools get invisible Seats (SEATS). The pivot stays at the bottom centre.
 --   * the import moves to ServerStorage.HubKit.<Model>; VARIANTS add recoloured copies <Model>_<Variant> (a template
@@ -1080,6 +1104,35 @@ end
 
 local UP = CFrame.Angles(0, 0, math.rad(90)) -- a cylinder's axis (X) pointing up
 
+-- a SurfaceGui "Sign" on the part's Front face with one word in the field (fractions of the face)
+local function makeSign(part, area, word)
+	local old = part:FindFirstChild("Sign")
+	if old then
+		old:Destroy()
+	end
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Sign"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 60
+	gui.LightInfluence = 0.6
+	local label = Instance.new("TextLabel")
+	label.Name = "Word"
+	label.BackgroundTransparency = 1
+	label.Position = UDim2.fromScale(area[1], area[3])
+	label.Size = UDim2.fromScale(area[2] - area[1], area[4] - area[3])
+	label.Font = Enum.Font.FredokaOne
+	label.Text = word
+	label.TextScaled = true
+	label.TextColor3 = Color3.new(1, 1, 1)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromHex(GAME_COLOURS.Choco)
+	stroke.Thickness = 3
+	stroke.Parent = label
+	label.Parent = gui
+	gui.Parent = part
+end
+
 local function recolour(model, partName, colour)
 	for _, part in model:GetDescendants() do
 		if part:IsA("MeshPart") and part.Name:find("_" .. partName .. "_", 1, true) then
@@ -1096,7 +1149,7 @@ for _, model in workspace:GetChildren() do
 	end
 	local name = model.Name:sub(8)
 	local pivot = model:GetPivot()
-	local coloured, lights, unknown = 0, 0, {}
+	local coloured, lights, signs, unknown = 0, 0, 0, {}
 	for _, part in model:GetDescendants() do
 		if part:IsA("MeshPart") then
 			local colour = part.Name:match("_(%a+)$")
@@ -1129,6 +1182,12 @@ for _, model in workspace:GetChildren() do
 			end
 			if part.Name:find("_Arrow", 1, true) then
 				part:SetAttribute("TextFace", "Front")
+				local index = tonumber(part.Name:match("_Arrow(%d+)_"))
+				local sign = SIGNS[name]
+				if sign and index and sign.labels[index] then
+					makeSign(part, sign.area, sign.labels[index])
+					signs += 1
+				end
 			end
 		end
 	end
@@ -1196,7 +1255,7 @@ for _, model in workspace:GetChildren() do
 	end
 	table.insert(
 		report,
-		`{name}: {coloured} meshes coloured{#unknown > 0 and " (no colour: " .. table.concat(unknown, ", ") .. ")" or ""}, {#(COLLISION[name] or {})} collision parts, {#(SEATS[name] or {})} seats, {lights} lights{#variants > 0 and ", variants " .. table.concat(variants, ", ") or ""}`
+		`{name}: {coloured} meshes coloured{#unknown > 0 and " (no colour: " .. table.concat(unknown, ", ") .. ")" or ""}, {#(COLLISION[name] or {})} collision parts, {#(SEATS[name] or {})} seats, {lights} lights, {signs} signs{#variants > 0 and ", variants " .. table.concat(variants, ", ") or ""}`
 	)
 end
 return #report > 0 and table.concat(report, "\\n") or "no HubKit_* model in Workspace"
@@ -1236,6 +1295,15 @@ def write_studio_script():
             for s in seats:
                 out.append(f"\t\t{{ at = {_v3(_rb(s['at']))}, look = {_v3(_rb(s['look']))} }},")
             out.append("\t},")
+    out.append("}")
+    out.append("-- words on parts _Arrow<n>_: the field is left, right, top, bottom as fractions of the part's Front face")
+    out.append("local SIGNS = {")
+    for name in sorted(report):
+        face = report[name].get("face") or {}
+        if face.get("labels"):
+            area = ", ".join(f"{v:g}" for v in face["area"])
+            labels = ", ".join(f'"{w}"' for w in face["labels"])
+            out.append(f"	{name} = {{ area = {{ {area} }}, labels = {{ {labels} }} }},")
     out.append("}")
     out.append("-- recoloured copies: variant = { part = colour }")
     out.append("local VARIANTS = {")
