@@ -129,10 +129,19 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
   - **Pro Sektor:** Vorplatz mit Laternen, Bank, Mülleimer und Blumentopf, eine Baumgruppe in den Sortenfarben, eine Kisten- und Fassgruppe.
   - **Einmalig:** Brunnen bei 180°, Hafentor „Coming Soon“ mit Wegweiser bei 300°.
   - **Shop-Flächen:** Platzhalter für Upgrade Shop (0°), Cosmetic Shop (120°) und Quest Hub (240°), dort keine Deko.
-  - **Grasbeete und Außenzaun** (seit 07.11.2026, in Sektor 1 freigegeben, dann auf alle 12): bis zu drei flache Grasbeete je Sektor mit runden Ecken. Neben Brunnen, Hafentor und Shop-Flächen bleibt der Platz gepflastert. Um den Ring läuft bei r 231 ein Zaun aus dem Plot Kit mit Karamell-Kappen und Schoko-Pfosten, also neutral. Er hat Lücken an allen 12 Brücken (22,4 breit) und am Hafentor. Unsichtbare Wände bis y 40 stehen in `Sperre.Hubzaun` und stoppen nur Spieler.
-  - **Füllgebäude:** Es gibt nur drei: das Café am Brunnen, den Pavillon im äußeren Beet von Sektor 2 und den Kiosk am leeren Innenfeld beim Hafentor. Wände und Dach sind gedämpft, nur Markise und Schild tragen eine Sortenfarbe. Die Garage ist gebaut, steht aber nicht im Place, weil der Ring sonst zu voll wirkte.
+  - **Wiese** (seit 07.11.2026, erst in Sektor 1 freigegeben, dann auf alle 12, ersetzt die Grasbeete):
+    - Der ganze Hub ist eine durchgehende Wiese bis an jeden Bordstein, 48 CSG-Flächen (`Sektor_XX.Rasen`), 0,08 hoch, ohne Kollision.
+    - Gepflastert bleiben die Wege, die Vorplätze an den Brücken, die Shop-Flächen, Brunnen mit Café, Hafentor mit Kiosk und der Platz vor dem Pavillon.
+    - Darunter liegt Terrain-Gras mit `Terrain.Decoration`, Oberfläche unter dem Pflaster. Die Halme wachsen durch den Rasen, nie auf Wegen.
+    - Rasen und Terrain haben dieselbe Farbe #82B84E. Auf niedriger Grafikstufe ohne Halme sieht es also gleich aus.
+    - Lose Kugeln liegen auf dem Rasen wie auf dem Pflaster.
+    - Höchstens 2 Eis-Bäume je Sektor.
+    - Einzelheiten stehen in `assets/HubKit/README.md`.
+  - **Außenzaun:** Um den Ring läuft bei r 231 ein Zaun aus dem Plot Kit mit Karamell-Kappen und Schoko-Pfosten, also neutral. Er hat Lücken an allen 12 Brücken (22,4 breit) und am Hafentor. Unsichtbare Wände bis y 40 stehen in `Sperre.Hubzaun` und stoppen nur Spieler.
+  - **Leaderboard-Platz** (seit 07.11.2026): Ein pinker Platzhalter steht vor dem Cosmetic Shop, innen am Ringweg (r 180) und zu den Brücken gedreht. Dort sehen ihn die meisten Spieler auf dem Weg vom Plot in die Arena, aus den Sektoren 11, 12 und 1. Das Modell kommt später.
+  - **Füllgebäude:** Es gibt nur drei: das Café am Brunnen, den Pavillon in der Wiese von Sektor 2 und den Kiosk am Innenfeld beim Hafentor. Wände und Dach sind gedämpft, nur Markise und Schild tragen eine Sortenfarbe. Die Garage ist gebaut, steht aber nicht im Place, weil der Ring sonst zu voll wirkte.
   - **Laternen:** Das Licht ist an, mit Helligkeit 1 und Reichweite 14. Vorher waren es 2 und 18, damit wirkten die Brückenköpfe weiß.
-  - **Umfang:** 330 Modelle (davon 177 Zaunteile) und 2.597 Teile im Hub. Davon sind 649 Wege, 126 Beete und 531 Zaun, dazu 177 Sperrwände. Die ganze Map hat 7.357 Teile.
+  - **Umfang:** 329 Modelle und 2.511 Teile im Hub, davon 48 Rasenflächen. Dazu kommen 177 Sperrwände. Die ganze Map hat 7.787 Teile (Stand 07.11.2026 abends, mit Brücken und Wiese).
   - **Getestet am 07.11.2026:**
     - In allen 12 Sektoren geht man von der Rampenoberkante bis auf die Brücke (r 165 bis 249) in normalem Gehtempo, je 4,0 bis 4,2 s.
     - Teleport zu Arena und Plot funktioniert.

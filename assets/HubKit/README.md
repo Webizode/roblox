@@ -214,10 +214,7 @@ Inhalt von `Hub`:
 
 **Stand am 07.11.2026: Beete, Zaun, Füllgebäude, Licht**
 
-- **Grasbeete (`Sektor_XX.Beete`):**
-  - Die Beete sind 0,26 hoch, haben Ecken mit Radius 3 und tragen das Plot-Gras `WS_Grass`.
-  - Es gibt drei Felder je Sektor (`BEDS`): außen bei der Baumgruppe, innen davor und außen hinter der Bank.
-  - Ein Beet, das an Brunnen, Hafentor oder einer Shop-Fläche liegt, entfällt, dort bleibt Pflaster.
+- **Grasbeete:** am Abend durch die Wiese ersetzt (siehe unten).
 - **Zaun (`Sektor_XX.Zaun`):**
   - Er besteht aus `FenceSection` und `FencePost` aus dem Plot Kit, gesetzt bei r 231.
   - Die Kappen sind Karamell #C98A4F, die Pfosten Schoko #6E4029.
@@ -251,5 +248,37 @@ Inhalt von `Hub`:
   - Keine Kollision schneidet Wege, Plot-Wege oder Shop-Flächen.
   - Keine neue Warnung. Die Meldung `rbxassetid://203785492 … Asset type does not match` steht weder im Place noch im Repo, sie kommt vom Studio-Avatar.
 - **Screenshots:** im Vault unter „Hub Deko Vorschau“, Dateien `2026-11-07 …` und `Komplett_*`.
+
+**Stand am 07.11.2026 abends: Wiese, Terrain-Gras, Leaderboard-Platz**
+
+- **Wiese (`Sektor_XX.Rasen`, `LAWN`):**
+  - Pro Sektor und Seite gibt es ein Feld innen und eins außen vom Ringweg, also 48 Teile für den ganzen Hub, je eine `UnionOperation`. Sie reichen von der Wegmitte bis zur Lücke, dort läuft das Feld des Nachbarn nahtlos weiter.
+  - Das Gras geht bis an jeden Bordstein und füllt die Zwickel zwischen Ringweg, Rampenweg und Zaun. Am Ringweg ist der Rasen aus Stücken von 7,5° gebaut, so liegt seine Kante genau auf den geraden Bordsteinen.
+  - Ausgeschnitten und damit gepflastert bleiben:
+    - der Weg Rampe–Brücke (bis 6,6 von der Mitte),
+    - der Vorplatz an jeder Brücke (|u| < 19,5 ab r 207, runde Ecken),
+    - die Shop-Flächen (±24, nur außen),
+    - der Brunnen mit Café (außen −38 bis +18, innen ±8 um den Picknicktisch),
+    - das Hafentor (außen ±15, innen ±8 um den Kiosk),
+    - der Platz vor dem Pavillon in Sektor 2 (`PLAZAS`).
+  - Der Rasen ist 0,08 hoch, vorher waren die Beete 0,26. Er hat keine Kollision und keine Abfragen. Lose Kugeln liegen deshalb auf dem Ring darunter. Bei 0,26 sanken sie sichtbar ein, bei 0,08 liegen sie wie auf dem Pflaster.
+  - Die Farbe ist #82B84E, auf Rasen und Terrain-Gras gleich, damit es ohne Halme genauso aussieht. Die Schnitte sind CSG mit `SplitApart = false` und `PreciseConvexDecomposition`. Mit `Box` träfe die Terrain-Prüfung auch die ausgeschnittenen Wege.
+- **Terrain-Gras (`GRASS_TERRAIN`, `Terrain.Decoration`):**
+  - Unter dem Rasen liegt eine dünne Schicht Grass-Terrain. Die untere Voxel-Lage (y 4–8) ist zu 0,72 gefüllt, so liegt die Oberfläche bei höchstens y 8,88, unter dem Pflaster.
+  - Die Halme wachsen durch Ring und Rasen nach oben, das Terrain selbst sieht man nirgends.
+  - Gras bekommt nur eine 4er-Säule, deren Mitte und acht Punkte im Abstand 3,5 rundherum auf Rasen liegen: 1.530 Säulen. Unter keinem Weg oder Bordstein liegt Gras, das prüft das Skript nach jedem Lauf.
+  - Messwert: Eine volle untere Lage ergibt die Oberfläche y 10, jede Füllung der oberen Lage hebt sie weiter (+4 je 1,0).
+- **Eis-Bäume:** höchstens 2 je Sektor statt 3, aufrecht.
+- **Leaderboard-Platz (`LEADERBOARD`):**
+  - Der Platzhalter `Platzhalter_Leaderboard` steht vor dem Cosmetic Shop, innen am Ringweg (r 180), 17 neben der Shop-Achse und um 25° zu den Brücken gedreht.
+  - Er ist ein pinkes Brett 10 × 11 ohne Kollision.
+  - In der Sichtprüfung vom Weg Brücke–Rampe (Sichtlinie frei, höchstens 50° neben der Laufrichtung, Vorderseite sichtbar) sahen ihn 23 von 48 Wegpunkten, aus den Sektoren 11, 12 und 1. Direkt vor der Shopfläche wären es 16.
+- **Umfang:** 329 Modelle und 2.511 Teile im Hub, die ganze Map hat 7.787 Teile. Sicherung des Hubs vor der Wiese: `ServerStorage."MapBackup_2026-11-07_HubVorWiese"`.
+- **Geprüft am 07.11.2026:**
+  - Kein Modell steht im 20er-Weg, keine Kollision liegt auf einem Weg, kein Terrain-Gras unter Wegen.
+  - Lose Kugeln auf dem Rasen in Sektor 1 und 7 liegen wie auf dem Pflaster (Unterkante 9,00 bzw. 8,75 je nach Größe).
+  - Teleport zu Arena (r 162) und Plot (r 318) funktioniert. Servieren am Plot funktioniert.
+  - Keine neue Warnung.
+- **Variante B** (Grasbüschel aus Blender) wurde getestet und verworfen.
 
 **Nach einem neuen Lauf von `assets/PlotKit/studio_plotkit_place.luau`** liegen die Wegsteine wieder tief. Dann `studio_hub_decor.luau` noch einmal laufen lassen.
