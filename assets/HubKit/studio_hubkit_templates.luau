@@ -13,6 +13,7 @@
 -- Coordinates are Roblox studs in the model's frame (x right, y up, the front at -Z), from the pivot.
 
 local GAME_COLOURS = {
+	Caramel = "#C98A4F",
 	Cherry = "#E8384F",
 	Choco = "#7A4528",
 	Cream = "#FFE9D0",
@@ -37,6 +38,14 @@ local LIGHT = { colour = Color3.fromRGB(255, 214, 140), brightness = 2, range = 
 local COLLISION = {
 	Barrel = {
 		{ kind = "cylinder", name = "Barrel", size = Vector3.new(3.3, 2.9, 2.9), centre = Vector3.new(0, 1.65, 0) },
+	},
+	BridgeEnd = {
+		{ kind = "box", name = "RailL", size = Vector3.new(1.8, 4.4, 6.15), centre = Vector3.new(8.35, 2.2, 1.425) },
+		{ kind = "box", name = "RailR", size = Vector3.new(1.8, 4.4, 6.15), centre = Vector3.new(-8.35, 2.2, 1.425) },
+	},
+	BridgeMid = {
+		{ kind = "box", name = "RailL", size = Vector3.new(1.8, 4.4, 12), centre = Vector3.new(8.35, 2.2, 0) },
+		{ kind = "box", name = "RailR", size = Vector3.new(1.8, 4.4, 12), centre = Vector3.new(-8.35, 2.2, 0) },
 	},
 	Cafe = {
 		{ kind = "box", name = "House", size = Vector3.new(12, 7.9, 7), centre = Vector3.new(0, 3.95, 0) },

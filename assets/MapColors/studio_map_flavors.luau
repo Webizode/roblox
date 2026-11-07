@@ -267,8 +267,15 @@ else
 		apply(r.plot, plotRule(m, a, path))
 		paint(r.ramp, m)
 		apply(r.entrance, entranceRule(m, a))
-		apply(r.bridge, function()
-			return a
+		-- the old flat deck takes the accent; the wooden bridge (Bruecke, assets/HubKit/studio_bridges.luau) only on
+		-- its post caps, in the main colour (60/30/10)
+		apply(r.bridge, function(part)
+			if part.Name == "Pomost" then
+				return a
+			elseif part.Name:find("_Cap_", 1, true) then
+				return m
+			end
+			return nil
 		end)
 		for _, x in r.rim do
 			apply(x, rimRule(m, a))

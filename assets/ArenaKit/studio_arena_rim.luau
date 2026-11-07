@@ -30,10 +30,15 @@ local kit = game:GetService("ServerStorage").ArenaKit
 local deco = map:FindFirstChild("Dekoracje") or Instance.new("Folder")
 deco.Name = "Dekoracje"
 deco.Parent = map
--- the hub fence walls (assets/HubKit/studio_hub_decor.luau) live in Sperre.Hubzaun: they stay
-local hubFence = map:FindFirstChild("Sperre") and map.Sperre:FindFirstChild("Hubzaun")
-if hubFence then
-	hubFence.Parent = nil
+-- the hub fence walls (assets/HubKit/studio_hub_decor.luau) and the bridge walls (assets/HubKit/studio_bridges.luau)
+-- live in Sperre.Hubzaun and Sperre.Bruecken: they stay
+local kept = {}
+for _, name in { "Hubzaun", "Bruecken" } do
+	local f = map:FindFirstChild("Sperre") and map.Sperre:FindFirstChild(name)
+	if f then
+		f.Parent = nil
+		table.insert(kept, f)
+	end
 end
 for _, old in { deco:FindFirstChild("ArenaRand"), deco:FindFirstChild("Wejscia"), map:FindFirstChild("Sperre") } do
 	old:Destroy()
@@ -133,8 +138,8 @@ for k = 0, 11 do
 end
 rim.Parent = deco
 gates.Parent = deco
-if hubFence then
-	hubFence.Parent = barrier
+for _, f in kept do
+	f.Parent = barrier
 end
 barrier.Parent = map
 return `{#rim:GetChildren()} rim pieces, {#gates:GetChildren()} entrances, {#barrier:GetChildren()} barrier parts`

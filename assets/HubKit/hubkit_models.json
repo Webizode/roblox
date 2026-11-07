@@ -48,6 +48,124 @@
    }
   }
  },
+ "BridgeEnd": {
+  "collision": [
+   {
+    "center": [
+     -8.35,
+     1.425,
+     2.2
+    ],
+    "kind": "box",
+    "name": "RailL",
+    "size": [
+     1.8,
+     6.15,
+     4.4
+    ]
+   },
+   {
+    "center": [
+     8.35,
+     1.425,
+     2.2
+    ],
+    "kind": "box",
+    "name": "RailR",
+    "size": [
+     1.8,
+     6.15,
+     4.4
+    ]
+   }
+  ],
+  "exported_triangles": 2036,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_BridgeEnd.fbx",
+  "max": [
+   9.3,
+   4.5,
+   6.17
+  ],
+  "meshes": [
+   "BridgeEnd_Cap_Pink",
+   "BridgeEnd_Caramel",
+   "BridgeEnd_Choco",
+   "BridgeEnd_Cream",
+   "BridgeEnd_Wood"
+  ],
+  "min": [
+   -9.3,
+   -4.5,
+   -19.0
+  ],
+  "note": "9 long, the first 3 (at -Z in Roblox) lie on the land; origin the middle of the deck top; flavour on the part Cap",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\BridgeEnd.png",
+  "size": [
+   18.6,
+   9.0,
+   25.17
+  ],
+  "triangles": 2036
+ },
+ "BridgeMid": {
+  "collision": [
+   {
+    "center": [
+     -8.35,
+     0.0,
+     2.2
+    ],
+    "kind": "box",
+    "name": "RailL",
+    "size": [
+     1.8,
+     12.0,
+     4.4
+    ]
+   },
+   {
+    "center": [
+     8.35,
+     0.0,
+     2.2
+    ],
+    "kind": "box",
+    "name": "RailR",
+    "size": [
+     1.8,
+     12.0,
+     4.4
+    ]
+   }
+  ],
+  "exported_triangles": 1940,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_BridgeMid.fbx",
+  "max": [
+   9.12,
+   6.0,
+   4.22
+  ],
+  "meshes": [
+   "BridgeMid_Cap_Pink",
+   "BridgeMid_Caramel",
+   "BridgeMid_Choco",
+   "BridgeMid_Cream",
+   "BridgeMid_Wood"
+  ],
+  "min": [
+   -9.12,
+   -6.0,
+   -19.0
+  ],
+  "note": "12 long; the origin is the middle of the deck top; flavour on the part Cap",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\BridgeMid.png",
+  "size": [
+   18.25,
+   12.0,
+   23.22
+  ],
+  "triangles": 1940
+ },
  "Cafe": {
   "collision": [
    {

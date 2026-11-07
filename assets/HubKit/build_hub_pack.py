@@ -1144,6 +1144,128 @@ def build_cart_garage():
 
 
 
+# Bridge (07.11.2026, reference "Verspielte Eiscreme-Inselbrücke"): two modules for the 12 bridges, 18 wide. An end
+# piece (9 long, its first 3 lie on the land, its front -Y faces the land) with the big post at the water's edge, and a
+# middle piece (12 long) with a small post in its middle: end + 4 x middle + end (turned round) = 66, as Mosty
+# (r 229-295). Wooden planks, Cream rail and balusters, Caramel posts and side beams, Choco piles down into the water;
+# the flavour only on the post caps (the part Cap, Pink in the FBX, recoloured per bridge in Studio). The deck is flat
+# (the user allowed a slight arch at most): the modules repeat and the walking collision Pomost_Kolizja stays flat and
+# unchanged. Origin: the middle of the deck top (z 0 is the walking surface, y 9.02 in the place). The posts stand 12
+# apart all along the bridge. Collision only on the railings (the deck is Pomost_Kolizja).
+
+BRIDGE = dict(width=18.0, mid=12.0, end=9.0, land=3.0, pitch=1.5, rail_x=8.35, rail_top=3.5, pile_bottom=-19.0,
+              collision_top=4.4)
+
+
+def bridge_deck(col, y0, y1):
+    """Planks across the bridge from y0 to y1 (tops at z 0) on two Caramel side beams."""
+    n = round((y1 - y0) / BRIDGE["pitch"])
+    p = (y1 - y0) / n
+    for i in range(n):
+        off = (0.1, -0.08, 0.04, -0.12)[i % 4]  # the plank ends do not line up exactly
+        rounded_box(col, f"Plank{i}", "Wood", (17.7, p - 0.16, 0.5), (off, y0 + p * (i + 0.5), -0.25), radius=0.12,
+                    segments=1)
+    for sx in (-1, 1):
+        rounded_box(col, f"Beam{sx}", "Caramel", (1.0, y1 - y0, 1.4), (sx * 8.4, (y0 + y1) / 2, -1.1), radius=0.2,
+                    segments=1)
+
+
+def bridge_post(col, name, y, big):
+    """A Caramel post on each side with its flavour cap; the big ones (at the water's edge) carry a Cream ball."""
+    s, h = (1.7, 4.3) if big else (1.15, 3.75)
+    rx = BRIDGE["rail_x"] - (0.1 if big else 0)
+    for sx in (-1, 1):
+        rounded_box(col, f"{name}{sx}", "Caramel", (s, s, h), (sx * rx, y, h / 2), radius=0.18, segments=2)
+        tag(rounded_box(col, f"{name}Cap{sx}", "Pink", (s + 0.4, s + 0.4, 0.55), (sx * rx, y, h + 0.2), radius=0.2,
+                        segments=2), "Cap")
+        if big:
+            ball(col, f"{name}Ball{sx}", "Cream", 0.72, (sx * rx, y, h + 1.15), segments=16)
+
+
+def bridge_rail(col, y0, y1, balusters):
+    top = BRIDGE["rail_top"]
+    for sx in (-1, 1):
+        x = sx * BRIDGE["rail_x"]
+        rounded_box(col, f"Rail{sx}", "Cream", (0.75, y1 - y0, 0.55), (x, (y0 + y1) / 2, top - 0.275), radius=0.25,
+                    segments=2)
+        for i, y in enumerate(balusters):
+            rounded_box(col, f"Baluster{sx}_{i}", "Cream", (0.42, 0.42, top - 0.3), (x, y, (top - 0.3) / 2),
+                        radius=0.12, segments=1)
+
+
+def bridge_piles(col, y):
+    """Two Choco piles under the posts at y, from under the deck into the water, with a cross beam."""
+    z0, z1 = BRIDGE["pile_bottom"], -1.8
+    for sx in (-1, 1):
+        cylinder(col, f"Pile{sx}", "Choco", 0.6, z1 - z0, z0, center=(sx * 7.6, y), segments=12, bevel=0.1)
+    rounded_box(col, "CrossBeam", "Choco", (16.4, 0.8, 0.8), (0, y, -2.2), radius=0.2, segments=1)
+
+
+def bridge_rail_collision(y0, y1):
+    h = BRIDGE["collision_top"]
+    return [box((1.8, y1 - y0, h), (sx * BRIDGE["rail_x"], (y0 + y1) / 2, h / 2), f"Rail{'L' if sx < 0 else 'R'}")
+            for sx in (-1, 1)]
+
+
+def build_bridge_mid():
+    col = hk_collection("BridgeMid")
+    half = BRIDGE["mid"] / 2
+    bridge_deck(col, -half, half)
+    bridge_post(col, "Post", 0, big=False)
+    bridge_rail(col, -half, half, (-5.25, -3.75, -2.25, 2.25, 3.75, 5.25))
+    bridge_piles(col, 0)
+    SPECS["BridgeMid"] = dict(collision=bridge_rail_collision(-half, half), figure=(0, -3.0),
+                              note="12 long; the origin is the middle of the deck top; flavour on the part Cap")
+
+
+def build_bridge_end():
+    col = hk_collection("BridgeEnd")
+    half = BRIDGE["end"] / 2
+    edge = -half + BRIDGE["land"]  # the water's edge: the land lies at -Y
+    post_y = edge + 0.75
+    bridge_deck(col, -half, half)
+    bridge_post(col, "Post", post_y, big=True)
+    bridge_rail(col, post_y, half, (post_y + 1.5, post_y + 3.0, post_y + 4.5))
+    bridge_piles(col, post_y)
+    SPECS["BridgeEnd"] = dict(collision=bridge_rail_collision(post_y - 0.9, half), figure=(0, -3.6),
+                              note="9 long, the first 3 (at -Z in Roblox) lie on the land; origin the middle of the "
+                                   "deck top; flavour on the part Cap")
+
+
+def bridge_preview():
+    """The whole bridge (end, 4 middles, end turned round) between two pieces of land over water, with figures:
+    previews/Bridge.png (front, three quarter, top) and Bridge_Eye.png (a player's view from the ring)."""
+    clear_preview()
+    pc = preview_collection()
+    made = []
+    end, mid = BRIDGE["end"], BRIDGE["mid"]
+    pieces = [("BridgeEnd", end / 2, 0)] + [("BridgeMid", end + mid * (i + 0.5), 0) for i in range(4)]
+    pieces.append(("BridgeEnd", end + 4 * mid + end / 2, math.pi))
+    for name, y, turn in pieces:
+        for ob in bpy.data.collections["HK_" + name].all_objects:
+            if ob.type != "MESH":
+                continue
+            c = ob.copy()
+            c.data = ob.data.copy()
+            c.matrix_world = Matrix.Translation((0, y, 0)) @ Matrix.Rotation(turn, 4, "Z") @ ob.matrix_world
+            if ob.get("part") == "Cap":
+                c.data.materials[0] = material("Leaf")  # a flavour (Mint-ish) instead of the FBX Pink
+            pc.objects.link(c)
+            made.append(c)
+    total = 2 * end + 4 * mid
+    land = _flat_material("HK_Land", "#FFE9D0", roughness=0.7)
+    water = _flat_material("HK_Water", "#4CC3F0", roughness=0.2)
+    made.append(_preview_box(pc, "Ring", land, (40, 14, 15), (0, -14 / 2 + BRIDGE["land"], -7.5)))
+    made.append(_preview_box(pc, "Island", land, (40, 14, 15), (0, total + 14 / 2 - BRIDGE["land"], -7.5)))
+    _preview_box(pc, "Water", water, (60, total + 40, 0.2), (0, total / 2, -15.1))
+    figure(-3.0, 20.0, facing=1, scoops=20)
+    figure(3.5, 41.0, facing=-1, scoops=8, name="Figure2")
+    special_materials()
+    render_preview([], "Bridge", extra=made)
+    render_eye([], "Bridge_Eye", eye=(-4.0, -9.0, 5.2), target=(1.0, 30.0, 2.0), lens=22)
+    clear_preview()
+
+
 BUILDERS = {
     "IceTree": build_ice_tree,
     "FlowerBush": build_flower_bush,
@@ -1162,6 +1284,8 @@ BUILDERS = {
     "Cafe": build_cafe,
     "Pavilion": build_pavilion,
     "CartGarage": build_cart_garage,
+    "BridgeEnd": build_bridge_end,
+    "BridgeMid": build_bridge_mid,
 }
 
 
@@ -1487,4 +1611,8 @@ def write_studio_script():
 for _name in PACK or list(BUILDERS):
     BUILDERS[_name]()
     finish(_name)
+if all(f"HK_{n}" in bpy.data.collections for n in ("BridgeEnd", "BridgeMid")) and (
+    PACK is None or {"BridgeEnd", "BridgeMid"} & set(PACK)
+):
+    bridge_preview()
 write_studio_script()

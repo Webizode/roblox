@@ -33,6 +33,7 @@ exec(open(os.path.join(KIT_DIR, "arenakit.py"), encoding="utf-8").read(), global
 #   Wood          warm planks (bench, picnic table, barrels, crates, gate); Waffle stays the waffle
 #   Lamp          the lantern glass: glows in the preview, Neon with a PointLight in Studio
 #   Water         the fountain water: see-through in the preview, Transparency WATER_TRANSPARENCY in Studio
+#   Caramel       the bridge posts and side beams (07.11.2026), the colour of the walkway curbs
 PALETTE["Glass"] = PALETTE["SkyBlue"]
 GAME_COLOURS["Glass"] = GAME_COLOURS["SkyBlue"]
 PALETTE["Stone"] = "#E2A4B4"
@@ -45,6 +46,7 @@ for _name, _hex in {
     "Wood": "#C9783C",
     "Lamp": "#FFD66E",
     "Water": "#86DDF7",
+    "Caramel": "#C98A4F",  # bridge posts and side beams, as the walkway curbs and the hub fence caps
 }.items():
     PALETTE[_name] = _hex
     GAME_COLOURS[_name] = _hex
