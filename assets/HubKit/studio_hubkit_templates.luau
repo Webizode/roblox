@@ -31,12 +31,24 @@ local GAME_COLOURS = {
 }
 local GLASS_TRANSPARENCY = 0.55
 local WATER_TRANSPARENCY = 0.35
-local LIGHT = { colour = Color3.fromRGB(255, 214, 140), brightness = 2, range = 18 }
+local LIGHT = { colour = Color3.fromRGB(255, 214, 140), brightness = 2, range = 18, enabled = false }
 
 -- per model: boxes { size = Vector3, centre } or upright cylinders { size = (height, diameter, diameter) }
 local COLLISION = {
 	Barrel = {
 		{ kind = "cylinder", name = "Barrel", size = Vector3.new(3.3, 2.9, 2.9), centre = Vector3.new(0, 1.65, 0) },
+	},
+	Cafe = {
+		{ kind = "box", name = "House", size = Vector3.new(12, 7.9, 7), centre = Vector3.new(0, 3.95, 0) },
+		{ kind = "cylinder", name = "Table0", size = Vector3.new(2.6, 2.6, 2.6), centre = Vector3.new(3.2, 1.3, -6.4) },
+		{ kind = "cylinder", name = "Stool00", size = Vector3.new(1.95, 1.2, 1.2), centre = Vector3.new(5.3, 0.975, -6.4) },
+		{ kind = "cylinder", name = "Stool01", size = Vector3.new(1.95, 1.2, 1.2), centre = Vector3.new(1.1, 0.975, -6.4) },
+		{ kind = "cylinder", name = "Table1", size = Vector3.new(2.6, 2.6, 2.6), centre = Vector3.new(-3.2, 1.3, -6.4) },
+		{ kind = "cylinder", name = "Stool10", size = Vector3.new(1.95, 1.2, 1.2), centre = Vector3.new(-1.1, 0.975, -6.4) },
+		{ kind = "cylinder", name = "Stool11", size = Vector3.new(1.95, 1.2, 1.2), centre = Vector3.new(-5.3, 0.975, -6.4) },
+	},
+	CartGarage = {
+		{ kind = "box", name = "Garage", size = Vector3.new(12, 7.9, 9), centre = Vector3.new(0, 3.95, 0) },
 	},
 	Crate = {
 		{ kind = "box", name = "Crate", size = Vector3.new(3, 3, 3), centre = Vector3.new(0, 1.5, 0) },
@@ -54,6 +66,9 @@ local COLLISION = {
 		{ kind = "box", name = "FenceL", size = Vector3.new(4.85, 5, 1.6), centre = Vector3.new(10.925, 2.5, 0.3) },
 		{ kind = "box", name = "FenceR", size = Vector3.new(4.85, 5, 1.6), centre = Vector3.new(-10.925, 2.5, 0.3) },
 	},
+	IceKiosk = {
+		{ kind = "box", name = "Kiosk", size = Vector3.new(7, 7.3, 6), centre = Vector3.new(0, 3.65, 0) },
+	},
 	IceTree = {
 		{ kind = "cylinder", name = "Trunk", size = Vector3.new(11.95, 4, 4), centre = Vector3.new(0, 5.975, 0) },
 	},
@@ -66,6 +81,16 @@ local COLLISION = {
 		{ kind = "box", name = "Back", size = Vector3.new(7, 3.3, 0.7), centre = Vector3.new(0, 3.55, 1.05) },
 		{ kind = "box", name = "ArmL", size = Vector3.new(1.5, 3.1, 2.7), centre = Vector3.new(3.55, 1.55, 0) },
 		{ kind = "box", name = "ArmR", size = Vector3.new(1.5, 3.1, 2.7), centre = Vector3.new(-3.55, 1.55, 0) },
+	},
+	Pavilion = {
+		{ kind = "cylinder", name = "Floor", size = Vector3.new(0.45, 11, 11), centre = Vector3.new(0, 0.225, 0) },
+		{ kind = "cylinder", name = "Column0", size = Vector3.new(6.4, 1, 1), centre = Vector3.new(-3.811, 3.2, 2.2) },
+		{ kind = "cylinder", name = "Column1", size = Vector3.new(6.4, 1, 1), centre = Vector3.new(0, 3.2, 4.4) },
+		{ kind = "cylinder", name = "Column2", size = Vector3.new(6.4, 1, 1), centre = Vector3.new(3.811, 3.2, 2.2) },
+		{ kind = "cylinder", name = "Column3", size = Vector3.new(6.4, 1, 1), centre = Vector3.new(3.811, 3.2, -2.2) },
+		{ kind = "cylinder", name = "Column4", size = Vector3.new(6.4, 1, 1), centre = Vector3.new(0, 3.2, -4.4) },
+		{ kind = "cylinder", name = "Column5", size = Vector3.new(6.4, 1, 1), centre = Vector3.new(-3.811, 3.2, -2.2) },
+		{ kind = "cylinder", name = "Bench", size = Vector3.new(2.1, 3.5, 3.5), centre = Vector3.new(0, 1.05, 0) },
 	},
 	PicnicTable = {
 		{ kind = "cylinder", name = "Table", size = Vector3.new(2.7, 6, 6), centre = Vector3.new(0, 1.35, 0) },
@@ -92,9 +117,19 @@ local COLLISION = {
 }
 -- seats: where the seat's top is and the point it looks at
 local SEATS = {
+	Cafe = {
+		{ at = Vector3.new(5.3, 1.95, -6.4), look = Vector3.new(3.2, 1.95, -6.4) },
+		{ at = Vector3.new(1.1, 1.95, -6.4), look = Vector3.new(3.2, 1.95, -6.4) },
+		{ at = Vector3.new(-1.1, 1.95, -6.4), look = Vector3.new(-3.2, 1.95, -6.4) },
+		{ at = Vector3.new(-5.3, 1.95, -6.4), look = Vector3.new(-3.2, 1.95, -6.4) },
+	},
 	ParkBench = {
 		{ at = Vector3.new(1.6, 1.9, -0.05), look = Vector3.new(1.6, 1.9, -1.05) },
 		{ at = Vector3.new(-1.6, 1.9, -0.05), look = Vector3.new(-1.6, 1.9, -1.05) },
+	},
+	Pavilion = {
+		{ at = Vector3.new(0, 2.1, 1.9), look = Vector3.new(0, 2.1, 3) },
+		{ at = Vector3.new(0, 2.1, -1.9), look = Vector3.new(0, 2.1, -3) },
 	},
 	PicnicTable = {
 		{ at = Vector3.new(0, 1.95, -4.3), look = Vector3.new(0, 1.95, 0) },
@@ -207,6 +242,7 @@ for _, model in workspace:GetChildren() do
 				light.Color = LIGHT.colour
 				light.Brightness = LIGHT.brightness
 				light.Range = LIGHT.range
+				light.Enabled = LIGHT.enabled
 				light.Shadows = false
 				light.Parent = part
 				lights += 1

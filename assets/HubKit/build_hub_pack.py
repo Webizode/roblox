@@ -988,6 +988,162 @@ def build_harbor_gate():
     )
 
 
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# Filler buildings (06.11.2026, preview only, not placed yet): small houses in the same candy style between the
+# decoration. The big shops (upgrade, cosmetic, quest) get their own references later.
+# Colours after 60/30/10 (user, 06.11.2026): walls Cream, roof and plinth muted (Stone, Wood), strong colour only on
+# the awning, the sign and small accents (cushions, the swirl). Pink is used for those accents only, so Studio can give
+# the MeshPart <Model>_Pink the flavour of the sector it stands in.
+
+
+def stripe_awning(col, name, length, depth, back_z, front_z, stripes, center_y=0.0, colours=("Pink", "Cream")):
+    """A striped awning from back_z (at +Y) to front_z (at -Y), `stripes` stripes along X in turn, with a scalloped
+    valance on the front edge (like the plot kit awning, with disc_n)."""
+    w = length / stripes
+    ya, yb = center_y - depth / 2, center_y + depth / 2
+    run = math.hypot(yb - ya, back_z - front_z)
+    for i in range(stripes):
+        x = -length / 2 + w * (i + 0.5)
+        ob = rounded_box(col, f"{name}_Stripe{i}", colours[i % 2], (w + 0.02, run, 0.3), (0, 0, 0), radius=0.1,
+                         segments=2)
+        ob.rotation_euler = (math.atan2(back_z - front_z, yb - ya), 0, 0)
+        ob.location = (x, (ya + yb) / 2, (front_z + back_z) / 2)
+        disc_n(col, f"{name}_Scallop{i}", colours[i % 2], w * 0.5, 0.28, (x, ya - 0.05, front_z - 0.25), (0, -1, 0),
+               segments=14, bevel=0.1)
+
+
+def iced_roof(col, name, length, depth, top, colour="Pink", seed=1):
+    """A flat roof: a rounded slab in `colour` with the cream glaze and its drips on top (top at `top`)."""
+    rounded_box(col, name + "_Slab", colour, (length, depth, 0.7), (0, 0, top - 0.75), radius=0.3, segments=2)
+    glaze(col, name + "_Glaze", length - 0.2, depth - 0.2, top, thickness=0.45, seed=seed)
+
+
+# Ice Kiosk: a small cream booth on a pink plinth, a serving window with a waffle counter (3.0 high, a figure looks
+# over it from the chest up) under a striped awning, a glazed pink roof and a giant soft serve on a waffle cone on
+# top. 7 x 6, about 13.5 high.
+
+
+def build_ice_kiosk():
+    col = hk_collection("IceKiosk")
+    rounded_box(col, "Plinth", "Wood", (7.0, 6.0, 0.45), (0, 0, 0.225), radius=0.18, segments=2)
+    rounded_box(col, "Body", "Cream", (6.4, 5.4, 6.1), (0, 0, 0.45 + 3.05), radius=0.35, segments=2)
+    waffle_panel(col, "Front", (6.0, 0.3, 2.4), (0, -2.75, 1.65), spacing=1.2, ridge_width=0.4, faces=("front",))
+    rounded_box(col, "Counter", "Waffle", (6.8, 1.3, 0.45), (0, -3.1, 3.0), radius=0.15, segments=2)
+    rounded_box(col, "Window", "Choco", (5.2, 0.12, 2.2), (0, -2.72, 4.45), radius=0.05, segments=1)
+    for k, x in enumerate((-1.6, 0, 1.6)):
+        ball(col, f"Scoop{k}", ("Pink", "SkyBlue", "Cream")[k], 0.45, (x, -3.1, 3.6), segments=12)
+    stripe_awning(col, "Awning", 7.0, 2.2, 6.75, 6.1, 6, center_y=-3.4)
+    iced_roof(col, "Roof", 7.2, 6.2, 7.3, colour="Stone", seed=4)
+    waffle_cone(col, "Cone", 0.7, 1.7, 2.5, 7.3, spacing=1.1, ridge=0.34, segments=20)
+    soft_serve(col, "Swirl", "Pink", 2.0, 9.6, tiers=3)
+    for sx in (-1, 1):
+        cone_emblem(col, f"Emblem{sx}", (sx * 3.22, 0, 3.9), (sx, 0, 0), width=1.8, height=2.4)
+    SPECS["IceKiosk"] = dict(collision=[box((7.0, 6.0, 7.3), (0, 0, 3.65), "Kiosk")], figure=(-5.6, -5.0),
+                             note="serving window at the front (-Z in Roblox), counter top 3.0")
+
+
+# Cafe: a cream house with a pink plinth, two big windows (Glass) and a door, a striped awning over the terrace, a
+# glazed pink roof with the sign "CAFE" on top; in front two small round tables with two stools each (seats).
+# 12 wide, 11 deep with the terrace, about 10.5 high.
+
+CAFE_TABLES = [(-3.2, -6.4), (3.2, -6.4)]
+
+
+def build_cafe():
+    col = hk_collection("Cafe")
+    rounded_box(col, "Plinth", "Wood", (12.0, 7.0, 0.5), (0, 0, 0.25), radius=0.2, segments=2)
+    rounded_box(col, "Body", "Cream", (11.4, 6.4, 6.6), (0, 0, 0.5 + 3.3), radius=0.35, segments=2)
+    waffle_panel(col, "Base", (11.0, 0.3, 1.4), (0, -3.25, 1.2), spacing=1.2, ridge_width=0.4, faces=("front",))
+    for x in (-3.4, 3.4):
+        rounded_box(col, f"Frame{x}", "Waffle", (3.6, 0.3, 2.9), (x, -3.22, 3.75), radius=0.12, segments=1)
+        rounded_box(col, f"Glass{x}", "Glass", (3.0, 0.2, 2.3), (x, -3.32, 3.75), radius=0.05, segments=1)
+    rounded_box(col, "Door", "Choco", (1.9, 0.22, 3.9), (0, -3.28, 2.45), radius=0.12, segments=1)
+    ball(col, "Knob", "Gold", 0.15, (0.6, -3.42, 2.5), segments=8)
+    stripe_awning(col, "Awning", 11.6, 2.6, 6.6, 5.8, 8, center_y=-4.4)
+    iced_roof(col, "Roof", 12.0, 7.0, 7.9, colour="Stone", seed=7)
+    plate(col, "Sign", "Pink", stadium(6.4, 1.9), (0, -1.0, 9.15), (0, -1, 0), 0.35, bevel=0.12)
+    text_mesh(col, "SignText", "Cream", "CAFE", 1.3, (0, -1.4, 9.15))
+    for sx in (-2.6, 2.6):
+        rounded_box(col, f"SignLeg{sx}", "Waffle", (0.35, 0.35, 1.3), (sx, -0.8, 8.25), radius=0.1, segments=1)
+    seats, collision = [], [box((12.0, 7.0, 7.9), (0, 0, 3.95), "House")]
+    for t, (x, y) in enumerate(CAFE_TABLES):
+        cylinder(col, f"TableFoot{t}", "Cream", 0.5, 2.3, 0, center=(x, y), segments=16, radius_top=0.3)
+        cylinder(col, f"Table{t}", "Wood", 1.3, 0.3, 2.3, center=(x, y), segments=24, bevel=0.1)
+        cylinder(col, f"TableRim{t}", "Pink", 1.35, 0.12, 2.25, center=(x, y), segments=24, bevel=0.04)
+        collision.append(cyl(1.3, 2.6, (x, y), name=f"Table{t}"))
+        for s, sx in enumerate((-1, 1)):
+            cx = x + sx * 2.1
+            cylinder(col, f"Stool{t}{s}", "Cream", 0.5, 1.6, 0, center=(cx, y), segments=14, radius_top=0.4)
+            cylinder(col, f"Cushion{t}{s}", "Pink", 0.62, 0.35, 1.6, center=(cx, y), segments=16, bevel=0.15)
+            collision.append(cyl(0.6, 1.95, (cx, y), name=f"Stool{t}{s}"))
+            seats.append(dict(at=[cx, y, 1.95], look=[x, y, 1.95]))
+    SPECS["Cafe"] = dict(collision=collision, seats=seats, figure=(-8.0, -8.0),
+                         note="two tables with two stools each on the terrace in front (-Z in Roblox)")
+
+
+# Pavilion: a round open gazebo, a cream floor with a pink rim (one low step), six waffle columns, a striped pink and
+# cream dome with a gold ball and a cherry on top, a round bench in the middle. 11.6 wide, about 10.5 high.
+
+
+def build_pavilion():
+    col = hk_collection("Pavilion")
+    cylinder(col, "Rim", "Wood", 5.5, 0.3, 0, segments=36, bevel=0.1)
+    cylinder(col, "Floor", "Cream", 5.2, 0.45, 0, segments=36, bevel=0.12)
+    collision = [cyl(5.5, 0.45, name="Floor")]
+    for k in range(6):
+        a = 2 * math.pi * k / 6 + math.pi / 6
+        c = (4.4 * math.cos(a), 4.4 * math.sin(a))
+        waffle_cylinder(col, f"Column{k}", 0.42, 5.6, 0.45, center=c, spacing=1.0, ridge=0.28, segments=14)
+        cylinder(col, f"Cap{k}", "Gold", 0.6, 0.35, 6.05, center=c, segments=14, bevel=0.1)
+        collision.append(cyl(0.5, 6.4, c, name=f"Column{k}"))
+    cylinder(col, "Beam", "Cream", 5.0, 0.45, 6.35, segments=36, bevel=0.15)
+    drip_skirt(col, "BeamDrips", "Cream", 4.95, 6.5, drips=12, drop=(0.3, 0.8), width=(0.5, 0.9), thickness=0.22,
+               seed=21)
+    canopy(col, "Roof", 5.8, 9.4, 6.6, panels=12, colours=("Stone", "Cream"))
+    ball(col, "Finial", "Gold", 0.45, (0, 0, 9.6), segments=12)
+    cherry(col, "Cherry", (0, 0, 10.05), r=0.4)
+    cylinder(col, "Bench", "Wood", 1.6, 1.4, 0.45, segments=24, bevel=0.15)
+    cylinder(col, "BenchTop", "Pink", 1.75, 0.3, 1.8, segments=24, bevel=0.12)
+    collision.append(cyl(1.75, 2.1, name="Bench"))
+    seats = [dict(at=[1.9 * math.cos(a), 1.9 * math.sin(a), 2.1], look=[3.0 * math.cos(a), 3.0 * math.sin(a), 2.1])
+             for a in (math.pi / 2, math.pi * 3 / 2)]
+    SPECS["Pavilion"] = dict(collision=collision, seats=seats, figure=(-8.0, -6.0),
+                             note="open all round between the columns; the floor is one 0.45 step")
+
+
+# Cart Garage: where the ice cream carts sleep. A waffle-walled garage with a big pink and cream roll door (8 wide,
+# 5.5 high), a cream frame, a glazed pink roof with a cone sign and a soft serve, a pink step. 12 x 9, about 11 high.
+
+
+def build_cart_garage():
+    col = hk_collection("CartGarage")
+    rounded_box(col, "Plinth", "Wood", (12.0, 9.0, 0.4), (0, 0, 0.2), radius=0.18, segments=2)
+    for sx in (-1, 1):
+        # built facing -Y, then turned so the lattice faces out to the side
+        for ob in waffle_panel(col, f"Wall{sx}", (8.4, 0.6, 6.6), (0, 0, 0.4 + 3.3), spacing=1.4, ridge_width=0.45,
+                               faces=("front", "back")):
+            ob.rotation_euler = (0, 0, math.pi / 2)
+            ob.location = (sx * 5.6, 0, 0)
+    rounded_box(col, "Back", "Cream", (11.2, 0.6, 6.6), (0, 4.0, 3.7), radius=0.25, segments=2)
+    rounded_box(col, "Lintel", "Cream", (11.8, 0.9, 1.3), (0, -4.0, 6.4), radius=0.3, segments=2)
+    for sx in (-1, 1):
+        rounded_box(col, f"Jamb{sx}", "Cream", (1.4, 0.9, 5.7), (sx * 4.8, -4.0, 0.4 + 2.85), radius=0.25, segments=2)
+    for i in range(10):
+        rounded_box(col, f"Slat{i}", ("Stone", "Cream")[i % 2], (8.2, 0.3, 0.55), (0, -3.85, 0.7 + 0.55 * i),
+                    radius=0.12, segments=1)
+    rounded_box(col, "Handle", "Gold", (1.6, 0.25, 0.25), (0, -4.08, 1.3), radius=0.1, segments=1)
+    iced_roof(col, "Roof", 12.2, 9.2, 7.9, colour="Stone", seed=9)
+    # improvement 1: on the roll door, bigger; over the door the roof drips hid it
+    cone_emblem(col, "Emblem", (0, -4.05, 3.9), (0, -1, 0), width=1.9, height=2.5)
+    waffle_cone(col, "Cone", 0.55, 1.35, 2.0, 7.9, spacing=1.0, ridge=0.3, segments=18)
+    soft_serve(col, "Swirl", "SkyBlue", 1.6, 9.75, tiers=3)
+    SPECS["CartGarage"] = dict(collision=[box((12.0, 9.0, 7.9), (0, 0, 3.95), "Garage")], figure=(-8.0, -6.5),
+                               note="the roll door is closed (no inside); front -Z in Roblox")
+
+
+
 BUILDERS = {
     "IceTree": build_ice_tree,
     "FlowerBush": build_flower_bush,
@@ -1002,6 +1158,10 @@ BUILDERS = {
     "Barrel": build_barrel,
     "Crate": build_crate,
     "HarborGate": build_harbor_gate,
+    "IceKiosk": build_ice_kiosk,
+    "Cafe": build_cafe,
+    "Pavilion": build_pavilion,
+    "CartGarage": build_cart_garage,
 }
 
 
@@ -1176,6 +1336,7 @@ for _, model in workspace:GetChildren() do
 				light.Color = LIGHT.colour
 				light.Brightness = LIGHT.brightness
 				light.Range = LIGHT.range
+				light.Enabled = LIGHT.enabled
 				light.Shadows = false
 				light.Parent = part
 				lights += 1
@@ -1271,7 +1432,9 @@ def write_studio_script():
     out.append("}")
     out.append("local GLASS_TRANSPARENCY = 0.55")
     out.append("local WATER_TRANSPARENCY = 0.35")
-    out.append("local LIGHT = { colour = Color3.fromRGB(255, 214, 140), brightness = 2, range = 18 }")
+    # off by default (06.11.2026): in the daylight of the map the light washed the island edge, the bridge heads and
+    # the lantern feet out to white; the Neon glass glows without it. enabled = true for a night scene
+    out.append("local LIGHT = { colour = Color3.fromRGB(255, 214, 140), brightness = 2, range = 18, enabled = false }")
     out.append("")
     out.append("-- per model: boxes { size = Vector3, centre } or upright cylinders { size = (height, diameter, diameter) }")
     out.append("local COLLISION = {")

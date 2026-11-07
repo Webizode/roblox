@@ -212,4 +212,44 @@ Inhalt von `Hub`:
 - **Konsole beim Start:** 11.837 Landepunkte, wie vor dem vollen Ausbau. Die Landepunkte liegen nur im Umkreis 135 um die Big Swirl, der Hub kann sie nicht verändern. Keine neue Warnung. Die drei Meldungen `Covery.CoverBlock_10: its meshes stuck out of Collision` betreffen die Arena-Deckung, an der der Hub nichts ändert. Sie standen schon im ersten Playtest mit nur Sektor 1 da.
 - **Screenshots:** im Vault unter „Hub Deko Vorschau“.
 
+**Stand am 07.11.2026: Beete, Zaun, Füllgebäude, Licht**
+
+- **Grasbeete (`Sektor_XX.Beete`):**
+  - Die Beete sind 0,26 hoch, haben Ecken mit Radius 3 und tragen das Plot-Gras `WS_Grass`.
+  - Es gibt drei Felder je Sektor (`BEDS`): außen bei der Baumgruppe, innen davor und außen hinter der Bank.
+  - Ein Beet, das an Brunnen, Hafentor oder einer Shop-Fläche liegt, entfällt, dort bleibt Pflaster.
+- **Zaun (`Sektor_XX.Zaun`):**
+  - Er besteht aus `FenceSection` und `FencePost` aus dem Plot Kit, gesetzt bei r 231.
+  - Die Kappen sind Karamell #C98A4F, die Pfosten Schoko #6E4029.
+  - An jeder Brücke ist eine Lücke von 22,4 (der Weg ist 20 breit), am Hafentor eine von 28.
+  - Die Modelle haben keine eigene Kollision. Unsichtbare Wände bis y 40 stehen in `Sperre.Hubzaun.Sektor_XX` und stoppen nur Spieler (`playersOnlyFolders`). `studio_arena_rim.luau` lässt sie beim Neuaufbau der Sperre stehen.
+- **Füllgebäude (`Einzelstuecke`, `BUILDINGS`):**
+  - Café am Brunnen (Akzent Schoko), Pavillon im äußeren R-Beet von Sektor 2 (Akzent Mango), Kiosk am Innenfeld beim Hafentor (Akzent Lavendel).
+  - Nur das MeshPart `<Model>_Pink` (Markise, Schild, Kissen) nimmt die Sortenfarbe an.
+  - Die `CartGarage` liegt in `ServerStorage.HubKit`, steht aber nicht im Place.
+- **Laternen:** Das PointLight ist an, mit Helligkeit 1 und Reichweite 14. In der Vorlage ist es aus.
+- **Umfang:** 330 Modelle und 2.597 Teile im Hub, alle verankert. Davon sind 649 Wege, 126 Beete und 531 Zaun. Dazu kommen 177 Sperrwände in `Sperre.Hubzaun`.
+
+  | Modell | Anzahl |
+  |---|---|
+  | FenceSection | 164 |
+  | FlowerBush | 27 |
+  | Lantern | 24 |
+  | Crate | 21 |
+  | IceTree | 15 |
+  | Barrel, ParkBench | je 14 |
+  | FencePost | 13 |
+  | TrashBin, WafflePlanter | je 12 |
+  | Rock | 7 |
+  | Cafe, Pavilion, IceKiosk, Fountain, PicnicTable, HarborGate, Signpost | je 1 |
+
+- **Playtest:**
+  - In allen 12 Sektoren geht man von r 165 bis r 249 auf die Brücke, je 4,0 bis 4,2 s in Gehtempo.
+  - Teleport zu Arena und Plot funktioniert.
+  - Servieren mit 3 gesetzten Kugeln funktioniert (`StudioTowerTest`, dann zum ServePoint gelaufen).
+  - Am Hafentor stoppt das geschlossene Tor selbst, wie vorgesehen. Die Zaunlücke ist frei.
+  - Keine Kollision schneidet Wege, Plot-Wege oder Shop-Flächen.
+  - Keine neue Warnung. Die Meldung `rbxassetid://203785492 … Asset type does not match` steht weder im Place noch im Repo, sie kommt vom Studio-Avatar.
+- **Screenshots:** im Vault unter „Hub Deko Vorschau“, Dateien `2026-11-07 …` und `Komplett_*`.
+
 **Nach einem neuen Lauf von `assets/PlotKit/studio_plotkit_place.luau`** liegen die Wegsteine wieder tief. Dann `studio_hub_decor.luau` noch einmal laufen lassen.

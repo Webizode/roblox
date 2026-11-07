@@ -48,6 +48,218 @@
    }
   }
  },
+ "Cafe": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     3.95
+    ],
+    "kind": "box",
+    "name": "House",
+    "size": [
+     12.0,
+     7.0,
+     7.9
+    ]
+   },
+   {
+    "center": [
+     -3.2,
+     -6.4,
+     1.3
+    ],
+    "height": 2.6,
+    "kind": "cylinder",
+    "name": "Table0",
+    "radius": 1.3
+   },
+   {
+    "center": [
+     -5.3,
+     -6.4,
+     0.975
+    ],
+    "height": 1.95,
+    "kind": "cylinder",
+    "name": "Stool00",
+    "radius": 0.6
+   },
+   {
+    "center": [
+     -1.1,
+     -6.4,
+     0.975
+    ],
+    "height": 1.95,
+    "kind": "cylinder",
+    "name": "Stool01",
+    "radius": 0.6
+   },
+   {
+    "center": [
+     3.2,
+     -6.4,
+     1.3
+    ],
+    "height": 2.6,
+    "kind": "cylinder",
+    "name": "Table1",
+    "radius": 1.3
+   },
+   {
+    "center": [
+     1.1,
+     -6.4,
+     0.975
+    ],
+    "height": 1.95,
+    "kind": "cylinder",
+    "name": "Stool10",
+    "radius": 0.6
+   },
+   {
+    "center": [
+     5.3,
+     -6.4,
+     0.975
+    ],
+    "height": 1.95,
+    "kind": "cylinder",
+    "name": "Stool11",
+    "radius": 0.6
+   }
+  ],
+  "exported_triangles": 7478,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_Cafe.fbx",
+  "max": [
+   6.0,
+   3.7,
+   10.1
+  ],
+  "meshes": [
+   "Cafe_Choco",
+   "Cafe_Cream",
+   "Cafe_Glass",
+   "Cafe_Gold",
+   "Cafe_Pink",
+   "Cafe_Stone",
+   "Cafe_Waffle",
+   "Cafe_Wood"
+  ],
+  "min": [
+   -6.0,
+   -7.75,
+   0.0
+  ],
+  "note": "two tables with two stools each on the terrace in front (-Z in Roblox)",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\Cafe.png",
+  "seats": [
+   {
+    "at": [
+     -5.300000000000001,
+     -6.4,
+     1.95
+    ],
+    "look": [
+     -3.2,
+     -6.4,
+     1.95
+    ]
+   },
+   {
+    "at": [
+     -1.1,
+     -6.4,
+     1.95
+    ],
+    "look": [
+     -3.2,
+     -6.4,
+     1.95
+    ]
+   },
+   {
+    "at": [
+     1.1,
+     -6.4,
+     1.95
+    ],
+    "look": [
+     3.2,
+     -6.4,
+     1.95
+    ]
+   },
+   {
+    "at": [
+     5.300000000000001,
+     -6.4,
+     1.95
+    ],
+    "look": [
+     3.2,
+     -6.4,
+     1.95
+    ]
+   }
+  ],
+  "size": [
+   12.0,
+   11.45,
+   10.1
+  ],
+  "triangles": 7478
+ },
+ "CartGarage": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     3.95
+    ],
+    "kind": "box",
+    "name": "Garage",
+    "size": [
+     12.0,
+     9.0,
+     7.9
+    ]
+   }
+  ],
+  "exported_triangles": 4668,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_CartGarage.fbx",
+  "max": [
+   6.1,
+   4.8,
+   13.47
+  ],
+  "meshes": [
+   "CartGarage_Cherry",
+   "CartGarage_Cream",
+   "CartGarage_Gold",
+   "CartGarage_Pink",
+   "CartGarage_SkyBlue",
+   "CartGarage_Stone",
+   "CartGarage_Waffle",
+   "CartGarage_Wood"
+  ],
+  "min": [
+   -6.1,
+   -4.8,
+   0.0
+  ],
+  "note": "the roll door is closed (no inside); front -Z in Roblox",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\CartGarage.png",
+  "size": [
+   12.2,
+   9.6,
+   13.47
+  ],
+  "triangles": 4668
+ },
  "Crate": {
   "collision": [
    {
@@ -283,6 +495,55 @@
   ],
   "triangles": 9064
  },
+ "IceKiosk": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     3.65
+    ],
+    "kind": "box",
+    "name": "Kiosk",
+    "size": [
+     7.0,
+     6.0,
+     7.3
+    ]
+   }
+  ],
+  "exported_triangles": 5610,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_IceKiosk.fbx",
+  "max": [
+   3.6,
+   3.3,
+   14.24
+  ],
+  "meshes": [
+   "IceKiosk_Cherry",
+   "IceKiosk_Choco",
+   "IceKiosk_Cream",
+   "IceKiosk_Gold",
+   "IceKiosk_Pink",
+   "IceKiosk_SkyBlue",
+   "IceKiosk_Stone",
+   "IceKiosk_Waffle",
+   "IceKiosk_Wood"
+  ],
+  "min": [
+   -3.6,
+   -4.69,
+   0.0
+  ],
+  "note": "serving window at the front (-Z in Roblox), counter top 3.0",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\IceKiosk.png",
+  "size": [
+   7.2,
+   7.99,
+   14.24
+  ],
+  "triangles": 5610
+ },
  "IceTree": {
   "collision": [
    {
@@ -509,6 +770,153 @@
    6.26
   ],
   "triangles": 3304
+ },
+ "Pavilion": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.225
+    ],
+    "height": 0.45,
+    "kind": "cylinder",
+    "name": "Floor",
+    "radius": 5.5
+   },
+   {
+    "center": [
+     3.811,
+     2.2,
+     3.2
+    ],
+    "height": 6.4,
+    "kind": "cylinder",
+    "name": "Column0",
+    "radius": 0.5
+   },
+   {
+    "center": [
+     0.0,
+     4.4,
+     3.2
+    ],
+    "height": 6.4,
+    "kind": "cylinder",
+    "name": "Column1",
+    "radius": 0.5
+   },
+   {
+    "center": [
+     -3.811,
+     2.2,
+     3.2
+    ],
+    "height": 6.4,
+    "kind": "cylinder",
+    "name": "Column2",
+    "radius": 0.5
+   },
+   {
+    "center": [
+     -3.811,
+     -2.2,
+     3.2
+    ],
+    "height": 6.4,
+    "kind": "cylinder",
+    "name": "Column3",
+    "radius": 0.5
+   },
+   {
+    "center": [
+     -0.0,
+     -4.4,
+     3.2
+    ],
+    "height": 6.4,
+    "kind": "cylinder",
+    "name": "Column4",
+    "radius": 0.5
+   },
+   {
+    "center": [
+     3.811,
+     -2.2,
+     3.2
+    ],
+    "height": 6.4,
+    "kind": "cylinder",
+    "name": "Column5",
+    "radius": 0.5
+   },
+   {
+    "center": [
+     0,
+     0,
+     1.05
+    ],
+    "height": 2.1,
+    "kind": "cylinder",
+    "name": "Bench",
+    "radius": 1.75
+   }
+  ],
+  "exported_triangles": 9040,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\fbx\\HubKit_Pavilion.fbx",
+  "max": [
+   5.8,
+   5.8,
+   11.25
+  ],
+  "meshes": [
+   "Pavilion_Cherry",
+   "Pavilion_Cream",
+   "Pavilion_Gold",
+   "Pavilion_Pink",
+   "Pavilion_Stone",
+   "Pavilion_Waffle",
+   "Pavilion_Wood"
+  ],
+  "min": [
+   -5.8,
+   -5.8,
+   0.0
+  ],
+  "note": "open all round between the columns; the floor is one 0.45 step",
+  "preview": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\HubKit\\previews\\Pavilion.png",
+  "seats": [
+   {
+    "at": [
+     1.1634144591899854e-16,
+     1.9,
+     2.1
+    ],
+    "look": [
+     1.8369701987210297e-16,
+     3.0,
+     2.1
+    ]
+   },
+   {
+    "at": [
+     -3.490243377569956e-16,
+     -1.9,
+     2.1
+    ],
+    "look": [
+     -5.51091059616309e-16,
+     -3.0,
+     2.1
+    ]
+   }
+  ],
+  "size": [
+   11.6,
+   11.6,
+   11.25
+  ],
+  "triangles": 9040
  },
  "PicnicTable": {
   "collision": [

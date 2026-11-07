@@ -129,10 +129,18 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
   - **Pro Sektor:** Vorplatz mit Laternen, Bank, Mülleimer und Blumentopf, eine Baumgruppe in den Sortenfarben, eine Kisten- und Fassgruppe.
   - **Einmalig:** Brunnen bei 180°, Hafentor „Coming Soon“ mit Wegweiser bei 300°.
   - **Shop-Flächen:** Platzhalter für Upgrade Shop (0°), Cosmetic Shop (120°) und Quest Hub (240°), dort keine Deko.
-  - **Umfang:** 137 Modelle, 1.807 Teile.
-  - **Getestet:** Gehen, Sprint und Dash laufen über alle Kanten ohne Hängenbleiben, Teleport funktioniert, der ServePoint ist erreichbar, keine neuen Landepunkte oder Warnungen.
+  - **Grasbeete und Außenzaun** (seit 07.11.2026, in Sektor 1 freigegeben, dann auf alle 12): bis zu drei flache Grasbeete je Sektor mit runden Ecken. Neben Brunnen, Hafentor und Shop-Flächen bleibt der Platz gepflastert. Um den Ring läuft bei r 231 ein Zaun aus dem Plot Kit mit Karamell-Kappen und Schoko-Pfosten, also neutral. Er hat Lücken an allen 12 Brücken (22,4 breit) und am Hafentor. Unsichtbare Wände bis y 40 stehen in `Sperre.Hubzaun` und stoppen nur Spieler.
+  - **Füllgebäude:** Es gibt nur drei: das Café am Brunnen, den Pavillon im äußeren Beet von Sektor 2 und den Kiosk am leeren Innenfeld beim Hafentor. Wände und Dach sind gedämpft, nur Markise und Schild tragen eine Sortenfarbe. Die Garage ist gebaut, steht aber nicht im Place, weil der Ring sonst zu voll wirkte.
+  - **Laternen:** Das Licht ist an, mit Helligkeit 1 und Reichweite 14. Vorher waren es 2 und 18, damit wirkten die Brückenköpfe weiß.
+  - **Umfang:** 330 Modelle (davon 177 Zaunteile) und 2.597 Teile im Hub. Davon sind 649 Wege, 126 Beete und 531 Zaun, dazu 177 Sperrwände. Die ganze Map hat 7.357 Teile.
+  - **Getestet am 07.11.2026:**
+    - In allen 12 Sektoren geht man von der Rampenoberkante bis auf die Brücke (r 165 bis 249) in normalem Gehtempo, je 4,0 bis 4,2 s.
+    - Teleport zu Arena und Plot funktioniert.
+    - Echtes Servieren mit 3 Kugeln am ServePoint funktioniert.
+    - Keine Kollision eines Modells schneidet Wege oder Shop-Flächen.
+    - Keine neue Warnung.
   - Skript und Einzelheiten: `assets/HubKit/studio_hub_decor.luau` und `assets/HubKit/README.md`.
-  - Offen: Echtes Servieren mit gefangenen Kugeln ist auf den erhöhten Plot-Wegen noch nicht getestet. Läuft das Plot-Kit-Skript neu, liegen die Wegsteine wieder tief, dann das Hub-Skript erneut laufen lassen.
+  - Offen: Läuft das Plot-Kit-Skript neu, liegen die Wegsteine wieder tief, dann das Hub-Skript erneut laufen lassen.
 - **Sortenfarben** (seit 06.11.2026, vorher fast nur Pink und Creme): Jeder Sektor (Plot, Rampe, Eingangsbogen, Arena-Rand vor der Rampe, Brücke) hat eine von 12 Sorten: Mint, Mango, Blaubeere, Zitrone, Lavendel, Erdbeere, Pistazie, Bubblegum, Karamell, Himmelblau, Schoko, Kirsche (Plot 01 bis 12). So erkennt man von der Arena aus den Weg zum eigenen Plot. Die Deckungen sind gemischt in allen 12 Sorten. Pfosten sind in Schoko, Inselsockel und Streifenkante in Karamell. Hub-Ring und Streifen sind Vanille-Creme statt Rosa. Es ist nur umgefärbt, die alte Farbe steht in jedem Teil im Attribut `FlavorOrigColor`. Skript und Tabelle: `assets/MapColors/`.
   - Offen: Die Ziegelwand zur Arena gibt es in Vanille (im Place) oder in Karamell, die Wahl trifft der Nutzer.
   - Für später: Die Inselsockel brauchen Struktur, etwa Waffel oder einen Schoko-Glasurrand mit Tropfen. Heute sind es glatte Karamell-Flächen.
