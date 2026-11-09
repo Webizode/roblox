@@ -16,8 +16,10 @@
 --       .ServePoint                     BasePart (invisible, no collision or queries), about 3 studs above the ground
 --                                       on the plot island in front of the Sell Cart's counter (the cart at the
 --                                       back, in the middle): where the player serves (the old safe zone is around it)
---       .Body.Label                     optional BillboardGui with a TextLabel, shows the owner (over the plot sign)
---       .Area                           optional ObjectValue, the plot island in the map (Ice Cream Map.Plots)
+--       .Body.Label                     optional BillboardGui with a TextLabel, shows the owner over the plot sign,
+--                                       only when the island's sign has no name plates (PlotService)
+--       .Area                           optional ObjectValue, the plot island in the map (Ice Cream Map.Plots); its
+--                                       PlotKit.PlotSign.NamePlate_Front / _Back carry the owner's name on the sign
 --       .Spawn                          optional SpawnLocation (invisible, no collision) on the plot's round plaza,
 --                                       out of the serve radius: where the player spawns and the "my plot" button
 --                                       brings them; without it they spawn a few studs in front of the ServePoint

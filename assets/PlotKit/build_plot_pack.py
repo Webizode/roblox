@@ -158,7 +158,7 @@ def build_sell_cart():
     # the cone badge on the roof: a Cream disc in a Gold ring with the cone shield on it
     badge_z = SC["ridge"] + 1.9
     disc(col, "BadgeRing", "Gold", 2.15, 0.5, (0, 0.4, badge_z), axis="Y", segments=24, bevel=0.15)
-    disc(col, "Badge", "Cream", 1.9, 0.6, (0, 0.35, badge_z), axis="Y", segments=24, bevel=0.15)
+    disc(col, "Badge", "Cream", 1.9, 0.56, (0, 0.33, badge_z), axis="Y", segments=24, bevel=0.15)
     cone_emblem(col, "BadgeCone", (0, 0.05, badge_z), (0, -1, 0), width=2.0, height=2.7)
     rounded_box(col, "BadgeFoot", "Gold", (1.2, 0.6, 1.0), (0, 0.4, SC["ridge"] + 0.3), radius=0.2,
                 segments=1)
@@ -198,7 +198,7 @@ def gear(col, name, center, radius, teeth=10, thickness=0.6):
         t = rounded_box(col, f"{name}_Tooth{k}", "Gold", (0.95, thickness, 0.8), (0, 0, 0), radius=0.18, segments=1)
         t.rotation_euler = (0, -a, 0)
         t.location = (cx + (radius + 0.25) * math.cos(a), cy, cz + (radius + 0.25) * math.sin(a))
-    disc(col, name + "_Face", "Cream", radius * 0.78, thickness + 0.1, (cx, cy - 0.05, cz), axis="Y", segments=24,
+    disc(col, name + "_Face", "Cream", radius * 0.78, thickness + 0.06, (cx, cy - 0.07, cz), axis="Y", segments=24,
          bevel=0.15)
 
 
@@ -313,7 +313,7 @@ def build_working_station():
     bx, by = -3.0, b - 1.3
     cylinder(col, "BowlStand", "Waffle", 0.6, 2.4, 0.3, center=(bx, by), segments=12, bevel=0.1)
     cylinder(col, "Bowl", "Cream", 1.0, 0.9, 2.7, center=(bx, by), segments=18, bevel=0.2, radius_top=1.5)
-    cylinder(col, "BowlIce", "Pink", 1.35, 0.25, 3.35, center=(bx, by), segments=18, bevel=0.1)
+    cylinder(col, "BowlIce", "Pink", 1.35, 0.29, 3.35, center=(bx, by), segments=18, bevel=0.1)
     _tube(col, "Nozzle", "Gold", [[(bx, b - 0.2, 6.2), (bx, by, 6.2), (bx, by, 4.7)]], 0.45, sides=6)
     cylinder(col, "NozzleTip", "Gold", 0.35, 0.5, 4.3, center=(bx, by), segments=10, bevel=0.1, radius_top=0.2)
     # awning, ridge, gear badge

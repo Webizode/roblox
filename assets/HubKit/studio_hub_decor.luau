@@ -848,14 +848,15 @@ local function grassTerrain()
 	local columns = 0
 	for ix = 1, mats.Size.X do
 		for iz = 1, mats.Size.Z do
+			local x, z = lo.X + (ix - 0.5) * 4, lo.Z + (iz - 0.5) * 4
+			local r = math.sqrt(x * x + z * z)
+			-- the region's corners reach the plot islands (Plot_02 and others): their grass (studio_plot_grass.luau) stays
 			for iy = 1, mats.Size.Y do
-				if mats[ix][iy][iz] == Enum.Material.Grass then
+				if r < 260 and mats[ix][iy][iz] == Enum.Material.Grass then
 					mats[ix][iy][iz] = Enum.Material.Air
 					occs[ix][iy][iz] = 0
 				end
 			end
-			local x, z = lo.X + (ix - 0.5) * 4, lo.Z + (iz - 0.5) * 4
-			local r = math.sqrt(x * x + z * z)
 			if r > 171 and r < 232 and onLawn(x, z) then
 				local all = true
 				for i = 0, 7 do

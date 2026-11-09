@@ -66,13 +66,84 @@ function PlotService.placeCharacter(character: Model, spot: Vector3)
 	character:PivotTo(CFrame.lookAt(at, Vector3.new(map.center.X, at.Y, map.center.Z)))
 end
 
--- The name over a taken plot; a free plot shows nothing (text nil).
+-- The owner's name written on the plot sign: a SurfaceGui on each name plate (NamePlate_Front on the cream name
+-- field, NamePlate_Back behind the waffle back, assets/PlotKit/studio_plot_sign_names.luau). The front writes straight
+-- on the cream; the back gets its own small cream plaque. The text shrinks to fit long names.
+local SIGN_INK = Color3.fromHex(Palette.chocolate)
+local SIGN_CREAM = Color3.fromHex("#FFE9D0")
+local SIGN_PIXELS_PER_STUD = 60
+
+local function signText(plate: BasePart, plaque: boolean): TextLabel
+	local gui = plate:FindFirstChild("NameGui") :: SurfaceGui?
+	if gui then
+		return gui:FindFirstChildWhichIsA("TextLabel", true) :: TextLabel
+	end
+	local surface = Instance.new("SurfaceGui")
+	surface.Name = "NameGui"
+	surface.Face = Enum.NormalId.Front
+	surface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	surface.PixelsPerStud = SIGN_PIXELS_PER_STUD
+	surface.LightInfluence = 1
+	surface.ResetOnSpawn = false
+	local holder: Instance = surface
+	if plaque then
+		local frame = Instance.new("Frame")
+		frame.AnchorPoint = Vector2.new(0.5, 0.5)
+		frame.Position = UDim2.fromScale(0.5, 0.5)
+		frame.Size = UDim2.fromScale(0.9, 0.8)
+		frame.BackgroundColor3 = SIGN_CREAM
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.3, 0)
+		corner.Parent = frame
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = SIGN_INK
+		stroke.Thickness = 6
+		stroke.Parent = frame
+		frame.Parent = surface
+		holder = frame
+	end
+	local text = Instance.new("TextLabel")
+	text.AnchorPoint = Vector2.new(0.5, 0.5)
+	text.Position = UDim2.fromScale(0.5, 0.5)
+	text.Size = UDim2.fromScale(0.86, 0.72)
+	text.BackgroundTransparency = 1
+	text.Font = Enum.Font.FredokaOne
+	text.TextColor3 = SIGN_INK
+	text.TextScaled = true
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MaxTextSize = 110
+	limit.MinTextSize = 20
+	limit.Parent = text
+	text.Parent = holder
+	surface.Parent = plate
+	return text
+end
+
+-- The name on a taken plot's sign; a free plot shows nothing (text nil). The floating BillboardGui (Body.Label) is
+-- only the fallback for a map whose signs have no name plates.
 local function setLabel(plot: Model, text: string?)
+	local area = plot:FindFirstChild("Area")
+	local island = area and area:IsA("ObjectValue") and area.Value
+	local kit = island and island:FindFirstChild("PlotKit")
+	local sign = kit and kit:FindFirstChild("PlotSign")
+	local plates = 0
+	for _, name in { "NamePlate_Front", "NamePlate_Back" } do
+		local plate = sign and sign:FindFirstChild(name)
+		if plate and plate:IsA("BasePart") then
+			local label = signText(plate, name == "NamePlate_Back")
+			label.Text = text or ""
+			local gui = label:FindFirstAncestorOfClass("SurfaceGui")
+			if gui then
+				gui.Enabled = text ~= nil
+			end
+			plates += 1
+		end
+	end
 	local body = plot:FindFirstChild("Body")
-	local label = body and body:FindFirstChild("Label")
-	local textLabel = label and label:FindFirstChildOfClass("TextLabel")
-	if label and label:IsA("BillboardGui") then
-		label.Enabled = text ~= nil
+	local billboard = body and body:FindFirstChild("Label")
+	local textLabel = billboard and billboard:FindFirstChildOfClass("TextLabel")
+	if billboard and billboard:IsA("BillboardGui") then
+		billboard.Enabled = text ~= nil and plates == 0
 	end
 	if textLabel then
 		textLabel.Text = text or ""

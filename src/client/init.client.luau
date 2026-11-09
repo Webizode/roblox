@@ -18,6 +18,7 @@ local ORDER = {
 	"RemoteTowers",
 	"SettingsController",
 	"TeleportMenu",
+	"FountainWater",
 }
 
 local registry = {}
