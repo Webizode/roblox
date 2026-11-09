@@ -26,3 +26,4 @@ assets/PlotKit/previews/
 # hub kit previews and FBX: made by assets/HubKit/run_hubkit.py, previews copied to the vault (Hub Kit Vorschau)
 assets/HubKit/previews/
 assets/HubKit/fbx/
+__pycache__/
