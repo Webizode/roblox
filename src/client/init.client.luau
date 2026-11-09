@@ -19,6 +19,7 @@ local ORDER = {
 	"SettingsController",
 	"TeleportMenu",
 	"FountainWater",
+	"Ocean",
 }
 
 local registry = {}

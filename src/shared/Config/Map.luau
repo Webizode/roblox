@@ -24,6 +24,23 @@ return {
 	respawnMargin = 1.5,
 	waterCheckInterval = 0.25, -- seconds between the server's checks
 
+	-- the open sea to the horizon (client only, Controllers/Ocean): the terrain sea is a 1024 x 1024 square that ends
+	-- in plain sight, so every client lays one flat sea over it that follows the camera: a part of tileSize studs drawn
+	-- `scale` times as wide (SpecialMesh), `lift` above waterLevel (over the terrain water, whose waves would poke through
+	-- a lower sea as dark patches), so there is one look everywhere and no square edge. It moves in steps of
+	-- studsPerTile, so the drifting wave picture (assets/World/make_ocean_texture.py) never jumps. No collision, queries
+	-- or touch: players and scoops still fall into the terrain sea below (respawn below waterLevel + respawnMargin).
+	ocean = {
+		tileSize = 2048,
+		scale = 24,
+		lift = 0.6,
+		colour = "#1478D2",
+		texture = "rbxassetid://90970251688437", -- Ocean_Waves.png
+		studsPerTile = 48,
+		wavesTransparency = 0.25,
+		drift = { u = 1.4, v = 0.7 }, -- studs per second: calm
+	},
+
 	-- the arena zone (ArenaZone): the sunken floor round the Big Swirl and the 12 ramps up to their top edge, where a
 	-- coloured line marks the start of the safe zone. Inside, scoops fly and ice balls hit; outside (the strip, the hub,
 	-- the bridges and the plot islands) nobody is hit and the teleport buttons show. One line, both ways: no hysteresis.
