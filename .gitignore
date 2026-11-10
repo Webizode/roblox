@@ -30,3 +30,6 @@ __pycache__/
 # deco kit FBX: made by assets/DecoKit/run_decokit.py, previews go straight to the vault (Deko Kit Vorschau)
 assets/DecoKit/fbx/
 assets/DecoKit/previews/
+# shop kit FBX: made by assets/ShopKit/run_shopkit.py, previews go straight to the vault (Shop Kit Vorschau)
+assets/ShopKit/fbx/
+assets/ShopKit/previews/
