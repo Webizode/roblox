@@ -52,7 +52,7 @@ local LAWN = {
 	{ near = (RING_MID - RING_W / 2 - CURB) / math.cos(CHORD_HALF), mid = 180, far = 171.05 },
 	{ near = (RING_MID + RING_W / 2 + CURB) / math.cos(CHORD_HALF), mid = 206, far = 231.8 },
 }
-local LAWN_COLOUR = "#82B84E" -- juicy meadow green, warmer than the first #8FD45E; the terrain grass takes the same
+local LAWN_COLOUR = "#6FA046" -- meadow green; since 10.11.2026 darker and less yellow (was #82B84E, under CartoonColor it read lime); the terrain grass takes the same
 local LAWN_STEP = 1.875 -- degrees per straight piece along the arcs away from the walkway (the strip, the fence)
 local WAY_CUT = 6 + CURB -- the way from the ramp to the bridge: its curbs end 6.6 from its middle
 -- the forecourt at every bridge (lanterns, bench, planter, bin): |u| < u from r0 out to the fence, corners rounded
@@ -882,6 +882,7 @@ local function grassTerrain()
 		d.CanQuery = false
 	end
 	T.Decoration = true
+	T.GrassLength = 0.4 -- since 10.11.2026 (was 0.7): long blades in front of the camera read as spikes
 	T:SetMaterialColor(Enum.Material.Grass, Color3.fromHex(LAWN_COLOUR))
 	return columns
 end

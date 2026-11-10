@@ -1,0 +1,538 @@
+{
+ "BushFlower": {
+  "collision": [],
+  "exported_triangles": 3904,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_BushFlower.fbx",
+  "max": [
+   3.45,
+   3.29,
+   4.43
+  ],
+  "meshes": [
+   "BushFlower_Cream",
+   "BushFlower_Gold",
+   "BushFlower_Leaf",
+   "BushFlower_LeafDark",
+   "BushFlower_Pink"
+  ],
+  "min": [
+   -3.46,
+   -3.26,
+   -0.34
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\BushFlower.png",
+  "size": [
+   6.92,
+   6.54,
+   4.77
+  ],
+  "triangles": 3904
+ },
+ "BushRound": {
+  "collision": [],
+  "exported_triangles": 2464,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_BushRound.fbx",
+  "max": [
+   3.52,
+   3.31,
+   4.43
+  ],
+  "meshes": [
+   "BushRound_Leaf",
+   "BushRound_LeafDark"
+  ],
+  "min": [
+   -3.47,
+   -3.23,
+   -0.34
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\BushRound.png",
+  "size": [
+   6.99,
+   6.55,
+   4.77
+  ],
+  "triangles": 2464
+ },
+ "BushSmall": {
+  "collision": [],
+  "exported_triangles": 696,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_BushSmall.fbx",
+  "max": [
+   1.89,
+   1.84,
+   1.44
+  ],
+  "meshes": [
+   "BushSmall_Leaf",
+   "BushSmall_LeafDark"
+  ],
+  "min": [
+   -1.7,
+   -1.84,
+   -0.18
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\BushSmall.png",
+  "size": [
+   3.59,
+   3.68,
+   1.62
+  ],
+  "triangles": 696
+ },
+ "Hedge": {
+  "collision": [],
+  "exported_triangles": 2876,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_Hedge.fbx",
+  "max": [
+   5.46,
+   2.5,
+   3.2
+  ],
+  "meshes": [
+   "Hedge_Leaf",
+   "Hedge_LeafDark"
+  ],
+  "min": [
+   -5.0,
+   -2.49,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\Hedge.png",
+  "size": [
+   10.46,
+   4.99,
+   3.2
+  ],
+  "triangles": 2876
+ },
+ "IceTreeUpright": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     4.35
+    ],
+    "kind": "box",
+    "name": "Trunk",
+    "size": [
+     2.32,
+     2.32,
+     8.7
+    ]
+   }
+  ],
+  "exported_triangles": 4136,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_IceTreeUpright.fbx",
+  "max": [
+   4.12,
+   4.13,
+   16.56
+  ],
+  "meshes": [
+   "IceTreeUpright_Cherry",
+   "IceTreeUpright_Cream",
+   "IceTreeUpright_Crown2_Pink",
+   "IceTreeUpright_Crown_SkyBlue",
+   "IceTreeUpright_Gold",
+   "IceTreeUpright_SkyBlue",
+   "IceTreeUpright_Waffle"
+  ],
+  "min": [
+   -4.13,
+   -4.13,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\IceTreeUpright.png",
+  "size": [
+   8.26,
+   8.27,
+   16.56
+  ],
+  "triangles": 4136,
+  "variants": {
+   "Lemon": {
+    "Crown": "Gold",
+    "Crown2": "Pink"
+   },
+   "Mint": {
+    "Crown": "Mint",
+    "Crown2": "Cream"
+   }
+  }
+ },
+ "Leaderboard": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     5.85
+    ],
+    "kind": "box",
+    "name": "Sign",
+    "size": [
+     11.2,
+     1.4,
+     11.7
+    ]
+   }
+  ],
+  "display": {
+   "center": [
+    0,
+    -0.6200000000000001,
+    6.6
+   ],
+   "size": [
+    8.299999999999999,
+    6.7
+   ]
+  },
+  "exported_triangles": 5194,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_Leaderboard.fbx",
+  "header": {
+   "center": [
+    0,
+    -0.73,
+    11.350000000000001
+   ],
+   "size": [
+    8.8,
+    1.2
+   ]
+  },
+  "max": [
+   7.45,
+   1.29,
+   15.71
+  ],
+  "meshes": [
+   "Leaderboard_Caramel",
+   "Leaderboard_Cherry",
+   "Leaderboard_Choco",
+   "Leaderboard_Cream",
+   "Leaderboard_Gold",
+   "Leaderboard_Leaf",
+   "Leaderboard_Pink",
+   "Leaderboard_SkyBlue",
+   "Leaderboard_Waffle"
+  ],
+  "min": [
+   -7.45,
+   -1.49,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\Leaderboard.png",
+  "size": [
+   14.9,
+   2.78,
+   15.71
+  ],
+  "triangles": 5194
+ },
+ "LollipopTree": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     3.8
+    ],
+    "kind": "box",
+    "name": "Trunk",
+    "size": [
+     0.72,
+     0.72,
+     7.6
+    ]
+   }
+  ],
+  "exported_triangles": 2940,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_LollipopTree.fbx",
+  "max": [
+   3.5,
+   1.33,
+   14.1
+  ],
+  "meshes": [
+   "LollipopTree_Cream",
+   "LollipopTree_Pink",
+   "LollipopTree_SkyBlue",
+   "LollipopTree_Waffle"
+  ],
+  "min": [
+   -3.5,
+   -1.33,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\LollipopTree.png",
+  "size": [
+   7.0,
+   2.66,
+   14.1
+  ],
+  "triangles": 2940
+ },
+ "PalmBent": {
+  "collision": [
+   {
+    "center": [
+     0.25,
+     0,
+     3.1
+    ],
+    "kind": "box",
+    "name": "Trunk",
+    "size": [
+     1.7,
+     1.7,
+     6.2
+    ]
+   }
+  ],
+  "exported_triangles": 4652,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_PalmBent.fbx",
+  "max": [
+   7.94,
+   5.13,
+   12.94
+  ],
+  "meshes": [
+   "PalmBent_Caramel",
+   "PalmBent_Cherry",
+   "PalmBent_Cream",
+   "PalmBent_Gold",
+   "PalmBent_Leaf",
+   "PalmBent_LeafDark",
+   "PalmBent_Pink",
+   "PalmBent_Rock",
+   "PalmBent_SkyBlue",
+   "PalmBent_Waffle"
+  ],
+  "min": [
+   -3.46,
+   -5.87,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\PalmBent.png",
+  "size": [
+   11.41,
+   11.01,
+   12.94
+  ],
+  "triangles": 4652
+ },
+ "PalmStraight": {
+  "collision": [
+   {
+    "center": [
+     0.0,
+     0,
+     3.1
+    ],
+    "kind": "box",
+    "name": "Trunk",
+    "size": [
+     1.7,
+     1.7,
+     6.2
+    ]
+   }
+  ],
+  "exported_triangles": 4652,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_PalmStraight.fbx",
+  "max": [
+   5.45,
+   5.23,
+   13.32
+  ],
+  "meshes": [
+   "PalmStraight_Caramel",
+   "PalmStraight_Cherry",
+   "PalmStraight_Cream",
+   "PalmStraight_Gold",
+   "PalmStraight_Leaf",
+   "PalmStraight_LeafDark",
+   "PalmStraight_Pink",
+   "PalmStraight_Rock",
+   "PalmStraight_SkyBlue",
+   "PalmStraight_Waffle"
+  ],
+  "min": [
+   -5.6,
+   -5.92,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\PalmStraight.png",
+  "size": [
+   11.05,
+   11.15,
+   13.32
+  ],
+  "triangles": 4652
+ },
+ "RockFlat": {
+  "collision": [],
+  "exported_triangles": 700,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_RockFlat.fbx",
+  "max": [
+   3.74,
+   1.79,
+   1.49
+  ],
+  "meshes": [
+   "RockFlat_Leaf",
+   "RockFlat_Rock"
+  ],
+  "min": [
+   -2.42,
+   -2.31,
+   -0.03
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\RockFlat.png",
+  "size": [
+   6.16,
+   4.09,
+   1.51
+  ],
+  "triangles": 700
+ },
+ "RockGroup": {
+  "collision": [],
+  "exported_triangles": 840,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_RockGroup.fbx",
+  "max": [
+   2.61,
+   1.14,
+   1.67
+  ],
+  "meshes": [
+   "RockGroup_Leaf",
+   "RockGroup_Rock"
+  ],
+  "min": [
+   -1.94,
+   -1.13,
+   -0.01
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\RockGroup.png",
+  "size": [
+   4.55,
+   2.27,
+   1.69
+  ],
+  "triangles": 840
+ },
+ "RockRound": {
+  "collision": [],
+  "exported_triangles": 876,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_RockRound.fbx",
+  "max": [
+   3.65,
+   1.61,
+   3.65
+  ],
+  "meshes": [
+   "RockRound_Leaf",
+   "RockRound_Rock"
+  ],
+  "min": [
+   -2.61,
+   -1.78,
+   -0.03
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\RockRound.png",
+  "size": [
+   6.27,
+   3.38,
+   3.68
+  ],
+  "triangles": 876
+ },
+ "TreeRound": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     3.6
+    ],
+    "kind": "box",
+    "name": "Trunk",
+    "size": [
+     1.52,
+     1.52,
+     7.2
+    ]
+   }
+  ],
+  "exported_triangles": 1696,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_TreeRound.fbx",
+  "max": [
+   4.52,
+   4.29,
+   13.46
+  ],
+  "meshes": [
+   "TreeRound_Leaf",
+   "TreeRound_LeafDark",
+   "TreeRound_Wood"
+  ],
+  "min": [
+   -4.41,
+   -4.24,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\TreeRound.png",
+  "size": [
+   8.92,
+   8.53,
+   13.46
+  ],
+  "triangles": 1696
+ },
+ "TreeTall": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.6
+    ],
+    "kind": "box",
+    "name": "Trunk",
+    "size": [
+     0.96,
+     0.96,
+     3.2
+    ]
+   }
+  ],
+  "exported_triangles": 1148,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\DecoKit\\fbx\\DecoKit_TreeTall.fbx",
+  "max": [
+   2.19,
+   2.24,
+   18.77
+  ],
+  "meshes": [
+   "TreeTall_Leaf",
+   "TreeTall_LeafDark",
+   "TreeTall_Wood"
+  ],
+  "min": [
+   -2.19,
+   -2.24,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Deko Kit Vorschau\\TreeTall.png",
+  "size": [
+   4.37,
+   4.48,
+   18.77
+  ],
+  "triangles": 1148
+ }
+}

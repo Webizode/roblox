@@ -27,3 +27,6 @@ assets/PlotKit/previews/
 assets/HubKit/previews/
 assets/HubKit/fbx/
 __pycache__/
+# deco kit FBX: made by assets/DecoKit/run_decokit.py, previews go straight to the vault (Deko Kit Vorschau)
+assets/DecoKit/fbx/
+assets/DecoKit/previews/

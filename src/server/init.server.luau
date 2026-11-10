@@ -15,6 +15,7 @@ local ORDER = {
 	"LootService",
 	"DebugDummies",
 	"WalkTimer",
+	"LeaderboardService",
 }
 
 local registry = {}

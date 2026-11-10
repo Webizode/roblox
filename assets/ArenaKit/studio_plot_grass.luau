@@ -21,7 +21,7 @@
 -- TERRAIN.serveFree of the ServePoint (the serve radius is 8).
 
 local GRASS = { name = "WS_Grass", picture = "rbxassetid://79201403556010", studs = 16 }
-local TINT = Color3.fromHex("#82B84E") -- the hub lawn's colour (LAWN_COLOUR); until 08.11.2026 #FFFFFF
+local TINT = Color3.fromHex("#6FA046") -- the hub lawn's colour (LAWN_COLOUR); #82B84E until 10.11.2026, #FFFFFF until 08.11.2026
 local TERRAIN = { occ = 0.72, inset = 3.5, serveFree = 12 } -- occ and inset as the hub (GRASS_TERRAIN)
 local SURFACE_Y = 9.0 -- Config/Map.plot.surfaceY
 local BODY_DROP = 0.1
@@ -157,6 +157,7 @@ for _, plot in workspace["Ice Cream Map"].Plots:GetChildren() do
 	end
 end
 workspace.Terrain.Decoration = true
+workspace.Terrain.GrassLength = 0.4 -- as the hub (studio_hub_decor.luau)
 workspace.Terrain:SetMaterialColor(Enum.Material.Grass, TINT)
 return `{done} plot surfaces are grass ({GRASS.name}, {GRASS.studs} studs per tile, {TINT:ToHex()}), {lowered} island`
 	.. ` bodies lowered, {columns} terrain grass columns`
