@@ -35,6 +35,7 @@ type PlayerState = {
 	combatMode: boolean, -- only in combat mode can the player charge and throw; off after every respawn
 	lastModeAt: number,
 	unshieldedUntil: number, -- a throw from the own cart's safe zone lifts its protection until then
+	lastHitAt: number, -- server time of the last hit that did harm (the teleport lock, TeleportRules)
 }
 
 type Ball = {
@@ -399,6 +400,7 @@ local function hitPlayer(
 		publishKnock(victim, state.knock)
 		registry.TowerService.hitStance(victim, power)
 		lastHitBy[victim] = { thrower = ball.thrower, at = time }
+		state.lastHitAt = time
 		if knockdown then
 			Remotes.HitFeedback:FireClient(ball.thrower, "knockdown", victim, 0)
 			state.downUntil = time + Config.knockdownTime
@@ -538,6 +540,12 @@ function CombatService.downUntil(player: Player): number
 	return if state then state.downUntil else 0
 end
 
+-- Seconds since the player last took a hit that did harm (math.huge without one): the teleport buttons wait it out.
+function CombatService.sinceHit(player: Player): number
+	local state = states[player]
+	return if state then now() - state.lastHitAt else math.huge
+end
+
 -- Whether the player is in combat mode (the same state the CombatMode attribute shows).
 function CombatService.inCombatMode(player: Player): boolean
 	local state = states[player]
@@ -566,6 +574,7 @@ function CombatService.Start()
 			combatMode = false,
 			lastModeAt = -math.huge,
 			unshieldedUntil = 0,
+			lastHitAt = -math.huge,
 		}
 		states[player] = state
 		publishAmmo(player, state)

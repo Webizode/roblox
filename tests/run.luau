@@ -31,6 +31,7 @@ require("./MouseRules.spec")
 require("./HitPoints.spec")
 require("./PlotLayout.spec")
 require("./LeaderboardRules.spec")
+require("./TeleportRules.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

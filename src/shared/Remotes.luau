@@ -40,7 +40,10 @@ local DEFINITIONS = {
 	LootClaim = "RemoteEvent", -- client -> server: id (the local player walked over a free scoop)
 	LootRejected = "RemoteEvent", -- server -> claimant: id (the scoop stays on the ground)
 	SaveSettings = "RemoteEvent", -- client -> server: the settings table (DataService checks and saves it)
-	TeleportRequest = "RemoteEvent", -- client -> server: "plot" or "arena" (ArenaService checks it)
+	-- client -> server: "plot", "arena" or a shop ("upgrades", "quests", "cosmetics", Config/Map.teleportTargets);
+	-- ArenaService checks it (TeleportRules)
+	TeleportRequest = "RemoteEvent",
+	TeleportDenied = "RemoteEvent", -- server -> asker: why a teleport was refused ("down", "hit"; TeleportRules)
 }
 
 local remotes = {}

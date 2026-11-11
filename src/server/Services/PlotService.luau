@@ -51,8 +51,9 @@ function PlotService.arenaEntry(player: Player): Vector3?
 	return if entry and entry:IsA("BasePart") then entry.Position else nil
 end
 
--- Puts a character on the ground at (and under) `spot`, standing still and looking towards the Big Swirl.
-function PlotService.placeCharacter(character: Model, spot: Vector3)
+-- Puts a character on the ground at (and under) `spot`, standing still and looking towards `facing` (a point; the Big
+-- Swirl when nil).
+function PlotService.placeCharacter(character: Model, spot: Vector3, facing: Vector3?)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not humanoid or not root then
@@ -63,7 +64,8 @@ function PlotService.placeCharacter(character: Model, spot: Vector3)
 	local feet = ground.y or spot.Y
 	local at = Vector3.new(spot.X, feet + humanoid.HipHeight + root.Size.Y / 2 + 0.2, spot.Z)
 	root.AssemblyLinearVelocity = Vector3.zero
-	character:PivotTo(CFrame.lookAt(at, Vector3.new(map.center.X, at.Y, map.center.Z)))
+	local look = facing or map.center
+	character:PivotTo(CFrame.lookAt(at, Vector3.new(look.X, at.Y, look.Z)))
 end
 
 -- The owner's name written on the plot sign: a SurfaceGui on each name plate (NamePlate_Front on the cream name

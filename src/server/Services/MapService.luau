@@ -10,6 +10,11 @@
 --                                       missing), e.g. copies of ServerStorage.ArenaKit.CoverBlock
 --     .Sperre                           optional: invisible walls that only stop players (Config/Map.playersOnlyFolders),
 --                                       over the arena rim between the ramps; rays look through them
+--     .Dekoracje.Hub.Teleport_Upgrade   optional BaseParts (invisible, anchored, no collision, queries or touch) on the
+--     .Dekoracje.Hub.Teleport_Quest     paved forecourt of each shop, front (-Z) to its counter: where the shop
+--     .Dekoracje.Hub.Teleport_Cosmetic  buttons bring the player (Config/Map.teleportTargets, ArenaService); several
+--                                       of one name are fine, the nearest is taken; without one that button does
+--                                       nothing (a warning at the start)
 --   Workspace.Pier                      Folder with the invisible helpers
 --     .Plots.<Name>                     one Model per player plot (Plot_01, ...; ModelStreamingMode Persistent, so
 --                                       every client has every ServePoint), each with

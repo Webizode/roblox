@@ -3,10 +3,16 @@
 --
 -- The server asks ArenaZone with the character's position whenever it needs to know (inArena), so its answer is never
 -- late, and mirrors it as the player attribute InArena every frame. Only players in the arena are hit by ice balls
--- (CombatService) and get scoops aimed at them (LauncherService). Outside it the client shows two buttons, "my plot"
--- and "arena" (TeleportMenu, which asks ArenaZone itself); a TeleportRequest is granted for a living character outside
--- the arena, as often as the player likes. Only requests closer together than Config/Map.teleportMinInterval are
--- dropped, against floods. The target is streamed in first.
+-- (CombatService) and get scoops aimed at them (LauncherService). Outside it the client shows the teleport buttons
+-- (TeleportMenu, which asks ArenaZone itself): "my plot", "arena" and the three shops. The client only names the
+-- target; TeleportRules decides, the same for all five: a living character outside the arena, not knocked down and
+-- not hit for Config/Map.teleportHitLock seconds. Requests closer together than teleportMinInterval are dropped
+-- against floods. A refusal for a knockdown or a recent hit is told to the client (TeleportDenied), the others are
+-- silent (the buttons do not show in the arena). The target is streamed in first.
+--
+-- The shops' targets are invisible parts under Ice Cream Map.Dekoracje.Hub (Config/Map.teleportTargets), found once at
+-- the start; with several of one name the nearest is taken. Players land on the first free spot round it
+-- (teleportSlots), looking at the counter.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,11 +23,14 @@ local Config = Shared:WaitForChild("Config")
 local MapConfig = require(Config:WaitForChild("Map"))
 local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local TeleportRules = require(Shared:WaitForChild("TeleportRules"))
 
 local ArenaService = {}
 
 local registry
 local lastRequest: { [Player]: number } = {}
+-- request name ("upgrades", ...) -> its target parts in the map
+local shopTargets: { [string]: { BasePart } } = {}
 
 local function rootOf(player: Player): BasePart?
 	local character = player.Character
@@ -46,23 +55,70 @@ local function publish()
 	end
 end
 
+-- Where a shop button brings the player: the nearest target part of that shop, on its first free spot, and the point
+-- the player looks at (the counter, ahead of the part).
+local function shopSpot(player: Player, where: string, from: Vector3): (Vector3?, Vector3?)
+	local parts = shopTargets[where]
+	if not parts or #parts == 0 then
+		return nil, nil
+	end
+	local points = {}
+	for index, target in parts do
+		points[index] = { target.Position.X, target.Position.Z }
+	end
+	local target = parts[TeleportRules.nearest(points, from.X, from.Z) or 1]
+	local frame = target.CFrame
+	local spots = {}
+	for index, slot in MapConfig.teleportSlots do
+		-- right, and back: away from the counter (the part's front is -Z)
+		local world = frame:PointToWorldSpace(Vector3.new(slot[1], 0, slot[2]))
+		spots[index] = { world.X, world.Z }
+	end
+	local others = {}
+	for _, other in Players:GetPlayers() do
+		local root = if other ~= player then rootOf(other) else nil
+		if root then
+			table.insert(others, { root.Position.X, root.Position.Z })
+		end
+	end
+	local chosen = spots[TeleportRules.spot(spots, others, MapConfig.teleportSlotGap)]
+	local spot = Vector3.new(chosen[1], target.Position.Y, chosen[2])
+	return spot, spot + frame.LookVector * 10
+end
+
 local function onTeleport(player: Player, where: any)
-	if where ~= "plot" and where ~= "arena" then
-		return
-	end
 	local time = os.clock()
-	if time - (lastRequest[player] or -math.huge) < MapConfig.teleportMinInterval then
-		return
-	end
-	lastRequest[player] = time
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not character or not humanoid or humanoid.Health <= 0 or ArenaService.inArena(player) then
-		return -- no buttons in the arena: getting out alive is the game
+	local refusal = TeleportRules.refusal({
+		where = where,
+		alive = character ~= nil and humanoid ~= nil and humanoid.Health > 0,
+		inArena = ArenaService.inArena(player), -- no buttons in the arena: getting out alive is the game
+		down = registry.CombatService.isDown(player),
+		sinceHit = registry.CombatService.sinceHit(player),
+		sinceRequest = time - (lastRequest[player] or -math.huge),
+	}, MapConfig)
+	if refusal ~= "unknown" and refusal ~= "flood" then
+		lastRequest[player] = time
 	end
-	local target = if where == "plot"
-		then registry.PlotService.spawnSpot(player)
-		else registry.PlotService.arenaEntry(player)
+	if refusal then
+		if refusal == "down" or refusal == "hit" then
+			Remotes.TeleportDenied:FireClient(player, refusal)
+		end
+		return
+	end
+	local root = rootOf(player)
+	if not character or not humanoid or not root then
+		return
+	end
+	local target: Vector3?, facing: Vector3? = nil, nil
+	if where == "plot" then
+		target = registry.PlotService.spawnSpot(player)
+	elseif where == "arena" then
+		target = registry.PlotService.arenaEntry(player)
+	else
+		target, facing = shopSpot(player, where, root.Position)
+	end
 	if not target then
 		return
 	end
@@ -71,7 +127,28 @@ local function onTeleport(player: Player, where: any)
 		player:RequestStreamAroundAsync(target)
 	end)
 	if player.Character == character and humanoid.Health > 0 then
-		registry.PlotService.placeCharacter(character, target)
+		registry.PlotService.placeCharacter(character, target, facing)
+	end
+end
+
+-- The shops' target parts, by request name; a warning for each one the map lacks (its button then does nothing).
+local function findShopTargets()
+	local map = registry.MapService.map
+	local deco = map and map:FindFirstChild("Dekoracje")
+	local hub = deco and deco:FindFirstChild("Hub")
+	for where, name in MapConfig.teleportTargets do
+		local parts = {}
+		if hub then
+			for _, descendant in hub:GetDescendants() do
+				if descendant.Name == name and descendant:IsA("BasePart") then
+					table.insert(parts, descendant)
+				end
+			end
+		end
+		shopTargets[where] = parts
+		if #parts == 0 then
+			warn(`[Arena] no teleport target Dekoracje.Hub.{name} in the map: the "{where}" button does nothing`)
+		end
 	end
 end
 
@@ -90,6 +167,7 @@ function ArenaService.Init(reg)
 			)
 		)
 	end
+	findShopTargets()
 end
 
 function ArenaService.Start()

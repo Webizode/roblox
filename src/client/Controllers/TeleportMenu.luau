@@ -1,8 +1,10 @@
--- The teleport buttons at the top of the screen ("my plot", "arena") and the "safe zone" note under them. Both show
--- only outside the arena; the client asks ArenaZone with the character's position, the same function the server uses,
+-- The teleport buttons at the top of the screen and the "safe zone" note under them: "my plot" and "arena" big, the
+-- three shops ("upgrades", "quests", "cosmetics") in a smaller row under them, as wide as the two. All show only
+-- outside the arena; the client asks ArenaZone with the character's position, the same function the server uses,
 -- and changes what it shows once the answer has held for Config/Map.arena.displayDelay, so nothing flickers on the
--- line. The buttons are always clickable (mouse, touch, gamepad selection); the server decides at once and drops only
--- request floods. Features.debugArenaZone draws the zone half transparent.
+-- line. The buttons are always clickable (mouse, touch, gamepad selection) and only name the target; the server decides
+-- (TeleportRules: not in the arena, not knocked down, not right after a hit) and says why when a knockdown or a hit
+-- stops it (a toast). Features.debugArenaZone draws the zone half transparent.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local MapConfig = require(Config:WaitForChild("Map"))
 local Features = require(Config:WaitForChild("Features"))
+local Palette = require(Config:WaitForChild("Palette"))
 local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local client = script.Parent.Parent
@@ -19,6 +22,66 @@ local Ui = require(client:WaitForChild("Ui"))
 
 local TeleportMenu = {}
 
+-- the shop row: three buttons as wide together as the two big ones (2 x 150 + 12)
+local SHOP_GAP = 6
+local SHOP_WIDTH = (2 * 150 + 12 - 2 * SHOP_GAP) / 3
+local SHOP_HEIGHT = 42
+local ICON = 16
+
+-- A rounded bar of the icon, `w` x `h` pixels, centred at (x, y) in the icon, turned `rotation` degrees.
+local function bar(parent: Frame, x: number, y: number, w: number, h: number, rotation: number, color: Color3)
+	local piece = Instance.new("Frame")
+	piece.AnchorPoint = Vector2.new(0.5, 0.5)
+	piece.Position = UDim2.fromOffset(x, y)
+	piece.Size = UDim2.fromOffset(w, h)
+	piece.Rotation = rotation
+	piece.BorderSizePixel = 0
+	piece.BackgroundColor3 = color
+	piece.Parent = parent
+	Ui.corner(piece, UDim.new(0.5, 0))
+	return piece
+end
+
+-- the shops' symbols, built from frames like every icon (Ui): an arrow up, a gem, an exclamation mark
+local SHOPS = {
+	{
+		where = "upgrades",
+		text = "UPGRADES",
+		color = "mint",
+		icon = function(icon: Frame, color: Color3)
+			bar(icon, 8, 10.5, 3.5, 10, 0, color)
+			bar(icon, 5.4, 5.4, 3.5, 8.5, 45, color)
+			bar(icon, 10.6, 5.4, 3.5, 8.5, -45, color)
+		end,
+	},
+	{
+		where = "quests",
+		text = "QUESTS",
+		color = "skyTop",
+		icon = function(icon: Frame, color: Color3)
+			bar(icon, 8, 6, 4, 10.5, 0, color)
+			bar(icon, 8, 14.2, 4, 4, 0, color)
+		end,
+	},
+	{
+		where = "cosmetics",
+		text = "COSMETICS",
+		color = "strawberry",
+		icon = function(icon: Frame, color: Color3)
+			local gem = bar(icon, 8, 8, 10, 10, 45, color)
+			gem:FindFirstChildOfClass("UICorner").CornerRadius = UDim.new(0, 2)
+			bar(icon, 6.6, 6.6, 3, 3, 45, Ui.color("vanilla")).BackgroundTransparency = 0.3
+		end,
+	},
+}
+
+-- why the server said no (TeleportDenied), as the player reads it
+local DENIED = {
+	down = "Can't teleport while knocked down",
+	hit = "You just got hit! Walk away first",
+}
+
+local registry
 local player = Players.LocalPlayer
 local zone = MapConfig.arena
 local panel: Frame
@@ -80,6 +143,18 @@ local function drawZone()
 	folder.Parent = workspace
 end
 
+-- the coloured stripe on a button's left edge
+local function stripe(button: GuiObject, color: string, x: number, inset: number)
+	local frame = Instance.new("Frame")
+	frame.Name = "Stripe"
+	frame.Size = UDim2.new(0, if inset >= 8 then 8 else 6, 1, -2 * inset)
+	frame.Position = UDim2.fromOffset(x, inset)
+	frame.BorderSizePixel = 0
+	frame.BackgroundColor3 = Ui.color(color)
+	frame.Parent = button
+	Ui.corner(frame, UDim.new(0.5, 0))
+end
+
 local function build()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "Teleport"
@@ -122,13 +197,56 @@ local function build()
 			Parent = bar,
 		})
 		-- a coloured stripe on the left says which one it is at a glance
-		local stripe = Instance.new("Frame")
-		stripe.Size = UDim2.new(0, 8, 1, -16)
-		stripe.Position = UDim2.fromOffset(10, 8)
-		stripe.BorderSizePixel = 0
-		stripe.BackgroundColor3 = Ui.color(entry.color)
-		stripe.Parent = button
-		Ui.corner(stripe, UDim.new(0.5, 0))
+		stripe(button, entry.color, 10, 8)
+		button.Activated:Connect(function()
+			Remotes.TeleportRequest:FireServer(entry.where)
+		end)
+	end
+
+	-- the shops: a smaller row under the two big buttons, exactly as wide, each with its stripe, a symbol and a word under it
+	local shops = Instance.new("Frame")
+	shops.Name = "Shops"
+	shops.LayoutOrder = 2
+	shops.Size = UDim2.fromOffset(0, SHOP_HEIGHT)
+	shops.AutomaticSize = Enum.AutomaticSize.X
+	shops.BackgroundTransparency = 1
+	shops.Parent = panel
+	Ui.list(shops, Enum.FillDirection.Horizontal, SHOP_GAP)
+	for order, entry in SHOPS do
+		local button = Ui.button({
+			Name = entry.where,
+			LayoutOrder = order,
+			Size = UDim2.fromOffset(SHOP_WIDTH, SHOP_HEIGHT),
+			Selectable = true,
+			Parent = shops,
+		})
+		local corner = button:FindFirstChildOfClass("UICorner") :: UICorner
+		corner.CornerRadius = UDim.new(0, 10)
+		stripe(button, entry.color, 7, 6)
+		local icon = Instance.new("Frame")
+		icon.Name = "Icon"
+		-- the symbol on top, the word under it over the whole width right of the stripe
+		icon.AnchorPoint = Vector2.new(0.5, 0)
+		icon.Position = UDim2.new(0.5, 4, 0, 5)
+		icon.Size = UDim2.fromOffset(ICON, ICON)
+		icon.BackgroundTransparency = 1
+		icon.Parent = button
+		entry.icon(icon, Ui.color(entry.color))
+		local label = Ui.text({
+			Name = "Label",
+			Text = entry.text,
+			AutomaticSize = Enum.AutomaticSize.None,
+			AnchorPoint = Vector2.new(0, 1),
+			Position = UDim2.new(0, 15, 1, -3),
+			Size = UDim2.new(1, -19, 0, 16),
+			TextScaled = true,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			Parent = button,
+		})
+		local limit = Instance.new("UITextSizeConstraint")
+		limit.MaxTextSize = 16
+		limit.MinTextSize = 11
+		limit.Parent = label
 		button.Activated:Connect(function()
 			Remotes.TeleportRequest:FireServer(entry.where)
 		end)
@@ -137,7 +255,7 @@ local function build()
 	-- the note that nobody can hit you here
 	local note = Ui.card({
 		Name = "SafeZone",
-		LayoutOrder = 2,
+		LayoutOrder = 3,
 		Size = UDim2.fromOffset(0, 28),
 		AutomaticSize = Enum.AutomaticSize.X,
 		Parent = panel,
@@ -149,8 +267,18 @@ local function build()
 	Ui.text({ Text = "SAFE ZONE", TextSize = 16, TextColor3 = Ui.color("mint"), LayoutOrder = 2, Parent = note })
 end
 
+function TeleportMenu.Init(reg)
+	registry = reg
+end
+
 function TeleportMenu.Start()
 	build()
+	Remotes.TeleportDenied.OnClientEvent:Connect(function(reason: string)
+		local text = DENIED[reason]
+		if text then
+			registry.Hud.toast(text, Palette.strawberry)
+		end
+	end)
 	if Features.debugArenaZone then
 		drawZone()
 	end

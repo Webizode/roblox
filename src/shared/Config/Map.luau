@@ -63,6 +63,30 @@ return {
 	},
 	-- seconds a player's teleport requests are at least apart: only against floods, nobody clicks that fast
 	teleportMinInterval = 0.25,
+	-- no teleport for this many seconds after a hit that did harm (and none while knocked down): a button is never a
+	-- way out of a fight, walking out of the arena is (TeleportRules)
+	teleportHitLock = 3,
+	-- the shop buttons: request name -> the invisible target part (Anchored, no collision, queries or touch) somewhere
+	-- under Ice Cream Map.Dekoracje.Hub, on the paved forecourt in front of the shop's counter, its front (-Z) towards
+	-- the counter. With several parts of one name the nearest is taken.
+	teleportTargets = {
+		upgrades = "Teleport_Upgrade",
+		quests = "Teleport_Quest",
+		cosmetics = "Teleport_Cosmetic",
+	},
+	-- spots round a shop target, so players arriving together do not land on each other: studs to the target's right
+	-- and back (away from the counter). The first one nobody stands on (closer than teleportSlotGap) is taken.
+	teleportSlots = {
+		{ 0, 0 },
+		{ -3.5, 0 },
+		{ 3.5, 0 },
+		{ -1.75, 3 },
+		{ 1.75, 3 },
+		{ -5.25, 3 },
+		{ 5.25, 3 },
+		{ 0, 6 },
+	},
+	teleportSlotGap = 3,
 
 	-- The 12 plot islands (PlotLayout), one on every lane (arena.firstRamp + k * 360 / arena.ramps), each at the end of
 	-- its bridge. A rectangle `width` along the ring by `depth` along the lane, its inner long side facing the arena; the
