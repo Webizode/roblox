@@ -99,7 +99,7 @@ local MAIN = {
 	"#FF7480", -- 06 Erdbeere
 	"#B4D46A", -- 07 Pistazie
 	"#F06AAE", -- 08 Bubblegum
-	"#E8B877", -- 09 Karamell
+	"#C8792F", -- 09 Karamell (#E8B877 until 11.11.2026)
 	"#75D6F2", -- 10 Himmelblau
 	"#9A6244", -- 11 Schoko
 	"#D7304E", -- 12 Kirsche

@@ -31,9 +31,10 @@ local deco = map:FindFirstChild("Dekoracje") or Instance.new("Folder")
 deco.Name = "Dekoracje"
 deco.Parent = map
 -- the hub fence walls (assets/HubKit/studio_hub_decor.luau) and the bridge walls (assets/HubKit/studio_bridges.luau)
--- live in Sperre.Hubzaun and Sperre.Bruecken: they stay
+-- live in Sperre.Hubzaun and Sperre.Bruecken, the plot fence walls (assets/PlotKit/studio_plot_rand.luau) in
+-- Sperre.Plotrand: they stay
 local kept = {}
-for _, name in { "Hubzaun", "Bruecken" } do
+for _, name in { "Hubzaun", "Bruecken", "Plotrand" } do
 	local f = map:FindFirstChild("Sperre") and map.Sperre:FindFirstChild(name)
 	if f then
 		f.Parent = nil

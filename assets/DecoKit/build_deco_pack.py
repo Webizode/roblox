@@ -91,7 +91,8 @@ def build_hedge():
             tips.append(((x, side * 0.5, height * 0.86), side * math.pi / 2 + rng.uniform(-0.3, 0.3), -0.15, 1.5,
                          1.25))
     leaves(col, "Leaves", "Leaf", tips)
-    SPECS["Hedge"] = dict(collision=[], figure=(-6.8, -2.6))
+    # one box inside the leaves, so nobody walks through (Map Check 2026-11-11)
+    SPECS["Hedge"] = dict(collision=[box((9.4, 3.0, 3.0), (0, 0, 1.5), name="Body")], figure=(-6.8, -2.6))
 
 
 def build_bush_small():
@@ -286,7 +287,8 @@ def build_rock_round():
     _rock(col, "Mid", (2.6, 2.3, 2.1), (1.5, -0.8), seed=102)
     _rock(col, "Pebble", (1.0, 0.9, 0.6), (-2.2, -1.2), seed=103)
     _blades(col, "Blades", [(-2.4, -0.2, 0.2, 1.3), (-2.2, 0.2, -0.4, 1.1), (2.6, 0.6, 0.6, 1.2), (2.9, 0.3, -0.2, 1.0)])
-    SPECS["RockRound"] = dict(collision=[], figure=(-4.6, -2.4))
+    # one box inside the two big rocks, so nobody walks through (Map Check 2026-11-11)
+    SPECS["RockRound"] = dict(collision=[box((4.1, 2.7, 3.6), (0, 0, 1.8), name="Rock")], figure=(-4.6, -2.4))
 
 
 def build_rock_flat():

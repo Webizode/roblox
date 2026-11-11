@@ -27,7 +27,7 @@ Die Rampe liegt bei 75° − 30°·(k−1). So erkennt man von der Arena aus am 
 | 06 | Erdbeere | #FF7480 | #C93A4E |
 | 07 | Pistazie | #B4D46A | #6F9132 |
 | 08 | Bubblegum (das bisherige Pink) | #F06AAE | #A8327A |
-| 09 | Karamell | #E8B877 | #9C5A22 |
+| 09 | Karamell | #C8792F (bis 11.11.2026 #E8B877) | #9C5A22 |
 | 10 | Himmelblau | #75D6F2 | #2C8FC9 |
 | 11 | Schoko | #9A6244 | #5A3320 |
 | 12 | Kirsche | #D7304E | #7E1631 |

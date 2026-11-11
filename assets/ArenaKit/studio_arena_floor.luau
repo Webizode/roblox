@@ -84,7 +84,7 @@ local function disc(parent, name, radius, top, thickness, colour, solid)
 end
 
 -- the floor and its rim: the only parts that collide
-local floor = disc(plac, "Arena_Boden", 133, FLOOR_Y, 0.4, "#FFFFFF", true) -- white: the picture's own colours
+local floor = disc(plac, "Arena_Boden", 133, FLOOR_Y, 0.4, "#F6E6CF", true) -- tints the picture warm; pure white #FFFFFF read as glare (Map Check 2026-11-11)
 floor.MaterialVariant = variant(PLATES, PLATES.studs)
 disc(plac, "Arena_Rand", 136, FLOOR_Y - 0.02, 0.4, COLOURS.Rim, true)
 

@@ -34,8 +34,9 @@ return {
 		tileSize = 2048,
 		scale = 24,
 		lift = 0.6,
-		colour = "#1478D2",
-		texture = "rbxassetid://90970251688437", -- Ocean_Waves.png
+		colour = "#1E7FC2",
+		-- re-uploaded 11.11.2026: the first upload (90970251688437) had no content representation and logged a warning
+		texture = "rbxassetid://79801396441990", -- Ocean_Waves.png
 		studsPerTile = 48,
 		wavesTransparency = 0.25,
 		drift = { u = 1.4, v = 0.7 }, -- studs per second: calm

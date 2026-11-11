@@ -45,6 +45,7 @@ local COLLISION = {
 	BushSmall = {
 	},
 	Hedge = {
+		{ kind = "box", name = "Body", size = Vector3.new(9.4, 3, 3), centre = Vector3.new(0, 1.5, 0) },
 	},
 	IceTreeUpright = {
 		{ kind = "box", name = "Trunk", size = Vector3.new(2.32, 8.7, 2.32), centre = Vector3.new(0, 4.35, 0) },
@@ -66,6 +67,7 @@ local COLLISION = {
 	RockGroup = {
 	},
 	RockRound = {
+		{ kind = "box", name = "Rock", size = Vector3.new(4.1, 3.6, 2.7), centre = Vector3.new(0, 1.8, 0) },
 	},
 	TreeRound = {
 		{ kind = "box", name = "Trunk", size = Vector3.new(1.52, 7.2, 1.52), centre = Vector3.new(0, 3.6, 0) },

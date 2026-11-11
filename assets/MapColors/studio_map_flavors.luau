@@ -11,7 +11,7 @@
 local SECTORS = "all"
 local RESTORE = false
 local NEUTRALS = true
-local WALL = "Vanille" -- "Vanille" or "Karamell": strip and brick wall towards the arena
+local WALL = "Karamell" -- "Vanille" or "Karamell": strip and brick wall towards the arena (Karamell since Map Check 2026-11-11)
 
 local FLAVORS = {
 	Mint = { main = "#7FE0B8", accent = "#2E9E78" },
@@ -19,12 +19,12 @@ local FLAVORS = {
 	Blaubeere = { main = "#6F7BEA", accent = "#3A3F9E" },
 	Erdbeere = { main = "#FF7480", accent = "#C93A4E" },
 	Lavendel = { main = "#BB9CF0", accent = "#7A55C4" },
-	Mango = { main = "#FF6F12", accent = "#C2410C" },
+	Mango = { main = "#FF6F12", accent = "#C2410C", path = "#E8702A" }, -- path: the light tint read as Zitrone (Map Check 2026-11-11)
 	Schoko = { main = "#9A6244", accent = "#5A3320" },
 	Pistazie = { main = "#B4D46A", accent = "#6F9132" },
 	Bubblegum = { main = "#F06AAE", accent = "#A8327A" },
 	Kirsche = { main = "#D7304E", accent = "#7E1631" },
-	Karamell = { main = "#E8B877", accent = "#9C5A22" },
+	Karamell = { main = "#C8792F", accent = "#9C5A22" }, -- #E8B877 until 11.11.2026: read beige-khaki under the new light
 	Himmelblau = { main = "#75D6F2", accent = "#2C8FC9" },
 }
 -- Plot_01 .. Plot_12 in ring order; neighbours alternate warm and cool.
@@ -55,7 +55,7 @@ local CREAM = Color3.fromHex("#FFE9D0")
 local RING = Color3.fromHex("#F6DFB2") -- Vanille-Creme
 local WALLS = {
 	Vanille = { wall = Color3.fromHex("#F6DFB2"), edge = Color3.fromHex("#E8C690") },
-	Karamell = { wall = Color3.fromHex("#D9A066"), edge = Color3.fromHex("#A8683F") },
+	Karamell = { wall = Color3.fromHex("#D49A5E"), edge = Color3.fromHex("#E8C690") }, -- edge kept as with Vanille
 }
 
 local map = workspace["Ice Cream Map"]
@@ -119,7 +119,7 @@ end
 local function flavorColors(name)
 	local f = FLAVORS[name]
 	local m, a = Color3.fromHex(f.main), Color3.fromHex(f.accent)
-	return m, a, m:Lerp(CREAM, 0.35)
+	return m, a, if f.path then Color3.fromHex(f.path) else m:Lerp(CREAM, 0.35)
 end
 
 local function plotRule(m, a, path)
