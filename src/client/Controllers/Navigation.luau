@@ -9,7 +9,7 @@
 -- server decides (TeleportRules: not knocked down, not right after a hit, in the arena not with scoops on the back)
 -- and says why when it stops one (a toast).
 --
--- PC: shortcuts 1-5 for the column, H and T for MY PLOT and ARENA (Config/Ui.keys), shown as badges. Gamepad: D-pad
+-- PC: shortcuts 1-5 for the column, H and T for MY PLOT and ARENA (Config/Controls), shown as badges. Gamepad: D-pad
 -- left jumps into the column, the selection then moves between all buttons; B leaves it. Features.debugArenaZone
 -- draws the zone half transparent.
 
@@ -28,6 +28,7 @@ local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local client = script.Parent.Parent
 local UiKit = require(client:WaitForChild("UiKit"))
+local Keys = require(client:WaitForChild("Keys"))
 local Theme, Screen, Buttons, Window, Widgets = UiKit.Theme, UiKit.Screen, UiKit.Buttons, UiKit.Window, UiKit.Widgets
 
 local Navigation = {}
@@ -194,7 +195,7 @@ local function build()
 			text = entry.text,
 			color = Theme.color(entry.color),
 			icon = Theme.icons[entry.id],
-			key = (Enum.KeyCode :: any)[UiConfig.keys[entry.id]],
+			action = entry.id,
 			shrink = true,
 		})
 		button.button.LayoutOrder = order
@@ -220,13 +221,11 @@ local function build()
 		icon = Theme.icons.plot,
 		text = plotEntry.text,
 		color = Theme.color(plotEntry.color),
-		key = (Enum.KeyCode :: any)[UiConfig.keys.plot],
+		action = "plot",
 		size = UiConfig.quickButton,
 		shrink = true,
 	})
 	small.button.Parent = quick
-	-- the badge fully on the button: it sits right at the screen's top edge
-	small.badge.frame.Position = UDim2.fromOffset(13, 13)
 	small.button.Activated:Connect(function()
 		act(plotEntry)
 	end)
@@ -245,7 +244,7 @@ local function build()
 			icon = Theme.icons[entry.id],
 			text = entry.text,
 			color = Theme.color(entry.color),
-			key = (Enum.KeyCode :: any)[UiConfig.keys[entry.id]],
+			action = entry.id,
 			shrink = true,
 		})
 		button.button.LayoutOrder = order
@@ -272,15 +271,14 @@ local function build()
 	pad.BackgroundTransparency = 1
 	pad.Size = UDim2.fromScale(1, 1)
 	pad.ScaleType = Enum.ScaleType.Fit
-	pad.Image = game:GetService("UserInputService"):GetImageForKeyCode(Enum.KeyCode.DPadLeft)
+	pad.Image = game:GetService("UserInputService"):GetImageForKeyCode(Keys.pad("navigation") :: Enum.KeyCode)
 	pad.Parent = padHint
 
 	Screen.onChanged(layout)
 end
 
 local function bindKeys()
-	for id, keyName in UiConfig.keys do
-		local key = (Enum.KeyCode :: any)[keyName]
+	for _, id in { "upgrades", "cosmetics", "quests", "index", "scoops", "plot", "arena" } do
 		ContextActionService:BindActionAtPriority("WobbleNav_" .. id, function(_, state)
 			-- in combat mode only MY PLOT's key works, as its small button stays
 			if state ~= Enum.UserInputState.Begin or (not shown and id ~= "plot") then
@@ -288,7 +286,7 @@ local function bindKeys()
 			end
 			actions[id]()
 			return Enum.ContextActionResult.Sink
-		end, false, ACTION_PRIORITY, key)
+		end, false, ACTION_PRIORITY, table.unpack(Keys.inputs(id)))
 	end
 	-- D-pad left: into the column; B: out of it again (a window's own B comes first)
 	ContextActionService:BindActionAtPriority(FOCUS_ACTION, function(_, state)
@@ -301,7 +299,7 @@ local function bindKeys()
 		end
 		GuiService.SelectedObject = columnButtons[1]
 		return Enum.ContextActionResult.Sink
-	end, false, ACTION_PRIORITY, (Enum.KeyCode :: any)[UiConfig.gamepad.navigation])
+	end, false, ACTION_PRIORITY, table.unpack(Keys.inputs("navigation")))
 	ContextActionService:BindActionAtPriority(LEAVE_ACTION, function(_, state)
 		local selected = GuiService.SelectedObject
 		if state ~= Enum.UserInputState.Begin or not (selected and selected:IsDescendantOf(gui)) then
@@ -309,7 +307,7 @@ local function bindKeys()
 		end
 		GuiService.SelectedObject = nil
 		return Enum.ContextActionResult.Sink
-	end, false, ACTION_PRIORITY, Enum.KeyCode.ButtonB)
+	end, false, ACTION_PRIORITY, table.unpack(Keys.inputs("back")))
 end
 
 -- The zone, half transparent: the floor disc and every ramp up to its top edge (Studio testing only).

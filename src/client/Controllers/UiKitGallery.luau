@@ -92,11 +92,11 @@ local function build(): ScreenGui
 	-- icon buttons, with key badges
 	local icons = section(scroll, 1, "Icon buttons", 90)
 	local entries = {
-		{ "upgrades", "UPGRADES", "mint", Enum.KeyCode.One },
-		{ "cosmetics", "COSMETICS", "pink", Enum.KeyCode.Two },
-		{ "quests", "QUESTS", "sky", Enum.KeyCode.Three },
-		{ "index", "INDEX", "purple", Enum.KeyCode.Four },
-		{ "scoops", "SCOOPS", "yellow", Enum.KeyCode.Five },
+		{ "upgrades", "UPGRADES", "mint" },
+		{ "cosmetics", "COSMETICS", "pink" },
+		{ "quests", "QUESTS", "sky" },
+		{ "index", "INDEX", "purple" },
+		{ "scoops", "SCOOPS", "yellow" },
 	}
 	for order, entry in entries do
 		local button = Buttons.icon({
@@ -104,7 +104,7 @@ local function build(): ScreenGui
 			icon = Theme.icons[entry[1]],
 			text = entry[2],
 			color = Theme.color(entry[3]),
-			key = entry[4],
+			action = entry[1],
 		})
 		button.button.LayoutOrder = order
 		button.button.Parent = icons
@@ -114,7 +114,7 @@ local function build(): ScreenGui
 		icon = Theme.icons.settings,
 		color = Theme.color("silver"),
 		size = Theme.config.settingsButton,
-		pad = Enum.KeyCode.DPadUp,
+		action = "settings",
 	})
 	gear.button.LayoutOrder = 10
 	gear.button.Parent = icons
@@ -126,7 +126,7 @@ local function build(): ScreenGui
 		text = "MY PLOT",
 		color = Theme.color("mint"),
 		icon = Theme.icons.plot,
-		key = Enum.KeyCode.H,
+		action = "plot",
 	})
 	plot.button.LayoutOrder = 1
 	plot.button.Parent = wides
@@ -135,7 +135,7 @@ local function build(): ScreenGui
 		text = "ARENA",
 		color = Theme.color("red"),
 		icon = Theme.icons.arena,
-		key = Enum.KeyCode.T,
+		action = "arena",
 	})
 	pressed.button.LayoutOrder = 2
 	pressed.button.Parent = wides

@@ -10,7 +10,8 @@ return {
 		performanceMode = false,
 		cameraShake = true,
 		fov = 80,
-		motionEffects = true, -- FOV kick on sprint and dash, the zoom while charging a throw
+		motionEffects = true, -- FOV kick on sprint and dash, the narrower view while charging a throw
+		aimCamera = true, -- the camera moves over the shoulder and closer while a throw is charged (AimCamera)
 		inputMode = "auto",
 		-- how fast the camera turns in combat mode only (outside it Roblox's own camera and settings apply), per input;
 		-- 1 = as tuned in Config/Combat camera, up to 3 (300 %)
@@ -36,7 +37,7 @@ return {
 		inputMode = { "auto", "touch", "keyboard", "gamepad" },
 	},
 
-	toggles = { "performanceMode", "cameraShake", "motionEffects", "controlsHint" },
+	toggles = { "performanceMode", "cameraShake", "motionEffects", "aimCamera", "controlsHint" },
 
 	-- what the VFX quality means: particle counts scale, the heavy dash effects (afterimages, limb trails) only above
 	-- "low". The performance mode is "low" plus no shadows, bloom or sun rays on this device.

@@ -15,8 +15,8 @@ return {
 
 	-- throw strength (Combat.strength): a tap throws at once at strength 0; holding raises it to 1 by perfect.rise
 	-- seconds (speed from minSpeed to maxSpeed, hit power factor from powerAtMinCharge to 1) and it stays 1. While held,
-	-- the crosshair's inner circle grows from the middle to the outer circle in perfect.rise and shrinks back in the
-	-- same time, again and again (Combat.pulse). Letting go when it reaches the outer circle, within perfect.window
+	-- the charge arc beside the crosshair (AimHud) fills up in perfect.rise and empties again in the
+	-- same time, again and again (Combat.pulse). Letting go when it reaches the top, within perfect.window
 	-- around that moment, is a perfect throw: full strength at perfect.speed, faster but no harder. The server times
 	-- the hold itself and accepts the client's strength and perfect claim only as far as its own timing allows.
 	perfect = {
@@ -32,8 +32,8 @@ return {
 
 	-- The crosshair (AimHud, AimRules): a thin circle fixed in the middle of the screen, where every throw aims. Its
 	-- radius in pixels (times the crosshair size setting) grows while moving, sprinting, after a dash and right after a
-	-- throw, and shrinks a little while a throw is held. Purely a display: throws never scatter. While held, a small
-	-- inner circle pulses inside it (perfect); both turn perfectColor while letting go would be a perfect throw.
+	-- throw, and shrinks a little while a throw is held. Purely a display: throws never scatter. While held, the charge
+	-- arc shows beside it (AimHud) and glows green while letting go would be a perfect throw.
 	crosshair = {
 		radius = 14,
 		walk = 4, -- added while moving
@@ -97,10 +97,22 @@ return {
 		mouseSpeed = math.rad(0.4), -- per pixel of mouse movement at Roblox's mouse sensitivity 1
 		gamepadSpeed = math.rad(220), -- per second with the right stick fully out
 		touchSpeed = math.rad(0.35), -- per pixel a finger drags over the screen
-		-- while a throw is charged (the wind-up and the held aim) the camera pulls back this much further and comes back
-		-- after the release or a dropped charge; it eases there over about zoomTime
-		aimZoom = 3, -- studs
-		zoomTime = 0.2, -- seconds
+		-- the aim camera (AimCamera), in combat mode while a throw is charged: it eases further out over the shoulder and
+		-- closer, so the character does not hide the crosshair; the view narrows with the charge (fov degrees at full
+		-- strength, perfectFov more in the perfect window), relative to the field of view setting. On the throw it eases
+		-- back with a short push forward (kick: studs forward and degrees wider, up and back over kick.time; a perfect
+		-- throw times perfectKick). The aim camera setting turns all of it off, motion effects the field of view
+		-- changes, camera shake the kick. The camera only moves: its turn (where the crosshair points) is the player's.
+		aim = {
+			shoulder = 1.1, -- studs further to the side
+			closer = 3.5, -- studs nearer
+			ease = 0.18, -- seconds (time constant) to move in and back out
+			fov = -10, -- degrees at full strength
+			perfectFov = -3, -- degrees more in the perfect window
+			fovEase = 0.22, -- seconds (time constant)
+			kick = { forward = 0.9, fov = 4, time = 0.28 },
+			perfectKick = 1.7,
+		},
 		-- the camera is kept this far out of solid parts (a swept sphere), so roofs, palms and decorations do not
 		-- slice through the near plane
 		wallRadius = 0.6, -- studs

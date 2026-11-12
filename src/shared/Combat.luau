@@ -82,6 +82,21 @@ function Combat.isPerfect(held: number, config: Config): boolean
 	return isFinite(held) and held > 0 and fromTouch(held, config) <= config.perfect.window / 2
 end
 
+-- The lowest pulse (Combat.pulse) at which letting go is a perfect throw: the charge arc's green mark runs from here to
+-- the top. Near a touch the pulse is 1 - |held - touch| / rise, so pulse >= this exactly when isPerfect.
+function Combat.perfectShare(config: Config): number
+	return 1 - (config.perfect.window / 2) / config.perfect.rise
+end
+
+-- Whether the pulse is on its way down (after a touch of the outer circle, the charge arc pales then).
+function Combat.falling(held: number, config: Config): boolean
+	if not isFinite(held) or held <= 0 then
+		return false
+	end
+	local rise = config.perfect.rise
+	return held % (2 * rise) > rise
+end
+
 -- The strength the server accepts: the client's claim as far as a hold within chargeTolerance of the server's own
 -- measured one gives it, otherwise the nearest such value. A client can never claim more than its real hold allows,
 -- and network jitter costs an honest player nothing.

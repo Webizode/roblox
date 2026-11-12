@@ -4,7 +4,10 @@
 -- the settings; walls pull it in. Roblox's default camera only turns with the mouse under its own shift lock or a held
 -- right button, and its speeds cannot be set. The character faces where the camera looks, like under shift lock: it turns with the camera, A/D strafe and the throw always goes forward. Leaving hands the camera back to
 -- Roblox, looking the same way, and lets the character turn to its walking direction again. While a throw is aimed
--- (setAiming) it eases back by aimZoom and returns afterwards; leaving combat mode always ends that.
+-- (setCharge, the aim camera: AimCamera, Config/Combat camera.aim) it eases further over the shoulder and closer and
+-- the view narrows with the charge; the throw (thrown) pushes it forward a little as it eases back. Only the camera's
+-- place and field of view change, never its turn, so the crosshair still points where the player turned it and the
+-- throw goes through the middle of the screen as before. Leaving combat mode always ends all of it at once.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,6 +18,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local CombatConfig = require(Shared:WaitForChild("Config"):WaitForChild("Combat"))
 local LootConfig = require(Shared:WaitForChild("Config"):WaitForChild("Loot"))
 local AimRules = require(Shared:WaitForChild("AimRules"))
+local AimCamera = require(Shared:WaitForChild("AimCamera"))
+local Combat = require(Shared:WaitForChild("Combat"))
 local Loot = require(Shared:WaitForChild("Loot"))
 local MapQuery = require(Shared:WaitForChild("MapQuery"))
 local Look = CombatConfig.camera
@@ -35,12 +40,33 @@ local active = false
 local touchDelta = Vector2.zero -- pixels fingers dragged over the screen since the last frame (not on buttons)
 local yaw, pitch = 0, 0
 local turned: Humanoid? = nil -- the humanoid whose AutoRotate combat mode switched off
-local zoom, zoomTarget = 0, 0 -- extra studs behind the character while aiming, and where it is easing to
+-- the aim camera: the hold of the throw being charged (nil: none), the eased blend of the shoulder move (0..1) and
+-- field of view change (degrees), and the last throw's push
+local chargeHeld: number? = nil
+local shaken = false -- hit during this charge: no aim camera until it ends
+local blend, aimFov = 0, 0
+local kickAt, kickPerfect = -math.huge, false
+local fovOffset = 0 -- what the aim camera adds to the field of view this frame (MovementController applies it)
 
--- Eases the aiming zoom towards its target; the same curve whichever camera runs.
-local function stepZoom(dt: number): number
-	zoom += (zoomTarget - zoom) * (1 - math.exp(-dt / Look.zoomTime))
-	return zoom
+-- Eases the aim camera towards where the charge says and returns the camera's offset from the pivot (right, up,
+-- back) for this frame; sets fovOffset.
+local function stepAim(dt: number): Vector3
+	local effects = Settings.effective()
+	local on = effects.aimCamera
+	local held = if on then chargeHeld else nil
+	local targetBlend, targetFov = AimCamera.targets(
+		held ~= nil,
+		if held then Combat.strength(held, CombatConfig) else 0,
+		held ~= nil and Combat.isPerfect(held, CombatConfig),
+		effects.motionEffects,
+		CombatConfig
+	)
+	blend = AimCamera.ease(blend, targetBlend, dt, Look.aim.ease)
+	aimFov = AimCamera.ease(aimFov, targetFov, dt, Look.aim.fovEase)
+	local forward, kickFov = AimCamera.kick(os.clock() - kickAt, kickPerfect, on and effects.cameraShake, CombatConfig)
+	fovOffset = aimFov + (if effects.motionEffects then kickFov else 0)
+	local right, up, back = AimCamera.offset(blend, forward, CombatConfig)
+	return Vector3.new(right, up, back)
 end
 
 local function releaseFacing()
@@ -207,7 +233,7 @@ local function ownStep(dt: number)
 
 	local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
 	local pivot = root.Position + Vector3.new(0, Look.pivotUp, 0)
-	local offset = rotation:VectorToWorldSpace(Vector3.new(Look.shoulder, Look.up, Look.distance + stepZoom(dt)))
+	local offset = rotation:VectorToWorldSpace(stepAim(dt))
 	camera.CFrame = CFrame.new(pivot + unblocked(pivot, offset, character :: Model)) * rotation
 	camera.Focus = CFrame.new(pivot)
 	face(character :: Model, rotation.LookVector)
@@ -252,7 +278,8 @@ function CombatCamera.stop()
 	active = false
 	RunService:UnbindFromRenderStep(STEP)
 	releaseFacing()
-	zoom, zoomTarget = 0, 0 -- never left pulled back for the next combat mode
+	-- never left aiming for the next combat mode: back to the normal camera at once
+	chargeHeld, blend, aimFov, fovOffset, kickAt, shaken = nil, 0, 0, 0, -math.huge, false
 	-- Roblox's camera carries on from the current look direction
 	handBack()
 end
@@ -273,9 +300,31 @@ function CombatCamera.follow()
 	end
 end
 
--- A throw is being aimed (charged) or not: the camera eases back by aimZoom, or returns. Ignored outside combat mode.
-function CombatCamera.setAiming(on: boolean)
-	zoomTarget = if on and active and Settings.effective().motionEffects then Look.aimZoom else 0
+-- Every frame: the seconds the throw has been charged, or nil while none is (dropped, thrown, knocked down, died).
+-- Ignored outside combat mode.
+function CombatCamera.setCharge(held: number?)
+	if held == nil then
+		shaken = false -- the next charge aims normally again
+	end
+	chargeHeld = if active and not shaken then held else nil
+end
+
+-- The local player was hit: the aim camera eases back to normal and stays there until this charge ends.
+function CombatCamera.hit()
+	shaken = true
+	chargeHeld = nil
+end
+
+-- The throw left the hand: the push forward as the camera eases back (a perfect throw pushes harder).
+function CombatCamera.thrown(perfect: boolean)
+	if active then
+		kickAt, kickPerfect = os.clock(), perfect
+	end
+end
+
+-- Degrees the aim camera adds to the field of view this frame (negative: narrower); 0 outside combat mode.
+function CombatCamera.fovOffset(): number
+	return if active then fovOffset else 0
 end
 
 return CombatCamera

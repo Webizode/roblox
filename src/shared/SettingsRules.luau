@@ -11,6 +11,7 @@ export type Effective = {
 	cameraShake: boolean,
 	fov: number,
 	motionEffects: boolean,
+	aimCamera: boolean,
 }
 
 local SettingsRules = {}
@@ -90,6 +91,7 @@ function SettingsRules.effective(settings: { [string]: any }, config: any): Effe
 		cameraShake = settings.cameraShake == true,
 		fov = settings.fov,
 		motionEffects = settings.motionEffects == true,
+		aimCamera = settings.aimCamera == true,
 	}
 end
 

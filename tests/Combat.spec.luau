@@ -180,6 +180,38 @@ describe("Holding a throw", function()
 		expect(Combat.validateStrength(5, p.rise, Config)).toBe(1)
 		expect(Combat.validateStrength(0 / 0, p.rise / 2, Config)).toBeCloseTo(0.5, 1e-9)
 	end)
+
+	it("puts the charge arc's green mark exactly where a throw counts as perfect", function()
+		local mark = Combat.perfectShare(Config)
+		expect(mark > 0 and mark < 1).toBe(true)
+		-- every hold up to four touches: the fill is in the green mark exactly when letting go is perfect (a hair
+		-- of float noise allowed right at the window's edges)
+		for held = 0.001, 4, 0.0007 do
+			local inMark = Combat.pulse(held, Config) >= mark
+			if inMark ~= Combat.isPerfect(held, Config) then
+				local edge = math.abs(Combat.pulse(held, Config) - mark)
+				if edge > 1e-6 then
+					error(
+						string.format(
+							"at %.4f s: mark says %s, the throw %s",
+							held,
+							tostring(inMark),
+							tostring(not inMark)
+						)
+					)
+				end
+			end
+		end
+		-- the charge arc's green mark is an image (Config/Ui icons.arcMark) made for this window: if perfect.rise or
+		-- perfect.window change, the image has to be made again (the fill's shape from 146/710 to 197/710 of its height)
+		expect(math.abs(mark - 0.88) < 1e-9).toBe(true)
+		-- the fill pales on its way down, between two touches
+		local p = Config.perfect
+		expect(Combat.falling(p.rise * 0.5, Config)).toBe(false)
+		expect(Combat.falling(p.rise * 1.5, Config)).toBe(true)
+		expect(Combat.falling(p.rise * 2.5, Config)).toBe(false)
+		expect(Combat.falling(0, Config)).toBe(false)
+	end)
 end)
 
 describe("Ammo: ball by ball", function()

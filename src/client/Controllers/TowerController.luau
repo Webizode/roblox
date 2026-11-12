@@ -30,6 +30,7 @@ local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local Sfx = require(client:WaitForChild("Sfx"))
 local UiKit = require(client:WaitForChild("UiKit"))
+local Keys = require(client:WaitForChild("Keys"))
 
 local TowerController = {}
 
@@ -581,7 +582,7 @@ end
 
 -- Shift sprints while held; L3 and the Sprint button on touch screens toggle it. The server sets the speed.
 local function onSprintInput(_: string, inputState: Enum.UserInputState, input: InputObject): Enum.ContextActionResult
-	local toggles = input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.ButtonL3
+	local toggles = input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Keys.pad("sprint")
 	if toggles then
 		if inputState == Enum.UserInputState.Begin then
 			setSprinting(not sprinting)
@@ -631,8 +632,7 @@ function TowerController.Start()
 		requestDash,
 		true, -- creates the dash button on touch screens
 		ACTION_PRIORITY,
-		Enum.KeyCode.Q,
-		Enum.KeyCode.ButtonX
+		table.unpack(Keys.inputs("dash"))
 	)
 	ContextActionService:SetTitle(DASH_ACTION, "Dash")
 	UiKit.Buttons.touchTitle(DASH_ACTION)
@@ -642,9 +642,7 @@ function TowerController.Start()
 		onSprintInput,
 		true, -- creates the Sprint button on touch screens
 		ACTION_PRIORITY,
-		Enum.KeyCode.LeftShift,
-		Enum.KeyCode.RightShift,
-		Enum.KeyCode.ButtonL3
+		table.unpack(Keys.inputs("sprint"))
 	)
 	ContextActionService:SetTitle(SPRINT_ACTION, "Sprint")
 	UiKit.Buttons.touchTitle(SPRINT_ACTION)
@@ -665,7 +663,7 @@ function TowerController.Start()
 		onStanceInput,
 		true, -- creates the Steady button on touch screens
 		ACTION_PRIORITY,
-		Enum.KeyCode.F
+		table.unpack(Keys.inputs("steady"))
 	)
 	ContextActionService:SetTitle(STANCE_ACTION, "Steady")
 	UiKit.Buttons.touchTitle(STANCE_ACTION)

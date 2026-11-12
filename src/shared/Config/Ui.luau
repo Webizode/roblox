@@ -26,6 +26,37 @@ return {
 		dashEmpty = "rbxassetid://129572576307748", -- the dash bar's slanted glass, grey
 		dashFull = "rbxassetid://88072122245500", -- the same, blue and glowing
 		sparkle = "rbxassetid://73467077175850", -- two little stars, when the dash bar is full again
+		-- the throw's charge arc (AimHud, "Glänzende Eiscreme-Bogenmeter nach rechts"): the empty arc; its pink fill (only the
+		-- fill, the outline is the empty arc's), its fill
+		-- as a white glaze and as green (a perfect moment), and the perfect window's green mark (the fill's own shape, from
+		-- the cap down to where perfect starts)
+		arcFrame = "rbxassetid://132241134077624",
+		arcFill = "rbxassetid://139181164053577",
+		arcFillWhite = "rbxassetid://94728324284540",
+		arcFillGreen = "rbxassetid://98445986533488",
+		arcMark = "rbxassetid://87533639520831",
+	},
+
+	-- the key badges (Buttons.badge): the key cap from "Glänzende Cartoon-Tastenkappen" recoloured (normal, pressed, wide
+	-- for long keys) and the key's colour on it; `badgeStyle` picks one for every badge
+	badgeStyle = "chocolate",
+	badgeStyles = {
+		-- glazed milk chocolate, a cream letter with a dark edge
+		chocolate = {
+			cap = "rbxassetid://122832040618299",
+			pressed = "rbxassetid://98055143902194",
+			wide = "rbxassetid://124834881193652",
+			text = "#FFF4E4",
+			stroke = true,
+		},
+		-- vanilla pink, a dark letter
+		pastel = {
+			cap = "rbxassetid://133568110141710",
+			pressed = "rbxassetid://108104051603339",
+			wide = "rbxassetid://128745802628414",
+			text = "#3B2016",
+			stroke = false,
+		},
 	},
 
 	-- the UI's colours, stronger than the world's pastels so buttons read on the beach (from the reference images)
@@ -59,6 +90,7 @@ return {
 	margin = 14, -- to the screen's (safe) edge
 	gap = 10,
 	thumb = 44, -- the smallest touch target, in screen pixels
+	badge = 26, -- a key badge's height (its width follows the key cap)
 
 	iconButton = 72,
 	wideButton = { width = 200, height = 64 },
@@ -72,7 +104,9 @@ return {
 	-- the dash bar under the ice balls, as wide as their row (the arena); `slice` is the share of the image's height the
 	-- slanted ends keep unstretched
 	dash = { height = 22, slice = 0.22 },
-	topEdge = 6, -- from the top of the screen to MY PLOT, ARENA and the gear, in the free part of Roblox's top bar
+	-- from the top of the screen to MY PLOT, ARENA and the gear, in the free part of Roblox's top bar: room for the half of
+	-- a key badge that stands over a button's top edge (Config/Ui badge / 2 - 4) and 1 px more
+	topEdge = 10,
 	-- the round balance gauge (the arena): the frame image's size, and its hole where the disc, the ring and the dot are
 	-- drawn: the centre as shares of the width and the height from the top left, the radius as a share of the width
 	balance = { width = 110, height = 154, hole = { x = 0.5, y = 0.64, radius = 0.363 } },
@@ -95,19 +129,6 @@ return {
 		stick = { x = 0, y = 0.55, w = 0.4, h = 0.45 },
 		buttons = { x = 0.62, y = 0.42, w = 0.38, h = 0.58 },
 	},
-
-	-- PC shortcuts of the navigation, in its order (the left column, then the big buttons)
-	keys = {
-		upgrades = "One",
-		cosmetics = "Two",
-		quests = "Three",
-		index = "Four",
-		scoops = "Five",
-		plot = "H",
-		arena = "T",
-	},
-	-- the gamepad: into the left column, and the settings (SettingsController)
-	gamepad = { navigation = "DPadLeft", settings = "DPadUp", close = "ButtonB" },
 
 	anim = { press = 0.07, pop = 0.16, hover = 0.1 },
 }

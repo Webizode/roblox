@@ -9,10 +9,12 @@ local UserInputService = game:GetService("UserInputService")
 local Theme = require(script.Parent:WaitForChild("Theme"))
 local Anim = require(script.Parent:WaitForChild("Anim"))
 local Screen = require(script.Parent:WaitForChild("Screen"))
+local Keys = require(script.Parent.Parent:WaitForChild("Keys"))
 
 local Buttons = {}
 
-local DIGITS = {
+-- What a key cap says: digits as digits, long keys as words (those get the wide cap)
+local KEY_TEXT = {
 	One = "1",
 	Two = "2",
 	Three = "3",
@@ -23,70 +25,125 @@ local DIGITS = {
 	Eight = "8",
 	Nine = "9",
 	Zero = "0",
+	LeftShift = "SHIFT",
+	RightShift = "SHIFT",
+	LeftControl = "CTRL",
+	RightControl = "CTRL",
+	Space = "SPACE",
+	Return = "ENTER",
+	Escape = "ESC",
+	Tab = "TAB",
+	MouseButton1 = "LMB",
+	MouseButton2 = "RMB",
 }
 
-local function keyText(key: Enum.KeyCode): string
-	return DIGITS[key.Name] or key.Name
+local function keyText(key: EnumItem): string
+	return KEY_TEXT[key.Name] or key.Name
 end
 
-export type Badge = { frame: Frame, set: (key: Enum.KeyCode?, pad: Enum.KeyCode?) -> () }
+-- the key cap images (Config/Ui badgeStyles, the style badgeStyle picks): their width over their height, and how far
+-- down the cap's top face (where the letter goes) has its middle
+local CAP_RATIO, WIDE_RATIO = 470 / 410, 1020 / 410
+local FACE_Y, FACE_Y_PRESSED = 0.4, 0.47
+local PRESS_MIN = 0.12 -- seconds the pressed cap shows at least
+local STYLE = Theme.config.badgeStyles[Theme.config.badgeStyle] or Theme.config.badgeStyles.chocolate
 
--- A small cream badge with the shortcut, `size` design pixels; follows the input in use.
-function Buttons.badge(parent: GuiObject, key: Enum.KeyCode?, pad: Enum.KeyCode?, size: number?): Badge
-	local side = size or 24
+-- the caps load at the start, so the first press already shows the pressed one
+task.spawn(function()
+	local caps = {}
+	for _, name in { "cap", "pressed", "wide" } do
+		local label = Instance.new("ImageLabel")
+		label.Image = STYLE[name]
+		table.insert(caps, label)
+	end
+	pcall(function()
+		game:GetService("ContentProvider"):PreloadAsync(caps)
+	end)
+end)
+
+export type Badge = { frame: Frame, set: (action: string?) -> () }
+
+-- The key badge of an action (Config/Controls, through Keys), the same everywhere: on a keyboard the key cap from the
+-- reference ("Glänzende Cartoon-Tastenkappen", in the colours of Config/Ui.badgeStyle) with the key on it, centred, never cut (the wide cap
+-- for long keys like SHIFT); while the key is held the pressed cap. With a gamepad Roblox's own button symbol. On
+-- touch screens nothing. `height` in design pixels (default Config/Ui.badge), the cluster's UIScale scales it.
+function Buttons.badge(parent: GuiObject, action: string?, height: number?): Badge
+	local side = height or Theme.config.badge
 	local frame = Theme.frame({
 		Name = "Badge",
-		BackgroundTransparency = 0,
-		BackgroundColor3 = Theme.color("cream"),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(4, 4),
-		Size = UDim2.fromOffset(side, side),
+		Size = UDim2.fromOffset(side * CAP_RATIO, side),
 		ZIndex = 8,
 		Parent = parent,
 	})
-	Theme.corner(frame, UDim.new(0, 7))
-	Theme.outline(frame, 2)
-	-- the key's letter centred at a fixed size that fits the box with room round it (no TextScaled: its padding
-	-- made the letter tiny), never clipped
+	local cap = Instance.new("ImageLabel")
+	cap.Name = "Cap"
+	cap.BackgroundTransparency = 1
+	cap.Size = UDim2.fromScale(1, 1)
+	cap.ScaleType = Enum.ScaleType.Stretch
+	cap.Image = STYLE.cap
+	cap.ZIndex = 8
+	cap.Parent = frame
 	local label = Instance.new("TextLabel")
 	label.Name = "Key"
 	label.BackgroundTransparency = 1
 	label.AnchorPoint = Vector2.new(0.5, 0.5)
-	label.Position = UDim2.fromScale(0.5, 0.5)
-	label.Size = UDim2.fromScale(1, 1)
+	label.Size = UDim2.new(1, -side * 0.3, 0, side * 0.6)
 	label.Font = Theme.font
-	label.TextSize = math.floor(side * 0.7)
+	label.TextColor3 = Color3.fromHex(STYLE.text)
+	if STYLE.stroke then
+		-- a fine dark edge so the cream letter reads on the chocolate
+		local edge = Instance.new("UIStroke")
+		edge.Color = Theme.color("outline")
+		edge.Thickness = 1.5
+		edge.Parent = label
+	end
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextYAlignment = Enum.TextYAlignment.Center
-	label.TextColor3 = Theme.color("textDark")
-	label.ClipsDescendants = false
 	label.ZIndex = 9
 	label.Parent = frame
 	local image = Instance.new("ImageLabel")
 	image.Name = "Pad"
 	image.BackgroundTransparency = 1
-	image.Size = UDim2.fromScale(1.1, 1.1)
 	image.AnchorPoint = Vector2.new(0.5, 0.5)
 	image.Position = UDim2.fromScale(0.5, 0.5)
+	image.Size = UDim2.fromOffset(side * 1.1, side * 1.1)
 	image.ScaleType = Enum.ScaleType.Fit
 	image.ZIndex = 9
 	image.Parent = frame
 
-	local keyCode, padCode = key, pad
+	local current = action
+	local pressed = false
+	local pressedAt = 0
+	local wide = false
+
+	local function look()
+		cap.Image = if wide then STYLE.wide elseif pressed then STYLE.pressed else STYLE.cap
+		label.Position = UDim2.fromScale(0.5, if pressed and not wide then FACE_Y_PRESSED else FACE_Y)
+		-- the wide cap has no pressed picture: it sinks a little instead
+		cap.Position = UDim2.fromOffset(0, if pressed and wide then side * 0.06 else 0)
+	end
+
 	local function refresh()
 		local input = Screen.input()
-		if input == "keyboard" and keyCode then
+		local key = if current then Keys.key(current) else nil
+		local pad = if current then Keys.pad(current) else nil
+		if input == "keyboard" and key then
+			local text = keyText(key)
+			wide = #text > 2
+			frame.Size = UDim2.fromOffset(side * (if wide then WIDE_RATIO else CAP_RATIO), side)
+			label.Text = text
+			-- a size that surely fits the face: smaller for words
+			label.TextSize = math.floor(side * (if wide then 0.4 else 0.5))
 			frame.Visible = true
-			frame.BackgroundTransparency = 0
-			label.Visible = true
-			image.Visible = false
-			label.Text = keyText(keyCode)
-		elseif input == "gamepad" and padCode then
+			cap.Visible, label.Visible, image.Visible = true, true, false
+			look()
+		elseif input == "gamepad" and pad then
+			frame.Size = UDim2.fromOffset(side * CAP_RATIO, side)
 			frame.Visible = true
-			frame.BackgroundTransparency = 1
-			label.Visible = false
-			image.Visible = true
-			image.Image = UserInputService:GetImageForKeyCode(padCode)
+			cap.Visible, label.Visible, image.Visible = false, false, true
+			image.Image = UserInputService:GetImageForKeyCode(pad)
 		else
 			frame.Visible = false
 		end
@@ -94,10 +151,28 @@ function Buttons.badge(parent: GuiObject, key: Enum.KeyCode?, pad: Enum.KeyCode?
 	Screen.onChanged(function()
 		refresh()
 	end)
+
+	-- the pressed cap while the key is down, at least PRESS_MIN
+	UserInputService.InputBegan:Connect(function(input)
+		if current and Keys.matches(current, input) then
+			pressed, pressedAt = true, os.clock()
+			look()
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if current and Keys.matches(current, input) then
+			local wait = math.max(0, PRESS_MIN - (os.clock() - pressedAt))
+			task.delay(wait, function()
+				pressed = false
+				look()
+			end)
+		end
+	end)
+
 	return {
 		frame = frame,
-		set = function(newKey: Enum.KeyCode?, newPad: Enum.KeyCode?)
-			keyCode, padCode = newKey, newPad
+		set = function(newAction: string?)
+			current = newAction
 			refresh()
 		end,
 	}
@@ -145,17 +220,18 @@ export type IconButton = {
 }
 
 -- A square button: a candy body in `color`, the icon on it, the word over its lower edge, the key badge top left.
--- props: name, icon (asset id), text (optional), color (Color3), key, pad (Enum.KeyCode, optional), size (design).
-function Buttons.icon(props: {
-	name: string,
-	icon: string,
-	text: string?,
-	color: Color3,
-	key: Enum.KeyCode?,
-	pad: Enum.KeyCode?,
-	size: number?,
-	shrink: boolean?,
-}): IconButton
+-- props: name, icon (asset id), text (optional), color (Color3), action (its key badge, optional), size (design).
+function Buttons.icon(
+	props: {
+		name: string,
+		icon: string,
+		text: string?,
+		color: Color3,
+		action: string?, -- its key badge (Config/Controls)
+		size: number?,
+		shrink: boolean?,
+	}
+): IconButton
 	local size = props.size or Theme.config.iconButton
 	local button, face = baseButton(props.name, size, size, props.shrink)
 	local _, gradient = Theme.body(face, props.color, UDim.new(0.24, 0))
@@ -184,7 +260,7 @@ function Buttons.icon(props: {
 		limit.MaxTextSize = math.floor(size * 0.24)
 		limit.Parent = label
 	end
-	local badge = Buttons.badge(face, props.key, props.pad)
+	local badge = Buttons.badge(face, props.action)
 	return {
 		button = button,
 		badge = badge,
@@ -267,19 +343,20 @@ export type WideButton = {
 
 -- A wide button: optional icon on the left, the word beside it. Pressed it sinks in (Anim); locked it turns grey with
 -- a padlock and its Activated still fires (the caller decides, e.g. to say why). props: name, text, color, icon,
--- width, height, key, pad, textSize.
-function Buttons.wide(props: {
-	name: string,
-	text: string,
-	color: Color3,
-	icon: string?,
-	width: number?,
-	height: number?,
-	key: Enum.KeyCode?,
-	pad: Enum.KeyCode?,
-	textSize: number?,
-	shrink: boolean?,
-}): WideButton
+-- width, height, action (its key badge), textSize.
+function Buttons.wide(
+	props: {
+		name: string,
+		text: string,
+		color: Color3,
+		icon: string?,
+		width: number?,
+		height: number?,
+		action: string?, -- its key badge (Config/Controls)
+		textSize: number?,
+		shrink: boolean?,
+	}
+): WideButton
 	local width = props.width or Theme.config.wideButton.width
 	local height = props.height or Theme.config.wideButton.height
 	local button, face = baseButton(props.name, width, height, props.shrink)
@@ -312,9 +389,9 @@ function Buttons.wide(props: {
 	local lock = padlock(face, height * 0.42)
 	lock.Position = UDim2.new(1, -height * 0.32, 0.5, 0)
 	lock.Visible = false
-	local badge = Buttons.badge(face, props.key, props.pad)
-	-- fully on the button, not over its top edge: the top row sits right at the screen's edge
-	badge.frame.Position = UDim2.fromOffset(height * 0.32, badge.frame.Size.Y.Offset / 2 + 1)
+	local badge = Buttons.badge(face, props.action)
+	-- the same corner as on every button: half over the top and the left edge, clear of the icon
+	badge.frame.Position = UDim2.fromOffset(height * 0.05, 4)
 
 	local isLocked = false
 	local color = props.color

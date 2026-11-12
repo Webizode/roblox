@@ -31,6 +31,7 @@ local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local Sfx = require(client:WaitForChild("Sfx"))
 local Settings = require(client:WaitForChild("Settings"))
+local CombatCamera = require(client:WaitForChild("CombatCamera"))
 
 local MovementController = {}
 
@@ -63,6 +64,9 @@ local poses: { [Model]: Pose } = {}
 local shakeUntil = 0
 local shakeStrength = 0
 local fovTween: Tween? = nil
+-- the field of view this controller wants (the setting, sprint, the dash kick), tweened here; every frame the camera
+-- gets it plus what the aim camera adds (CombatCamera.fovOffset), so the two never fight over the camera
+local fovValue = Instance.new("NumberValue")
 local sprintFov = 0 -- extra field of view while the local player sprints
 
 -- The joint between the HumanoidRootPart and the body: R15's LowerTorso.Root or R6's HumanoidRootPart.RootJoint, as
@@ -494,6 +498,11 @@ end
 -- The procedural layer for every character: lean into runs and turns, stumble, knockdown pose, and in combat mode
 -- the hips turning into a sideways walk.
 local function onRenderStep(dt: number)
+	-- the field of view: this controller's (setting, sprint, dash kick) plus the aim camera's
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera.FieldOfView = math.clamp(fovValue.Value + CombatCamera.fovOffset(), 20, 120)
+	end
 	stepCombatTracks()
 	for _, other in Players:GetPlayers() do
 		local character = other.Character
@@ -965,15 +974,14 @@ function MovementController.dash(character: Model, duration: number, dirX: numbe
 	end)
 
 	if character == player.Character and Settings.effective().motionEffects then
-		local camera = workspace.CurrentCamera
 		if fovTween then
 			fovTween:Cancel()
 		end
-		camera.FieldOfView = fovTarget() + Movement.dashFovKick
+		fovValue.Value = fovTarget() + Movement.dashFovKick
 		fovTween = TweenService:Create(
-			camera,
+			fovValue,
 			TweenInfo.new(Movement.dashFovTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ FieldOfView = fovTarget() }
+			{ Value = fovTarget() }
 		)
 		fovTween:Play()
 	end
@@ -982,15 +990,14 @@ end
 -- Local player only: a slightly wider view while sprinting. The speed itself is the server's (TowerService).
 function MovementController.setSprinting(on: boolean)
 	sprintingNow = on -- the combat sprint animation follows it
-	local camera = workspace.CurrentCamera
 	sprintFov = if on then Movement.sprintFov else 0
 	if fovTween then
 		fovTween:Cancel()
 	end
 	fovTween = TweenService:Create(
-		camera,
+		fovValue,
 		TweenInfo.new(Movement.sprintFovTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{ FieldOfView = fovTarget() }
+		{ Value = fovTarget() }
 	)
 	fovTween:Play()
 end
@@ -1008,12 +1015,13 @@ function MovementController.lastDash(): number
 end
 
 function MovementController.Start()
+	fovValue.Value = fovTarget()
 	-- a changed FOV setting (or motion effects switched off) shows at once
 	Settings.onChanged(function()
 		if fovTween then
 			fovTween:Cancel()
 		end
-		workspace.CurrentCamera.FieldOfView = fovTarget()
+		fovValue.Value = fovTarget()
 	end)
 	player.CharacterAdded:Connect(onCharacter)
 	if player.Character then

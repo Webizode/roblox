@@ -10,6 +10,7 @@ local Theme = require(script.Parent:WaitForChild("Theme"))
 local Anim = require(script.Parent:WaitForChild("Anim"))
 local Screen = require(script.Parent:WaitForChild("Screen"))
 local Buttons = require(script.Parent:WaitForChild("Buttons"))
+local Keys = require(script.Parent.Parent:WaitForChild("Keys"))
 
 local Window = {}
 
@@ -143,7 +144,7 @@ function Window.new(props: { name: string, title: string, color: Color3, width: 
 	closeButton.Position = UDim2.new(1, -18, 0, 12)
 	closeButton.ZIndex = 6
 	closeButton.Parent = root
-	local closeBadge = Buttons.badge(closeButton, nil, Enum.KeyCode.ButtonB, 28)
+	local closeBadge = Buttons.badge(closeButton, "back", 28)
 	closeBadge.frame.Position = UDim2.new(0, -4, 1, 2)
 
 	local content = Theme.frame({
@@ -198,7 +199,7 @@ function Window.new(props: { name: string, title: string, color: Color3, width: 
 					close()
 				end
 				return Enum.ContextActionResult.Sink
-			end, false, PRIORITY, Enum.KeyCode.ButtonB)
+			end, false, PRIORITY, table.unpack(Keys.inputs("back")))
 			if Screen.input() == "gamepad" then
 				GuiService.SelectedObject = self.firstSelection or closeButton
 			end

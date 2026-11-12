@@ -158,6 +158,17 @@ describe("UI layout: every screen", function()
 end)
 
 describe("UI layout: the top row and the ice balls", function()
+	it("leaves room above the top row for the key badges standing half over its buttons' edge", function()
+		-- a badge sits with its centre 4 design px below a button's top edge (Buttons.badge)
+		local overhang = Config.badge / 2 - 4
+		for _, screen in SCREENS do
+			local plan = planFor(screen)
+			local tv = if screen.tenFoot then screen.height * Config.tvMargin else 0
+			expect(plan.top.y - overhang * plan.scale >= tv).toBe(true)
+			expect(plan.quick.y - overhang * plan.scale >= tv).toBe(true)
+		end
+	end)
+
 	it("puts MY PLOT, ARENA and the gear close to the top, in the top bar's free part", function()
 		for _, screen in SCREENS do
 			local plan = planFor(screen)

@@ -35,6 +35,7 @@ local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local CombatCamera = require(client:WaitForChild("CombatCamera"))
 local Sfx = require(client:WaitForChild("Sfx"))
 local UiKit = require(client:WaitForChild("UiKit"))
+local Keys = require(client:WaitForChild("Keys"))
 local BallVisual = require(client:WaitForChild("BallVisual"))
 
 local CombatController = {}
@@ -301,6 +302,7 @@ local function onResolved(
 		knockback(root, dirX, dirZ, strength)
 	end
 	registry.TowerController.hit(dirX, dirZ, strength)
+	CombatCamera.hit() -- the aim camera lets go at once; the charge itself goes on
 	if knockdown then
 		knockDown()
 		registry.Hud.toast("KNOCKED DOWN!", Palette.awning)
@@ -365,7 +367,7 @@ local function cancelCharge(releaseButton: boolean)
 		registry.ThrowAnimator.charge(false)
 	end
 	charging = false
-	CombatCamera.setAiming(false) -- after a throw and after a dropped charge alike
+	CombatCamera.setCharge(nil) -- after a throw and after a dropped charge alike
 	if releaseButton then
 		wantCharge = false
 	end
@@ -380,7 +382,6 @@ local function tryStartCharge()
 			chargeStartedAt = os.clock()
 			Remotes.ChargeIceBall:FireServer()
 			registry.ThrowAnimator.charge(true)
-			CombatCamera.setAiming(true)
 		end
 	end
 end
@@ -425,6 +426,7 @@ local function requestThrow(_: string, inputState: Enum.UserInputState): Enum.Co
 			lastRequestAt = os.clock()
 			lastThrowAt = os.clock()
 			Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z, strength, perfect)
+			CombatCamera.thrown(perfect) -- the aim (above) is taken before the camera moves
 			if perfect then
 				Sfx.play("perfectThrow", 1.4) -- the thrower hears it at once; everybody sees its sparkle (onThrown)
 			end
@@ -468,6 +470,7 @@ local function onAimStep(dt: number)
 	}, CombatConfig)
 	crosshairRadius = AimRules.ease(crosshairRadius, target, dt, CombatConfig)
 	registry.AimHud.set(combatMode, canThrow(), crosshairRadius, held)
+	CombatCamera.setCharge(held) -- the aim camera follows the charge every frame
 end
 
 -- Whether the local character stands in the arena (ArenaZone, the same function the server asks).
@@ -567,8 +570,7 @@ local function enterCombatMode()
 		requestThrow,
 		true, -- creates the Throw button on touch screens
 		ACTION_PRIORITY,
-		Enum.UserInputType.MouseButton1,
-		Enum.KeyCode.ButtonR2
+		table.unpack(Keys.inputs("throw"))
 	)
 	ContextActionService:SetTitle(THROW_ACTION, "Throw")
 	UiKit.Buttons.touchTitle(THROW_ACTION)
@@ -654,8 +656,7 @@ function CombatController.Start()
 		onModeInput,
 		true, -- creates the Combat button on touch screens
 		ACTION_PRIORITY,
-		Enum.KeyCode.R,
-		Enum.KeyCode.ButtonY
+		table.unpack(Keys.inputs("combat"))
 	)
 	ContextActionService:SetTitle(MODE_ACTION, "Combat")
 	UiKit.Buttons.touchTitle(MODE_ACTION)

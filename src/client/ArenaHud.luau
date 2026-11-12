@@ -306,7 +306,7 @@ export type DashBar = {
 
 -- the bar images are 504 x 100: the slanted ends (70 px each side) and the top and bottom keep their shape
 local SLICE = Rect.new(70, 49, 434, 51)
-local BADGE = 24 -- the key badge left of the bar, as big as the navigation's (H, T)
+local BADGE = UiConfig.badge -- the key badge left of the bar, as big as every other one
 local BADGE_ROOM = 16 -- left of the bar, for the sparkle's and the bump's overhang
 local BAR_PAD = 4 -- under the bar, for the bump
 
@@ -375,8 +375,8 @@ function ArenaHud.dash(parent: Instance): DashBar
 		Visible = false,
 		Parent = holder,
 	})
-	local badge = Buttons.badge(badgeHolder, Enum.KeyCode.Q, Enum.KeyCode.ButtonX, BADGE)
-	badge.frame.Position = UDim2.fromOffset(-BADGE / 2 - 5, height / 2)
+	local badge = Buttons.badge(badgeHolder, "dash", BADGE)
+	badge.frame.Position = UDim2.fromOffset(-badge.frame.Size.X.Offset / 2 - 5, height / 2)
 	local function syncBadge()
 		badgeHolder.Visible = group.Visible and group.GroupTransparency < 0.5
 	end

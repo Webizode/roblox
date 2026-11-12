@@ -17,6 +17,7 @@ local SettingsConfig = require(Shared:WaitForChild("Config"):WaitForChild("Setti
 
 local client = script.Parent.Parent
 local UiKit = require(client:WaitForChild("UiKit"))
+local Keys = require(client:WaitForChild("Keys"))
 local Theme, Screen, Buttons, Window = UiKit.Theme, UiKit.Screen, UiKit.Buttons, UiKit.Window
 local Settings = require(client:WaitForChild("Settings"))
 
@@ -52,6 +53,7 @@ local TABS: { { title: string, rows: { Row } } } = {
 			{ key = "cameraShake", label = "Camera shake" },
 			{ key = "fov", label = "Field of view" },
 			{ key = "motionEffects", label = "Sprint, dash and aim effects" },
+			{ key = "aimCamera", label = "Aim camera" },
 		},
 	},
 	{
@@ -266,10 +268,9 @@ local function build()
 		color = Theme.color("silver"),
 		size = Theme.config.settingsButton,
 		shrink = true,
-		pad = Enum.KeyCode.DPadUp,
+		action = "settings",
 	})
 	gear.button.Selectable = false
-	gear.badge.frame.Position = UDim2.fromOffset(13, 13) -- fully on the gear, which sits at the screen's top edge
 	local holder = Theme.frame({ Name = "GearHolder", Parent = gui })
 	gear.button.Parent = holder
 	Screen.onChanged(function(plan)
@@ -389,7 +390,7 @@ function SettingsController.Start()
 			end
 		end
 		return Enum.ContextActionResult.Sink
-	end, false, ACTION_PRIORITY, Enum.KeyCode.DPadUp)
+	end, false, ACTION_PRIORITY, table.unpack(Keys.inputs("settings")))
 	Settings.onChanged(function()
 		if window.isOpen() then
 			refresh()
