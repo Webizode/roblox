@@ -111,7 +111,18 @@ do
 end
 expectInstance({ "ServerScriptService", "Server", "Packages", "ProfileStore" }, "ModuleScript")
 for _, name in
-	{ "TowerVisual", "BallVisual", "Sfx", "Ui", "CombatCamera", "Settings", "BigSwirlArms", "ScoopModel", "ScoopSign" }
+	{
+		"TowerVisual",
+		"BallVisual",
+		"Sfx",
+		"Ui",
+		"UiKit",
+		"CombatCamera",
+		"Settings",
+		"BigSwirlArms",
+		"ScoopModel",
+		"ScoopSign",
+	}
 do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", name }, "ModuleScript")
 end
@@ -129,7 +140,8 @@ for _, name in
 		"ShotRenderer",
 		"RemoteTowers",
 		"SettingsController",
-		"TeleportMenu",
+		"Navigation",
+		"UiKitGallery",
 	}
 do
 	expectInstance({ "StarterPlayer", "StarterPlayerScripts", "Client", "Controllers", name }, "ModuleScript")

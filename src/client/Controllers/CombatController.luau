@@ -34,6 +34,7 @@ local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local CombatCamera = require(client:WaitForChild("CombatCamera"))
 local Sfx = require(client:WaitForChild("Sfx"))
+local UiKit = require(client:WaitForChild("UiKit"))
 local BallVisual = require(client:WaitForChild("BallVisual"))
 
 local CombatController = {}
@@ -570,6 +571,7 @@ local function enterCombatMode()
 		Enum.KeyCode.ButtonR2
 	)
 	ContextActionService:SetTitle(THROW_ACTION, "Throw")
+	UiKit.Buttons.touchTitle(THROW_ACTION)
 end
 
 -- Ends combat mode locally and gives the mouse back to Roblox. Safe to call when it is already off.
@@ -634,6 +636,12 @@ function forceExit()
 	end
 end
 
+-- Whether the local player is in combat mode right now (the client's own state: on with R, off at once with every
+-- way it ends), for the HUD's ice balls and the navigation.
+function CombatController.inCombatMode(): boolean
+	return combatMode
+end
+
 function CombatController.Init(reg)
 	registry = reg
 end
@@ -650,6 +658,7 @@ function CombatController.Start()
 		Enum.KeyCode.ButtonY
 	)
 	ContextActionService:SetTitle(MODE_ACTION, "Combat")
+	UiKit.Buttons.touchTitle(MODE_ACTION)
 	RunService.RenderStepped:Connect(onRenderStep)
 	RunService.RenderStepped:Connect(onAimStep)
 

@@ -1,10 +1,12 @@
--- The shared look of all 2D UI: ink cards with a soft cream outline, FredokaOne, rounded corners. The HUD and the
--- settings are built from these helpers so every screen reads as one style. Icons are built from frames, not
--- images or emoji.
+-- Older helpers for 2D UI (ink cards, FredokaOne, rounded corners); new UI is built from UiKit. Ui.color knows the
+-- world colours (Config/Palette) and, for names the world lacks, the kit's (Config/Ui.colors). The crosshair, the
+-- knockdown meter, the kill feed and the scoop name signs are built from these helpers.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Palette = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Palette"))
+local ConfigFolder = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
+local Palette = require(ConfigFolder:WaitForChild("Palette"))
+local UiConfig = require(ConfigFolder:WaitForChild("Ui"))
 
 local Ui = {}
 
@@ -23,7 +25,12 @@ local function apply(instance: Instance, props: { [string]: any }?)
 end
 
 function Ui.color(token: string): Color3
-	return Color3.fromHex(Palette[token])
+	return Color3.fromHex(Palette[token] or UiConfig.colors[token])
+end
+
+-- A colour of the UI kit (Config/Ui.colors), also where the world has one of the same name (mint).
+function Ui.kitColor(token: string): Color3
+	return Color3.fromHex(UiConfig.colors[token])
 end
 
 function Ui.corner(parent: GuiObject, radius: UDim?): UICorner

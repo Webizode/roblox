@@ -1,10 +1,11 @@
 --!strict
--- The teleport buttons (TeleportMenu, ArenaService): which targets exist, when a request is granted, which of several
+-- The teleport buttons (Navigation, ArenaService): which targets exist, when a request is granted, which of several
 -- shop targets and which spot round it. Pure: the server asks these, the Lune tests pin them down.
 --
--- A request is granted for a living character outside the arena that is not knocked down and has not taken a harmful
--- hit for Config/Map.teleportHitLock seconds; requests closer together than teleportMinInterval are floods and dropped.
--- The same rules for every target: a button is never a way out of a fight.
+-- A request is granted for a living character that is not knocked down and has not taken a harmful hit for
+-- Config/Map.teleportHitLock seconds; in the arena only with no scoops on the back (carrying the tower out of the arena
+-- is the game, a button must not skip it). Requests closer together than teleportMinInterval are floods and dropped.
+-- The same rules for every target.
 
 export type Config = {
 	teleportMinInterval: number,
@@ -13,12 +14,13 @@ export type Config = {
 }
 
 -- why a request is turned down; nil means granted
-export type Refusal = "unknown" | "flood" | "dead" | "arena" | "down" | "hit"
+export type Refusal = "unknown" | "flood" | "dead" | "down" | "hit" | "tower"
 
 export type Request = {
 	where: any, -- what the client sent
 	alive: boolean,
 	inArena: boolean,
+	carrying: boolean, -- scoops on the back
 	down: boolean, -- knocked down right now
 	sinceHit: number, -- seconds since the last harmful hit (math.huge without one)
 	sinceRequest: number, -- seconds since the player's last request (math.huge without one)
@@ -39,12 +41,12 @@ function TeleportRules.refusal(request: Request, config: Config): Refusal?
 		return "flood"
 	elseif not request.alive then
 		return "dead"
-	elseif request.inArena then
-		return "arena"
 	elseif request.down then
 		return "down"
 	elseif request.sinceHit < config.teleportHitLock then
 		return "hit"
+	elseif request.inArena and request.carrying then
+		return "tower"
 	end
 	return nil
 end

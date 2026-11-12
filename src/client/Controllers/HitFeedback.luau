@@ -42,7 +42,7 @@ end
 local function say(text: string)
 	local label = Ui.text({ Text = text, TextSize = 22, LayoutOrder = os.clock() * 1000 // 1 })
 	label.TextColor3 = Color3.new(1, 1, 1)
-	local rim = Ui.stroke(label, "ink", 2, 0.1)
+	local rim = Ui.stroke(label, "outline", 2.5, 0)
 	rim.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 	label.Parent = feed
 	table.insert(lines, label)
@@ -68,8 +68,8 @@ local function number(victim: Player, lost: number)
 	sign.ResetOnSpawn = false
 	local label = Ui.text({ Text = `-{lost}`, TextSize = 30, AnchorPoint = Vector2.new(0.5, 0.5) })
 	label.Position = UDim2.fromScale(0.5, 0.5)
-	label.TextColor3 = Ui.color("awning")
-	local rim = Ui.stroke(label, "ink", 2.5, 0)
+	label.TextColor3 = Ui.color("red")
+	local rim = Ui.stroke(label, "outline", 3, 0)
 	rim.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 	label.Parent = sign
 	sign.Parent = player:WaitForChild("PlayerGui")

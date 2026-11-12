@@ -19,8 +19,8 @@ local AimHud = {}
 
 local Look = CombatConfig.crosshair
 local PERFECT = Color3.fromHex(Look.perfectColor)
-local MARK = Ui.color("awning")
-local HEADSHOT = Ui.color("lemon")
+local MARK = Ui.color("red")
+local HEADSHOT = Ui.color("yellow")
 
 local holder: Frame
 local outer: Frame
@@ -48,7 +48,7 @@ local function ring(name: string): (Frame, UIStroke)
 	edge.Size = UDim2.new(1, Look.thickness * 2, 1, Look.thickness * 2)
 	edge.BackgroundTransparency = 1
 	Ui.corner(edge, UDim.new(0.5, 0))
-	Ui.stroke(edge, "ink", 1, 0.7)
+	Ui.stroke(edge, "outline", 1, 0.6)
 	edge.Parent = frame
 	frame.Parent = holder
 	return frame, line

@@ -32,6 +32,7 @@ require("./HitPoints.spec")
 require("./PlotLayout.spec")
 require("./LeaderboardRules.spec")
 require("./TeleportRules.spec")
+require("./UiLayout.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

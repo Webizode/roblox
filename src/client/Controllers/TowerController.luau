@@ -29,6 +29,7 @@ local MapConfig = require(Config:WaitForChild("Map"))
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local Sfx = require(client:WaitForChild("Sfx"))
+local UiKit = require(client:WaitForChild("UiKit"))
 
 local TowerController = {}
 
@@ -47,7 +48,6 @@ local FADE_RESPONSE = 8 -- 1/s
 -- beyond FADE_OUT; one threshold made a wobbling tower flicker on and off (studs beyond the scoop radius)
 local FADE_IN, FADE_OUT = 0.4, 1.2
 local DASH_ACTION = "WobbleDash"
-local POWER_DASH_ACTION = "WobblePowerDash" -- E, combat mode only
 local SPRINT_ACTION = "WobbleSprint"
 -- Roblox puts shift lock on Shift, which is the sprint here; it moves to Ctrl
 local SHIFT_LOCK_KEYS = "LeftControl,RightControl"
@@ -73,7 +73,6 @@ local lastServeRequest = 0
 -- cart does not instantly serve every single scoop
 local serveArmed = false
 local dashReadyAt = 0 -- local cooldown so the key cannot spam requests; the server has the final say
-local powerDashReadyAt = 0 -- the power dash's own
 local dashRunningUntil = 0 -- no dash request while one still runs
 local meter = Stance.new() -- the steady stance's energy bar, predicted here; the server's counts
 local stanceStartedAt = 0
@@ -353,11 +352,9 @@ local function debugDash(message: string)
 	end
 end
 
--- How fast and how long each kind of dash goes: the dash, and in combat mode the quick and the power dash.
+-- How fast and how long each kind of dash goes: the dash, and in combat mode the quick dash.
 local function dashMotion(kind: string): (number, number)
-	if kind == "power" then
-		return Tuning.dash.power.speed, Tuning.dash.power.duration
-	elseif kind == "quick" then
+	if kind == "quick" then
 		return Tuning.dash.quick.speed, Tuning.dash.quick.duration
 	end
 	return Tuning.dash.speed, Tuning.dash.duration
@@ -441,48 +438,29 @@ local function dashBurst(
 	end)
 end
 
--- The power dash yanks the tower harder than a dash.
-local function dashKickTuning(kind: string)
-	if kind ~= "power" then
-		return Tuning.dash
-	end
-	local scale = Tuning.dash.power.kickScale
-	return {
-		kickBase = Tuning.dash.kickBase * scale,
-		kickPerScoop = Tuning.dash.kickPerScoop * scale,
-		kickMax = Tuning.dash.kickMax * scale,
-		unsteadySeconds = Tuning.dash.unsteadySeconds,
-		unsteadyFactor = Tuning.dash.unsteadyFactor,
-	}
-end
-
 local function onDash(who: Player, dirX: number, dirZ: number, kind: string?)
 	local character = who.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then
 		return
 	end
-	local dashKind = if kind == "power" or kind == "quick" then kind else "dash"
+	local dashKind = if kind == "quick" then kind else "dash"
 	local speed, duration = dashMotion(dashKind)
 	-- the movement and the tower kick first: an error in the effects below must never cost the dash itself
 	if who == player then
 		debugDash(`{dashKind} granted by the server`)
-		if dashKind == "power" then
-			powerDashReadyAt = os.clock() + Tuning.dash.power.cooldown
-		else
-			dashReadyAt = os.clock() + Tuning.dash.cooldown
-		end
+		dashReadyAt = os.clock() + Tuning.dash.cooldown
 		dashRunningUntil = os.clock() + duration
 		local humanoid = (character :: Model):FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			dashBurst(root, humanoid, dirX, dirZ, speed, duration)
 		end
 		if #scoops > 0 and not state.toppled and not toppledAt then
-			TowerModel.dashKick(state, dashKickTuning(dashKind), #scoops, dirX, dirZ)
+			TowerModel.dashKick(state, Tuning.dash, #scoops, dirX, dirZ)
 		end
 	end
 	local ok, problem = pcall(function()
-		burstRing(root, if dashKind == "power" then Palette.strawberry else Palette.lemon)
+		burstRing(root, Palette.lemon)
 		registry.MovementController.dash(character :: Model, duration, dirX, dirZ, speed * duration)
 	end)
 	if not ok then
@@ -490,9 +468,9 @@ local function onDash(who: Player, dirX: number, dirZ: number, kind: string?)
 	end
 end
 
--- Asks the server for a dash; the burst happens when it agrees. Every dash (the dash, the quick and the power dash)
--- goes the way the character walks, diagonals included, or ahead when it stands.
-local function askForDash(power: boolean)
+-- Asks the server for a dash; the burst happens when it agrees. Every dash (the dash and the quick dash) goes the
+-- way the character walks, diagonals included, or ahead when it stands.
+local function askForDash()
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = rootPart()
@@ -500,9 +478,8 @@ local function askForDash(power: boolean)
 		debugDash("no request: no living character")
 		return
 	end
-	local readyAt = if power then powerDashReadyAt else dashReadyAt
-	if os.clock() < readyAt then
-		debugDash(string.format("no request: cooling down for %.1f s", readyAt - os.clock()))
+	if os.clock() < dashReadyAt then
+		debugDash(string.format("no request: cooling down for %.1f s", dashReadyAt - os.clock()))
 		return
 	end
 	if os.clock() < dashRunningUntil then
@@ -517,39 +494,17 @@ local function askForDash(power: boolean)
 		debugDash("no request: no direction")
 		return
 	end
-	if power then
-		powerDashReadyAt = os.clock() + Tuning.dash.power.cooldown
-		Remotes.Dash:FireServer(direction.X, direction.Z, "power")
-	else
-		dashReadyAt = os.clock() + Tuning.dash.cooldown
-		Remotes.Dash:FireServer(direction.X, direction.Z)
-	end
+	dashReadyAt = os.clock() + Tuning.dash.cooldown
+	Remotes.Dash:FireServer(direction.X, direction.Z)
 	TowerController.interruptStance()
-	debugDash(
-		string.format(
-			"%s request sent towards (%.2f, %.2f)",
-			if power then "power" else "dash",
-			direction.X,
-			direction.Z
-		)
-	)
+	debugDash(string.format("dash request sent towards (%.2f, %.2f)", direction.X, direction.Z))
 end
 
--- Q on PC, the dash button on touch screens: the dash, in combat mode the quick dash (the server decides which).
+-- Q on PC, X on a gamepad, the dash button on touch screens: the dash, in combat mode the quick dash (the server
+-- decides which).
 local function requestDash(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
 	if inputState == Enum.UserInputState.Begin then
-		askForDash(false)
-	end
-	return Enum.ContextActionResult.Sink
-end
-
--- E on PC, the Power button on touch screens: the power dash, only in combat mode. Outside it the key passes on.
-local function requestPowerDash(_: string, inputState: Enum.UserInputState): Enum.ContextActionResult
-	if player:GetAttribute("CombatMode") ~= true then
-		return Enum.ContextActionResult.Pass
-	end
-	if inputState == Enum.UserInputState.Begin then
-		askForDash(true)
+		askForDash()
 	end
 	return Enum.ContextActionResult.Sink
 end
@@ -676,17 +631,11 @@ function TowerController.Start()
 		requestDash,
 		true, -- creates the dash button on touch screens
 		ACTION_PRIORITY,
-		Enum.KeyCode.Q
+		Enum.KeyCode.Q,
+		Enum.KeyCode.ButtonX
 	)
 	ContextActionService:SetTitle(DASH_ACTION, "Dash")
-	ContextActionService:BindActionAtPriority(
-		POWER_DASH_ACTION,
-		requestPowerDash,
-		true, -- creates the Power button on touch screens; it only works in combat mode
-		ACTION_PRIORITY,
-		Enum.KeyCode.E
-	)
-	ContextActionService:SetTitle(POWER_DASH_ACTION, "Power")
+	UiKit.Buttons.touchTitle(DASH_ACTION)
 
 	ContextActionService:BindActionAtPriority(
 		SPRINT_ACTION,
@@ -698,6 +647,7 @@ function TowerController.Start()
 		Enum.KeyCode.ButtonL3
 	)
 	ContextActionService:SetTitle(SPRINT_ACTION, "Sprint")
+	UiKit.Buttons.touchTitle(SPRINT_ACTION)
 	-- the server resets sprint on respawn, so the client does too
 	player.CharacterAdded:Connect(function()
 		sprinting = false
@@ -718,6 +668,7 @@ function TowerController.Start()
 		Enum.KeyCode.F
 	)
 	ContextActionService:SetTitle(STANCE_ACTION, "Steady")
+	UiKit.Buttons.touchTitle(STANCE_ACTION)
 
 	RunService:BindToRenderStep("WobbleTower", TowerController.RENDER_PRIORITY, onRenderStep)
 	RunService:BindToRenderStep("WobbleTowerVisual", TowerController.VISUAL_PRIORITY, onVisualStep)
@@ -749,6 +700,12 @@ end
 -- A throw or a dash was just requested: the stance ends and is locked for stance.lockout (also one released a
 -- moment ago, like the server does). The server ends and locks its own when it grants the request; the "off" sent
 -- here, after the request, only counts if it refuses.
+-- How far the dash has recharged: 0 right after one, 1 when Q (X, the dash button) works again. The same clock the
+-- key checks (dashReadyAt), so the HUD's bar is full exactly when a dash can be asked for.
+function TowerController.dashCharge(): number
+	return 1 - math.clamp((dashReadyAt - os.clock()) / Tuning.dash.cooldown, 0, 1)
+end
+
 function TowerController.interruptStance()
 	local wasActive = meter.active
 	Stance.interrupt(meter, Tuning.stance, Tuning.stance.lockRecent)

@@ -9,6 +9,7 @@ local function request(overrides)
 		where = "plot",
 		alive = true,
 		inArena = false,
+		carrying = false,
 		down = false,
 		sinceHit = math.huge,
 		sinceRequest = math.huge,
@@ -39,15 +40,24 @@ describe("Teleport requests", function()
 	end)
 
 	it(
-		"are refused in the arena, knocked down and right after a hit, for the shops the same as for the plot",
+		"are refused knocked down, right after a hit and in the arena with a tower, for every target the same",
 		function()
 			for _, where in { "plot", "arena", "upgrades", "quests", "cosmetics" } do
-				expect(TeleportRules.refusal(request({ where = where, inArena = true }), MapConfig)).toBe("arena")
+				local carrying = request({ where = where, inArena = true, carrying = true })
+				expect(TeleportRules.refusal(carrying, MapConfig)).toBe("tower")
 				expect(TeleportRules.refusal(request({ where = where, down = true }), MapConfig)).toBe("down")
 				expect(TeleportRules.refusal(request({ where = where, sinceHit = 0.5 }), MapConfig)).toBe("hit")
 			end
 		end
 	)
+
+	it("are granted in the arena without scoops on the back, and outside it with them", function()
+		expect(TeleportRules.refusal(request({ inArena = true }), MapConfig)).toBe(nil)
+		expect(TeleportRules.refusal(request({ carrying = true }), MapConfig)).toBe(nil)
+		-- a knockdown is the reason given first
+		local down = request({ inArena = true, carrying = true, down = true })
+		expect(TeleportRules.refusal(down, MapConfig)).toBe("down")
+	end)
 
 	it("open again once the hit lock has run out", function()
 		local lock = MapConfig.teleportHitLock

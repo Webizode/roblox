@@ -3,12 +3,12 @@
 --
 -- The server asks ArenaZone with the character's position whenever it needs to know (inArena), so its answer is never
 -- late, and mirrors it as the player attribute InArena every frame. Only players in the arena are hit by ice balls
--- (CombatService) and get scoops aimed at them (LauncherService). Outside it the client shows the teleport buttons
--- (TeleportMenu, which asks ArenaZone itself): "my plot", "arena" and the three shops. The client only names the
--- target; TeleportRules decides, the same for all five: a living character outside the arena, not knocked down and
--- not hit for Config/Map.teleportHitLock seconds. Requests closer together than teleportMinInterval are dropped
--- against floods. A refusal for a knockdown or a recent hit is told to the client (TeleportDenied), the others are
--- silent (the buttons do not show in the arena). The target is streamed in first.
+-- (CombatService) and get scoops aimed at them (LauncherService). The client shows the teleport buttons (Navigation):
+-- "my plot", "arena" and the three shops. The client only names the target; TeleportRules decides, the same for all
+-- five: a living character, not knocked down, not hit for Config/Map.teleportHitLock seconds, and in the arena with no
+-- scoops on the back. Requests closer together than teleportMinInterval are dropped against floods. A refusal for a
+-- knockdown, a recent hit or the tower is told to the client (TeleportDenied), the others are silent. The target is
+-- streamed in first.
 --
 -- The shops' targets are invisible parts under Ice Cream Map.Dekoracje.Hub (Config/Map.teleportTargets), found once at
 -- the start; with several of one name the nearest is taken. Players land on the first free spot round it
@@ -93,7 +93,8 @@ local function onTeleport(player: Player, where: any)
 	local refusal = TeleportRules.refusal({
 		where = where,
 		alive = character ~= nil and humanoid ~= nil and humanoid.Health > 0,
-		inArena = ArenaService.inArena(player), -- no buttons in the arena: getting out alive is the game
+		inArena = ArenaService.inArena(player),
+		carrying = registry.TowerService.count(player) > 0, -- carrying the tower out of the arena is the game
 		down = registry.CombatService.isDown(player),
 		sinceHit = registry.CombatService.sinceHit(player),
 		sinceRequest = time - (lastRequest[player] or -math.huge),
@@ -102,7 +103,7 @@ local function onTeleport(player: Player, where: any)
 		lastRequest[player] = time
 	end
 	if refusal then
-		if refusal == "down" or refusal == "hit" then
+		if refusal == "down" or refusal == "hit" or refusal == "tower" then
 			Remotes.TeleportDenied:FireClient(player, refusal)
 		end
 		return

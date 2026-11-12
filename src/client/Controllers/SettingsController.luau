@@ -1,14 +1,12 @@
--- The settings menu: a gear button top left (touch and mouse), the D-pad up on a gamepad. Five tabs (audio, graphics,
--- camera, controls); every value changes with big - / + or arrow buttons, which work the same with a
--- thumb, a mouse and a gamepad. Changes apply at once (Settings) and are saved with the player's save.
+-- The settings menu: a gear button top right (touch and mouse), the D-pad up on a gamepad. A kit window (UiKit) with
+-- four tabs (audio, graphics, camera, controls); every value changes with big - / + or arrow buttons, which work the
+-- same with a thumb, a mouse and a gamepad. Changes apply at once (Settings) and are saved with the player's save. B
+-- or the red button closes it.
 --
 -- Also here, because nothing else owns them: the performance mode's local lighting (no shadows, bloom or sun rays on
 -- this device) and the small controls overview at the right edge in combat mode.
---
--- Placeholder look until the designer's UI: cream cards with an ink outline.
 
 local ContextActionService = game:GetService("ContextActionService")
-local GuiService = game:GetService("GuiService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,16 +16,17 @@ local SettingsRules = require(Shared:WaitForChild("SettingsRules"))
 local SettingsConfig = require(Shared:WaitForChild("Config"):WaitForChild("Settings"))
 
 local client = script.Parent.Parent
-local Ui = require(client:WaitForChild("Ui"))
+local UiKit = require(client:WaitForChild("UiKit"))
+local Theme, Screen, Buttons, Window = UiKit.Theme, UiKit.Screen, UiKit.Buttons, UiKit.Window
 local Settings = require(client:WaitForChild("Settings"))
 
 local SettingsController = {}
 
 local OPEN_ACTION = "WobbleSettings"
-local CLOSE_ACTION = "WobbleSettingsClose"
 local ACTION_PRIORITY = Enum.ContextActionPriority.High.Value + 100
-local PANEL_WIDTH = 560
-local ROW_HEIGHT = 52
+local ROW_HEIGHT = 54
+local WINDOW_WIDTH = 600
+local WINDOW_HEIGHT = 470
 local BUTTON = 48 -- square buttons, big enough for a thumb
 
 type Row = { key: string, label: string }
@@ -89,28 +88,23 @@ local HINTS: { [string]: { string } } = {
 	keyboard = {
 		"LMB  Throw (hold to charge)",
 		"R  Leave combat",
-		"Q  Dash   E  Power dash",
-		"F  Steady   Shift  Sprint",
+		"Q  Dash   F  Steady",
+		"Shift  Sprint",
 	},
-	gamepad = { "R2  Throw (hold to charge)", "Y  Leave combat", "L3  Sprint" },
+	gamepad = { "R2  Throw (hold to charge)", "Y  Leave combat", "X  Dash   L3  Sprint" },
 	touch = { "Hold Throw to charge" },
 }
 
 local player = Players.LocalPlayer
 local gui: ScreenGui
-local panel: Frame
+local window: any -- UiKit.Window
+local tabs: any -- UiKit.Window.tabs
 local content: Frame
-local tabButtons: { TextButton } = {}
 local refreshers: { () -> () } = {}
 local hint: Frame
 local hintLines: TextLabel
 local currentTab = 1
-local isOpen = false
 local originalLighting: { shadows: boolean, effects: { [Instance]: boolean } }? = nil
-
-local function ink(): Color3
-	return Ui.color("ink")
-end
 
 local function display(key: string, value: any): string
 	if
@@ -130,67 +124,87 @@ local function display(key: string, value: any): string
 end
 
 local function smallButton(text: string, parent: Instance, order: number): TextButton
-	return Ui.button({
-		Text = text,
-		Size = UDim2.fromOffset(BUTTON, BUTTON),
-		TextSize = 26,
-		LayoutOrder = order,
-		Selectable = true,
-		Parent = parent,
+	local button = Buttons.wide({
+		name = text,
+		text = text,
+		color = Theme.color("sky"),
+		width = BUTTON,
+		height = BUTTON,
+		textSize = 28,
 	})
+	button.button.LayoutOrder = order
+	button.button.Parent = parent
+	return button.button
+end
+
+-- Dark text on the cream window.
+local function plainText(props: { [string]: any }): TextLabel
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Font = Theme.font
+	label.TextColor3 = Theme.color("textDark")
+	label.TextSize = 22
+	label.AutomaticSize = Enum.AutomaticSize.XY
+	label.ZIndex = 5
+	Theme.apply(label, props)
+	return label
 end
 
 -- One row: the label on the left, the control on the right. Toggles are one wide button, numbers and choices a
 -- value between - / + or arrows.
 local function makeRow(row: Row, order: number): Frame
-	local frame = Instance.new("Frame")
-	frame.Name = row.key
-	frame.BackgroundTransparency = 1
-	frame.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
-	frame.LayoutOrder = order
-	Ui.text({
+	local frame = Theme.frame({
+		Name = row.key,
+		Size = UDim2.new(1, 0, 0, ROW_HEIGHT),
+		LayoutOrder = order,
+		ZIndex = 4,
+	})
+	plainText({
 		Text = row.label,
-		TextColor3 = ink(),
-		TextSize = 22,
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.fromScale(0, 0.5),
 		Parent = frame,
 	})
 
-	local control = Instance.new("Frame")
-	control.BackgroundTransparency = 1
-	control.AnchorPoint = Vector2.new(1, 0.5)
-	control.Position = UDim2.fromScale(1, 0.5)
-	control.AutomaticSize = Enum.AutomaticSize.X
-	control.Size = UDim2.fromOffset(0, BUTTON)
-	control.Parent = frame
-	Ui.list(control, Enum.FillDirection.Horizontal, 8)
+	local control = Theme.frame({
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -4, 0.5, 0),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, BUTTON + 6),
+		Parent = frame,
+	})
+	local list = Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Horizontal
+	list.VerticalAlignment = Enum.VerticalAlignment.Center
+	list.Padding = UDim.new(0, 8)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = control
 
 	local isToggle = type(SettingsConfig.defaults[row.key]) == "boolean"
 	if isToggle then
-		local toggle = Ui.button({
-			Size = UDim2.fromOffset(110, BUTTON),
-			TextSize = 22,
-			Selectable = true,
-			Parent = control,
+		local toggle = Buttons.wide({
+			name = "Toggle",
+			text = "",
+			color = Theme.color("mint"),
+			width = 120,
+			height = BUTTON,
+			textSize = 24,
 		})
-		toggle.Activated:Connect(function()
+		toggle.button.Parent = control
+		toggle.button.Activated:Connect(function()
 			Settings.set(row.key, SettingsRules.step(row.key, Settings.get()[row.key], 1, SettingsConfig))
 		end)
 		table.insert(refreshers, function()
 			local on = Settings.get()[row.key]
-			toggle.Text = display(row.key, on)
-			toggle.BackgroundColor3 = if on then Ui.color("mint") else Color3.fromRGB(200, 200, 200)
-			toggle.TextColor3 = ink()
+			toggle.setText(display(row.key, on))
+			toggle.setColor(if on then Theme.color("mint") else Theme.color("locked"))
 		end)
 		return frame
 	end
 
 	local isChoice = SettingsConfig.choices[row.key] ~= nil
 	local less = smallButton(if isChoice then "<" else "-", control, 1)
-	local value = Ui.text({
-		TextColor3 = ink(),
-		TextSize = 22,
+	local value = plainText({
 		AutomaticSize = Enum.AutomaticSize.None,
 		Size = UDim2.fromOffset(130, BUTTON),
 		LayoutOrder = 2,
@@ -204,8 +218,7 @@ local function makeRow(row: Row, order: number): Frame
 		Settings.set(row.key, SettingsRules.step(row.key, Settings.get()[row.key], 1, SettingsConfig))
 	end)
 	table.insert(refreshers, function()
-		local current = Settings.get()[row.key]
-		value.Text = display(row.key, current)
+		value.Text = display(row.key, Settings.get()[row.key])
 	end)
 	return frame
 end
@@ -213,11 +226,6 @@ end
 local function refresh()
 	for _, refresher in refreshers do
 		refresher()
-	end
-	for index, button in tabButtons do
-		local selected = index == currentTab
-		button.BackgroundColor3 = if selected then Ui.color("lemon") else Color3.new(1, 1, 1)
-		button.TextColor3 = ink()
 	end
 end
 
@@ -236,167 +244,111 @@ local function showTab(index: number)
 end
 
 local function close()
-	if not isOpen then
-		return
-	end
-	isOpen = false
-	panel.Visible = false
-	ContextActionService:UnbindAction(CLOSE_ACTION)
-	if GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(gui) then
-		GuiService.SelectedObject = nil
-	end
-	Settings.flush()
+	window.close()
 end
 
-local function open(withGamepad: boolean)
-	if isOpen then
+local function open()
+	if window.isOpen() then
 		return
 	end
-	isOpen = true
 	showTab(currentTab)
-	panel.Visible = true
-	ContextActionService:BindActionAtPriority(CLOSE_ACTION, function(_, state)
-		if state == Enum.UserInputState.Begin then
-			close()
-		end
-		return Enum.ContextActionResult.Sink
-	end, false, ACTION_PRIORITY, Enum.KeyCode.ButtonB)
-	if withGamepad then
-		GuiService.SelectedObject = tabButtons[currentTab]
-	end
+	window.firstSelection = tabs.buttons[currentTab]
+	window.open()
 end
 
 local function build()
-	gui = Instance.new("ScreenGui")
-	gui.Name = "Settings"
-	gui.ResetOnSpawn = false
-	gui.DisplayOrder = 20
-	gui.Parent = player:WaitForChild("PlayerGui")
+	gui = Screen.gui("Settings", 20)
 
-	-- the gear: a ring with four teeth, built from frames like every icon of the game
-	local gear = Ui.button({
-		Name = "Gear",
-		Size = UDim2.fromOffset(52, 52),
-		Position = UDim2.fromOffset(12, 12),
-		Selectable = false,
-		Parent = gui,
+	-- the gear: a silver icon button, top right; with a gamepad the D-pad symbol shows on it
+	local gear = Buttons.icon({
+		name = "Gear",
+		icon = Theme.icons.settings,
+		color = Theme.color("silver"),
+		size = Theme.config.settingsButton,
+		shrink = true,
+		pad = Enum.KeyCode.DPadUp,
 	})
-	Ui.autoScale(gear)
-	for index = 0, 3 do
-		local tooth = Instance.new("Frame")
-		tooth.AnchorPoint = Vector2.new(0.5, 0.5)
-		tooth.Position = UDim2.fromScale(0.5, 0.5)
-		tooth.Size = UDim2.fromOffset(30, 8)
-		tooth.Rotation = index * 45
-		tooth.BackgroundColor3 = Ui.color("vanilla")
-		tooth.BorderSizePixel = 0
-		Ui.corner(tooth, UDim.new(0, 2))
-		tooth.Parent = gear
-	end
-	local hub = Ui.circle(20, "vanilla", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
-	hub.Parent = gear
-	local hole = Ui.circle(8, "ink", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
-	hole.Parent = hub
-	gear.Activated:Connect(function()
-		if isOpen then
+	gear.button.Selectable = false
+	gear.badge.frame.Position = UDim2.fromOffset(13, 13) -- fully on the gear, which sits at the screen's top edge
+	local holder = Theme.frame({ Name = "GearHolder", Parent = gui })
+	gear.button.Parent = holder
+	Screen.onChanged(function(plan)
+		Screen.place(holder, plan.settings, plan.scale)
+	end)
+	gear.button.Activated:Connect(function()
+		if window.isOpen() then
 			close()
 		else
-			open(false)
+			open()
 		end
 	end)
 
-	panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromOffset(PANEL_WIDTH, 0)
-	panel.AutomaticSize = Enum.AutomaticSize.Y
-	panel.BackgroundColor3 = Ui.color("vanilla")
-	panel.BorderSizePixel = 0
-	panel.Visible = false
-	panel.Parent = gui
-	Ui.corner(panel, UDim.new(0, 20))
-	Ui.stroke(panel, "ink", 3)
-	Ui.padding(panel, 18, 14)
-	local layout = Ui.list(panel, Enum.FillDirection.Vertical, 12)
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-	Ui.autoScale(panel)
-
-	local header = Instance.new("Frame")
-	header.BackgroundTransparency = 1
-	header.Size = UDim2.new(1, 0, 0, 44)
-	header.LayoutOrder = 1
-	header.Parent = panel
-	Ui.text({
-		Text = "SETTINGS",
-		TextColor3 = ink(),
-		TextSize = 32,
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.fromScale(0, 0.5),
-		Parent = header,
+	window = Window.new({
+		name = "SettingsWindow",
+		title = "SETTINGS",
+		color = Theme.color("sky"),
+		width = WINDOW_WIDTH,
+		height = WINDOW_HEIGHT,
 	})
-	local closeButton = Ui.button({
-		Name = "Close",
-		Text = "X",
-		Size = UDim2.fromOffset(44, 44),
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.fromScale(1, 0.5),
-		Selectable = true,
-		Parent = header,
-	})
-	closeButton.Activated:Connect(close)
-
-	local tabs = Instance.new("Frame")
-	tabs.BackgroundTransparency = 1
-	tabs.Size = UDim2.new(1, 0, 0, 44)
-	tabs.LayoutOrder = 2
-	tabs.Parent = panel
-	local tabLayout = Ui.list(tabs, Enum.FillDirection.Horizontal, 6)
-	tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	window.onClosed(function()
+		Settings.flush()
+	end)
+	local names = {}
 	for index, tab in TABS do
-		local button = Ui.button({
-			Text = tab.title,
-			Size = UDim2.fromOffset((PANEL_WIDTH - 36 - 24) / #TABS, 44),
-			TextSize = 18,
-			LayoutOrder = index,
-			Selectable = true,
-			Parent = tabs,
-		})
-		button.Activated:Connect(function()
-			showTab(index)
-		end)
-		table.insert(tabButtons, button)
+		names[index] = tab.title
 	end
+	tabs = Window.tabs(window.content, names, Theme.color("sky"), showTab)
 
-	content = Instance.new("Frame")
-	content.BackgroundTransparency = 1
-	content.Size = UDim2.fromScale(1, 0)
-	content.AutomaticSize = Enum.AutomaticSize.Y
-	content.LayoutOrder = 3
-	content.Parent = panel
-	local rows = Ui.list(content, Enum.FillDirection.Vertical, 6)
-	rows.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	content = Theme.frame({
+		Name = "Rows",
+		Position = UDim2.fromOffset(0, 58),
+		Size = UDim2.new(1, 0, 1, -58),
+		ZIndex = 4,
+		Parent = window.content,
+	})
+	local rows = Instance.new("UIListLayout")
+	rows.FillDirection = Enum.FillDirection.Vertical
+	rows.Padding = UDim.new(0, 4)
+	rows.SortOrder = Enum.SortOrder.LayoutOrder
+	rows.Parent = content
 end
 
 -- The controls overview at the right edge, for the input in use; only in combat mode and if switched on.
 local function buildHint()
-	hint = Ui.card({
+	local holder = Theme.frame({ Name = "HintHolder", Parent = gui })
+	hint = Theme.frame({
 		Name = "ControlsHint",
+		BackgroundTransparency = 0.08,
+		BackgroundColor3 = Theme.color("cream"),
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -12, 0.42, 0),
+		Position = UDim2.fromScale(1, 0.5),
 		AutomaticSize = Enum.AutomaticSize.XY,
-		Size = UDim2.fromOffset(0, 0),
 		Visible = false,
-		Parent = gui,
+		Parent = holder,
 	})
-	Ui.padding(hint, 12, 8)
-	Ui.autoScale(hint)
-	hintLines = Ui.text({
+	Theme.corner(hint, UDim.new(0, 14))
+	Theme.outline(hint)
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, 12)
+	padding.PaddingRight = UDim.new(0, 12)
+	padding.PaddingTop = UDim.new(0, 8)
+	padding.PaddingBottom = UDim.new(0, 8)
+	padding.Parent = hint
+	hintLines = plainText({
 		TextSize = 18,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		LineHeight = 1.15,
 		Parent = hint,
 	})
+	-- right edge, a little above the middle
+	Screen.onChanged(function(plan)
+		Screen.place(holder, {
+			x = plan.frame.x + plan.frame.w - 1,
+			y = plan.frame.y + plan.frame.h * 0.42,
+			w = 1,
+			h = 1,
+		}, plan.scale)
+	end)
 end
 
 local function updateHint()
@@ -430,16 +382,16 @@ function SettingsController.Start()
 	buildHint()
 	ContextActionService:BindActionAtPriority(OPEN_ACTION, function(_, state)
 		if state == Enum.UserInputState.Begin then
-			if isOpen then
+			if window.isOpen() then
 				close()
 			else
-				open(true)
+				open()
 			end
 		end
 		return Enum.ContextActionResult.Sink
 	end, false, ACTION_PRIORITY, Enum.KeyCode.DPadUp)
 	Settings.onChanged(function()
-		if isOpen then
+		if window.isOpen() then
 			refresh()
 		end
 		applyLighting()

@@ -17,7 +17,8 @@ local ORDER = {
 	"LootRenderer",
 	"RemoteTowers",
 	"SettingsController",
-	"TeleportMenu",
+	"Navigation",
+	"UiKitGallery",
 	"FountainWater",
 	"Ocean",
 }

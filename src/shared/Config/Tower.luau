@@ -139,16 +139,8 @@ return {
 		kickMax = 0.9, -- rad/s
 		unsteadySeconds = 0.6, -- afterwards pad and walking corrections are weaker for this long
 		unsteadyFactor = 0.3, -- share of the normal correction strength during that window
-		-- In combat mode Q is the quick dash (a harder push of the same dash, same cooldown) and E the power dash: a
-		-- long boost the way the character walks (diagonals too; ahead when standing), with its own cooldown. Neither
-		-- exists outside combat mode, and no
-		-- dash starts while another one still runs. Same burst as above (wall stop, speed back to walking at the end).
+		-- In combat mode Q is the quick dash: a harder push of the same dash, same cooldown. No dash starts while
+		-- another one still runs. Same burst as above (wall stop, speed back to walking at the end).
 		quick = { speed = 100, duration = 0.12 }, -- 12 studs
-		power = {
-			speed = 125,
-			duration = 0.2, -- 25 studs
-			cooldown = 6, -- seconds, its own
-			kickScale = 1.4, -- the tower is yanked this much harder than by a dash
-		},
 	},
 }

@@ -20,9 +20,9 @@ local KnockMeter = {}
 
 local Knock = CombatConfig.knock
 local Look = CombatConfig.feedback.meter
-local FULL = Ui.color("awning")
-local SAFE = Ui.color("mint")
-local EMPTY = Ui.color("ink")
+local FULL = Ui.color("red")
+local SAFE = Ui.kitColor("mint")
+local EMPTY = Ui.color("chocolate")
 
 local player = Players.LocalPlayer
 local row: Frame
@@ -52,7 +52,7 @@ function KnockMeter.Init()
 		segment.Size = UDim2.fromOffset(Look.segment, Look.height)
 		segment.BorderSizePixel = 0
 		Ui.corner(segment, UDim.new(0.5, 0))
-		Ui.stroke(segment, "ink", 1, 0.3)
+		Ui.stroke(segment, "outline", 1.5, 0.1)
 		segment.Parent = row
 		segments[index] = segment
 	end
@@ -62,7 +62,7 @@ function KnockMeter.Init()
 	label.Position = UDim2.new(0.5, 0, 0.5, Look.below + Look.height + 4)
 	label.TextColor3 = SAFE
 	label.Visible = false
-	Ui.stroke(label, "ink", 1.5, 0.1).ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	Ui.stroke(label, "outline", 2, 0).ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 	label.Parent = gui
 end
 
