@@ -33,6 +33,7 @@ local ScoopModel = require(client:WaitForChild("ScoopModel"))
 local ScoopSign = require(client:WaitForChild("ScoopSign"))
 local BigSwirlArms = require(client:WaitForChild("BigSwirlArms"))
 local Settings = require(client:WaitForChild("Settings"))
+local CatchVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Catch"))
 
 local ShotRenderer = {}
 
@@ -295,6 +296,9 @@ local function onShotResolved(id: number, catcher: Player?, landed: boolean?)
 		if catcher == nil and not landed then -- splashed into the water; a landed one lies on as a free scoop
 			splat(shot)
 		end
+	end
+	if catcher then
+		CatchVfx.play(shot.scoop.part.Position, shot.to, shot.flavorId, catcher == player)
 	end
 	-- caught by us: TowerChanged already put the scoop into the stack
 	remove(id)

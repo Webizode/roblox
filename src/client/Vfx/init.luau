@@ -53,6 +53,11 @@ function Vfx.flavorColor(flavorId: string?): Color3
 	return Color3.fromHex(flavor.color)
 end
 
+-- An effect placed at `position` that points straight up (dust, rings on the ground, things that rise).
+function Vfx.upAt(position: Vector3): CFrame
+	return CFrame.lookAt(position, position + Vector3.new(0, 1, 0), Vector3.new(0, 0, 1))
+end
+
 -- Plays the effect `name` of Config/Vfx.effects at `where`, flying along its look direction. Returns the number of
 -- particles it showed (0: left out).
 function Vfx.burst(name: string, where: CFrame, options: Options?): number
@@ -126,6 +131,55 @@ function Vfx.flashBody(character: Model)
 			Pool.give("bodyFlash", highlight)
 		end
 	end)
+end
+
+-- Rings running out flat over the ground at `position` (Config/Vfx.groundRings[name]): the ring picture on thin
+-- pooled parts that grow and fade. `color`: the scoop's colour for the "scoop" rings.
+function Vfx.groundRings(name: string, position: Vector3, color: Color3?, own: boolean?)
+	local rings = Config.groundRings[name]
+	local share, extras = VfxRules.scale(Vfx.quality(), Vfx.tier(position, own), Config)
+	if not rings or share <= 0 then
+		return
+	end
+	for _, ring in rings do
+		if ring.extra and not extras then
+			continue
+		end
+		local part = Pool.take("groundRing", function(): Part
+			local made = Instance.new("Part")
+			made.Name = "VfxGroundRing"
+			made.Anchored = true
+			made.CanCollide = false
+			made.CanQuery = false
+			made.CanTouch = false
+			made.CastShadow = false
+			made.Transparency = 1 -- only the picture on its top shows
+			local picture = Instance.new("Decal")
+			picture.Name = "Ring"
+			picture.Face = Enum.NormalId.Top
+			picture.Texture = Config.textures.ring
+			picture.Parent = made
+			return made
+		end)
+		local picture = part:FindFirstChild("Ring") :: Decal
+		local tint = if ring.color == "scoop" then color or Vfx.flavorColor(nil) else Emit.color(ring.color)
+		picture.Color3 = if ring.lighten then tint:Lerp(Color3.new(1, 1, 1), ring.lighten) else tint
+		picture.Transparency = ring.transparency
+		part.Size = Vector3.new(ring.from, 0.05, ring.from)
+		part.CFrame = CFrame.new(position + Vector3.new(0, Config.groundRings.lift, 0))
+		part.Parent = Pool.folder()
+		local info = TweenInfo.new(ring.time, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		TweenService:Create(part, info, { Size = Vector3.new(ring.to, 0.05, ring.to) }):Play()
+		-- it stays clear while it runs out and only fades at the end
+		local fade = TweenInfo.new(ring.time, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		TweenService:Create(picture, fade, { Transparency = 1 }):Play()
+		task.delay(ring.time + 0.05, function()
+			if part.Parent then
+				part.Parent = nil
+				Pool.give("groundRing", part)
+			end
+		end)
+	end
 end
 
 -- For checks (the performance test, the console): what runs right now and what the pools hold.

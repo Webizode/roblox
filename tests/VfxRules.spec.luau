@@ -47,9 +47,31 @@ describe("Vfx: every effect keeps its budget", function()
 		end
 	end)
 
-	it("the perfect throw's trail keeps its budget", function()
-		local trail = Config.perfectTrail
-		expect(trail.rate * trail.lifetime <= trail.budget.particles).toBe(true)
+	it("every ground ring names a colour that exists and grows", function()
+		for name, rings in Config.groundRings do
+			if type(rings) == "table" then
+				for index, ring in rings do
+					local known = ring.color == "scoop" or Config.colors[ring.color]
+					if not known then
+						error(`{name} ring {index}: no colour {ring.color}`)
+					end
+					expect(ring.to).toBeGreaterThan(ring.from)
+				end
+			end
+		end
+	end)
+
+	it("the trails of a throw and of a perfect throw keep their budgets, and the normal one is the quieter", function()
+		for _, trail in { Config.perfectTrail, Config.throwTrail } do
+			expect(trail.rate * trail.lifetime <= trail.budget.particles).toBe(true)
+		end
+		expect(Config.throwTrail.rate).toBeLessThan(Config.perfectTrail.rate)
+	end)
+
+	it("the saved effect in the arena is the smaller one", function()
+		local big = VfxRules.peak(Config.effects.saved, "high", Config)
+		local small = VfxRules.peak(Config.effects.savedSmall, "high", Config)
+		expect(small).toBeLessThan(big)
 	end)
 
 	it("the worst case stays under the cap: six headshots that knock down, each from a perfect throw", function()

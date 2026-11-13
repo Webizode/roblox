@@ -34,9 +34,7 @@ function Knockdown.play(character: Model, seconds: number, own: boolean)
 		local ground = character.Parent and feet(character)
 		if ground then
 			-- straight up: the puffs spread out over the ground and rise a little
-			Vfx.burst("knockdownDust", CFrame.lookAt(ground, ground + Vector3.new(0, 1, 0), Vector3.new(0, 0, 1)), {
-				own = own,
-			})
+			Vfx.burst("knockdownDust", Vfx.upAt(ground), { own = own })
 		end
 	end)
 end

@@ -41,6 +41,9 @@ return {
 		gold = "#FFD23F", -- Palette.lemon: the headshot's stars, the stars over a knocked down head
 		perfect = "#3DDC84", -- Config/Combat crosshair.perfectColor: the green of the charge arc
 		perfectDeep = "#1E9E5A",
+		safe = "#7FE3B0", -- the safe zone's mint, the green of the "SAVED!" message
+		ringOutline = "#633F52", -- Berry, the landing circle's outline: carries a pale ring on the light floor
+		safeRing = "#2FCB8A", -- the same, strong enough for a thin ring on the cream floor
 		sprinklePink = "#FF8FA3",
 		sprinkleMint = "#7FD9B6",
 		sprinkleLemon = "#FFD23F",
@@ -70,6 +73,7 @@ return {
 	camera = {
 		hitThrower = { degrees = 0.45, time = 0.14 }, -- the local player's ball hit somebody
 		headshotThrower = { degrees = 0.8, time = 0.18 },
+		toppleOwner = { degrees = 1.4, time = 0.3 }, -- the local player's own tower topples (a shake)
 	},
 
 	-- the short white flash on the body of whoever was hit
@@ -406,10 +410,284 @@ return {
 				},
 			},
 		},
+
+		-- a tower topples (its scoops fly apart as free scoops, LootRenderer): a puff of cream where it stood, blobs in
+		-- the colour of its scoops and sprinkles
+		topple = {
+			budget = { particles = 22, duration = 0.7 },
+			layers = {
+				{
+					texture = "cloud",
+					count = 6,
+					color = "scoop",
+					lighten = 0.6,
+					lifetime = { 0.45, 0.7 },
+					speed = { 5, 10 },
+					spread = 180,
+					size = { { 0, 1.6 }, { 0.4, 3.2 }, { 1, 4 } },
+					transparency = { { 0, 0 }, { 0.5, 0.1 }, { 1, 1 } },
+					drag = 4,
+					rotation = { 0, 360 },
+					rotSpeed = { -40, 40 },
+				},
+				{
+					texture = "blob",
+					count = 6,
+					color = "scoop",
+					lifetime = { 0.4, 0.65 },
+					speed = { 10, 18 },
+					spread = 120,
+					size = { { 0, 0.8 }, { 0.6, 0.6 }, { 1, 0.1 } },
+					transparency = { { 0, 0 }, { 0.85, 0 }, { 1, 1 } },
+					accel = -38,
+					drag = 2,
+					rotation = { 0, 360 },
+					rotSpeed = { -220, 220 },
+					z = 0.3,
+				},
+				{
+					texture = "sprinkle",
+					count = 4,
+					color = "sprinkleLemon",
+					lifetime = { 0.45, 0.7 },
+					speed = { 12, 22 },
+					spread = 120,
+					size = { { 0, 0.45 }, { 0.8, 0.45 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					accel = -45,
+					drag = 1.5,
+					rotation = { 0, 360 },
+					rotSpeed = { -540, 540 },
+					z = 0.4,
+				},
+				{
+					texture = "sprinkle",
+					extra = true,
+					count = 4,
+					color = "sprinkleMint",
+					lifetime = { 0.45, 0.7 },
+					speed = { 12, 22 },
+					spread = 120,
+					size = { { 0, 0.45 }, { 0.8, 0.45 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					accel = -45,
+					drag = 1.5,
+					rotation = { 0, 360 },
+					rotSpeed = { -540, 540 },
+					z = 0.4,
+				},
+				{
+					texture = "flash",
+					count = 1,
+					color = "white",
+					lifetime = { 0.14, 0.14 },
+					speed = { 0, 0 },
+					spread = 0,
+					size = { { 0, 3.5 }, { 1, 7 } },
+					transparency = { { 0, 0.15 }, { 1, 1 } },
+					light = 0.8,
+					z = 1,
+				},
+				{
+					texture = "ring",
+					count = 1,
+					color = "white",
+					lifetime = { 0.3, 0.3 },
+					speed = { 0, 0 },
+					spread = 0,
+					size = { { 0, 1.5 }, { 1, 7 } },
+					transparency = { { 0, 0.3 }, { 1, 1 } },
+					z = 0.8,
+				},
+			},
+		},
+
+		-- "SAVED!": the local player comes out of the arena into the safe zone with a groaning tower. Stars rise
+		-- along the tower (and mint rings spread over the ground, groundRings.saved)
+		saved = {
+			budget = { particles = 14, duration = 0.8 },
+			layers = {
+				{
+					texture = "star",
+					count = 8,
+					color = "safe",
+					lifetime = { 0.5, 0.8 },
+					speed = { 14, 22 },
+					spread = 42,
+					size = { { 0, 0.3 }, { 0.2, 1.1 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					drag = 2.5,
+					rotation = { 0, 360 },
+					rotSpeed = { -240, 240 },
+					light = 0.2,
+					z = 1.5,
+				},
+				{
+					texture = "flash",
+					extra = true,
+					count = 6,
+					color = "white",
+					lifetime = { 0.35, 0.6 },
+					speed = { 6, 12 },
+					spread = 35,
+					size = { { 0, 0 }, { 0.3, 1 }, { 1, 0 } },
+					transparency = { { 0, 0.1 }, { 1, 0.4 } },
+					drag = 2.5,
+					light = 1,
+					z = 1.6,
+				},
+			},
+		},
+
+		-- the smaller "SAVED!": the tower catches itself while still in the arena
+		savedSmall = {
+			budget = { particles = 4, duration = 0.6 },
+			layers = {
+				{
+					texture = "star",
+					count = 4,
+					color = "safe",
+					lifetime = { 0.4, 0.6 },
+					speed = { 7, 11 },
+					spread = 30,
+					size = { { 0, 0.15 }, { 0.2, 0.5 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					drag = 2.5,
+					rotation = { 0, 360 },
+					rotSpeed = { -240, 240 },
+					z = 0.6,
+				},
+			},
+		},
+
+		-- a scoop from the Big Swirl is caught: a pop of small stars in its colour where it lands on the tower
+		catch = {
+			budget = { particles = 8, duration = 0.5 },
+			layers = {
+				{
+					texture = "star",
+					count = 4,
+					color = "scoop",
+					lifetime = { 0.3, 0.5 },
+					speed = { 6, 11 },
+					spread = 180,
+					size = { { 0, 0.15 }, { 0.2, 0.55 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					drag = 5,
+					rotation = { 0, 360 },
+					rotSpeed = { -300, 300 },
+					z = 0.5,
+				},
+				{
+					texture = "flash",
+					extra = true,
+					count = 3,
+					color = "white",
+					lifetime = { 0.2, 0.35 },
+					speed = { 4, 8 },
+					spread = 180,
+					size = { { 0, 0 }, { 0.3, 0.7 }, { 1, 0 } },
+					transparency = { { 0, 0.1 }, { 1, 0.4 } },
+					drag = 5,
+					light = 1,
+					z = 0.6,
+				},
+				{
+					texture = "ring",
+					count = 1,
+					color = "scoop",
+					lighten = 0.25,
+					lifetime = { 0.25, 0.25 },
+					speed = { 0, 0 },
+					spread = 0,
+					size = { { 0, 0.8 }, { 1, 3.6 } },
+					transparency = { { 0, 0.15 }, { 1, 1 } },
+					z = 0.4,
+				},
+			},
+		},
+
+		-- a free scoop is picked up from the ground: a small pop, drops of its colour hop up
+		pickup = {
+			budget = { particles = 5, duration = 0.45 },
+			layers = {
+				{
+					texture = "drop",
+					orient = "velocity",
+					count = 3,
+					color = "scoop",
+					lifetime = { 0.3, 0.45 },
+					speed = { 9, 14 },
+					spread = 40,
+					size = { { 0, 0.45 }, { 1, 0.1 } },
+					transparency = { { 0, 0 }, { 0.8, 0 }, { 1, 1 } },
+					accel = -40,
+					z = 0.3,
+				},
+				{
+					texture = "star",
+					extra = true,
+					count = 2,
+					color = "white",
+					lifetime = { 0.25, 0.4 },
+					speed = { 5, 9 },
+					spread = 60,
+					size = { { 0, 0.15 }, { 0.3, 0.45 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					drag = 4,
+					rotation = { 0, 360 },
+					rotSpeed = { -300, 300 },
+					z = 0.4,
+				},
+			},
+		},
+	},
+
+	-- Rings that run out flat over the ground (Vfx.groundRings): the ring picture on a thin pooled part, growing from
+	-- `from` to `to` studs across in `time` seconds while it fades from `transparency`. color as for a layer; extra:
+	-- only at a quality with extras and close by. `lift`: studs above the ground, so the floor does not swallow them.
+	groundRings = {
+		lift = 0.15,
+		saved = {
+			{ color = "safeRing", from = 2, to = 13, time = 0.55, transparency = 0 },
+			{ color = "white", from = 1, to = 8, time = 0.7, transparency = 0.2, extra = true },
+		},
+		savedSmall = {
+			{ color = "safeRing", from = 1.5, to = 6.5, time = 0.4, transparency = 0.1 },
+		},
+		-- a caught scoop's landing circle answers in the scoop's colour
+		catch = {
+			{ color = "ringOutline", from = 3.1, to = 8.9, time = 0.4, transparency = 0.25 },
+			{ color = "scoop", from = 2.5, to = 8, time = 0.4, transparency = 0 },
+			{ color = "white", from = 1.5, to = 5, time = 0.3, transparency = 0.25, extra = true },
+		},
+		pickup = {
+			{ color = "ringOutline", from = 1.9, to = 6.9, time = 0.35, transparency = 0.25 },
+			{ color = "scoop", from = 1.5, to = 6.4, time = 0.35, transparency = 0 },
+			{ color = "white", from = 1, to = 3.8, time = 0.25, transparency = 0.25, extra = true },
+		},
 	},
 
 	-- the hit effect's size by what was hit, and how far in front of the victim's body it shows (towards the thrower)
 	hit = { headshotScale = 1.3, worldScale = 1, lift = 0.35 },
+
+	-- every thrown ball in flight, kept quiet (BallVisual's streak and twinkles, dressed by Vfx.Effects.ThrowTrail):
+	-- a short pale streak towards the scoop's colour and a few small glints. A perfect throw is dressed over it.
+	throwTrail = {
+		budget = { particles = 6 },
+		rate = 14, -- glints per second at the high quality
+		lifetime = 0.4,
+		size = 0.5,
+		trailLifetime = 0.22, -- seconds
+		trailTransparency = 0.45,
+		trailLight = 0.3,
+		lighten = 0.5, -- the scoop's colour mixed this far towards white
+	},
+
+	-- a toppling tower's puff: `lift` studs above the tower's foot, bigger with every scoop that flies off (up to
+	-- maxScale). A spill counts as a topple only `fresh` seconds after it happened: a player who joins later gets
+	-- the lying scoops without the puff.
+	topple = { perScoop = 0.04, maxScale = 1.8, fresh = 1.5, lift = 3 },
 
 	-- the perfect throw's ball in flight (BallVisual's streak and twinkles, dressed by Vfx.Effects.PerfectThrow): a
 	-- glowing green streak and small stars falling off it. rate x lifetime is its budget of particles.

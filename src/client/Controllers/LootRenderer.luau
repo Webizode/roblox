@@ -24,6 +24,7 @@ local ScoopModel = require(client:WaitForChild("ScoopModel"))
 local ScoopSign = require(client:WaitForChild("ScoopSign"))
 local Settings = require(client:WaitForChild("Settings"))
 local UiKit = require(client:WaitForChild("UiKit"))
+local PickupVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Pickup"))
 
 local LootRenderer = {}
 
@@ -307,6 +308,10 @@ local function onRemoved(id: number, catcher: Player?, reason: string)
 	drop(scoop)
 	scoop.model:setSign(nil)
 	local part = scoop.part
+	if catcher then
+		local ground = groundAt(scoop, workspace:GetServerTimeNow() - scoop.wire.t0)
+		PickupVfx.play(part.Position, ground, scoop.wire.flavorId, catcher == player)
+	end
 	if catcher == player then
 		part:Destroy() -- it is on the own tower now (TowerChanged)
 	elseif catcher then

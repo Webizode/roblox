@@ -36,7 +36,9 @@ local Sfx = require(client:WaitForChild("Sfx"))
 local UiKit = require(client:WaitForChild("UiKit"))
 local Keys = require(client:WaitForChild("Keys"))
 local BallVisual = require(client:WaitForChild("BallVisual"))
-local PerfectThrow = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("PerfectThrow"))
+local VfxEffects = client:WaitForChild("Vfx"):WaitForChild("Effects")
+local PerfectThrow = require(VfxEffects:WaitForChild("PerfectThrow"))
+local ThrowTrail = require(VfxEffects:WaitForChild("ThrowTrail"))
 
 local CombatController = {}
 
@@ -128,6 +130,7 @@ local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: 
 	local flight = BallVisual.addFlight(part, CombatConfig.ballRadius)
 	flight.emitter.Enabled = false
 	flight.light.Enabled = false
+	ThrowTrail.dress(flight, nil) -- the ice ball is vanilla so far; a thrown flavor goes in here
 	if perfect then
 		PerfectThrow.dress(flight) -- a perfect throw glows green for everybody
 	end

@@ -31,6 +31,7 @@ local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local Sfx = require(client:WaitForChild("Sfx"))
 local UiKit = require(client:WaitForChild("UiKit"))
 local Keys = require(client:WaitForChild("Keys"))
+local SavedVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Saved"))
 
 local TowerController = {}
 
@@ -129,7 +130,8 @@ local function flatten(vector: Vector3): Vector3
 	return if flat.Magnitude > 1e-4 then flat.Unit else Vector3.zero
 end
 
-local function onEvent(event: string)
+-- `safe`: the character is in the safe zone (outside the arena) right now.
+local function onEvent(event: string, safe: boolean)
 	if event == "groan" then
 		visual:setGroan(true)
 		Sfx.play("groan")
@@ -137,6 +139,10 @@ local function onEvent(event: string)
 		visual:setGroan(false)
 		Sfx.play("saved")
 		UiKit.Toast.show("SAVED!", "good", "scoops")
+		-- out of the arena with a groaning tower: the big effect; caught in the arena: the small one
+		if player.Character then
+			SavedVfx.play(player.Character, safe)
+		end
 	elseif event == "toppled" then
 		visual:setGroan(false)
 		toppledAt = os.clock()
@@ -198,7 +204,7 @@ local function simulate(dt: number, humanoid: Humanoid, safe: boolean)
 			safe = safe,
 		}, variant, Tuning, STEP)
 		if event then
-			onEvent(event)
+			onEvent(event, safe)
 		end
 	end
 end
