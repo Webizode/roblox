@@ -18,6 +18,9 @@ return {
 		mouseSensitivity = 1,
 		touchSensitivity = 1,
 		gamepadSensitivity = 1,
+		-- aim help (since the kill test of 13.11.2026): the ball homes in on a rival near the crosshair and the combat
+		-- camera slows and draws towards them (Config/Combat homing, aimAssist); off for whoever wants it harder
+		aimAssist = true,
 		-- the controls overview at the right edge in combat mode: off by default (the tutorial teaches the controls), for
 		-- whoever wants it
 		controlsHint = false,
@@ -39,7 +42,7 @@ return {
 		inputMode = { "auto", "touch", "keyboard", "gamepad" },
 	},
 
-	toggles = { "performanceMode", "cameraShake", "motionEffects", "aimCamera", "controlsHint" },
+	toggles = { "performanceMode", "cameraShake", "motionEffects", "aimCamera", "controlsHint", "aimAssist" },
 
 	-- what the VFX quality means: particle counts scale, the heavy dash effects (afterimages, limb trails) only above
 	-- "low". The performance mode is "low" plus no shadows, bloom or sun rays on this device.

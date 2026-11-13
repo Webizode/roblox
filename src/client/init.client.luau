@@ -20,6 +20,7 @@ local ORDER = {
 	"SettingsController",
 	"Navigation",
 	"PlotGuide",
+	"PlotPins",
 	"UiKitGallery",
 	"FountainWater",
 	"Ocean",

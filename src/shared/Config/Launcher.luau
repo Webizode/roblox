@@ -5,18 +5,16 @@ return {
 	baseInterval = 1.5, -- seconds between shots with one player
 	minInterval = 0.45,
 
-	-- Where scoops land (TargetRules): most at a random spot in the arena, so nobody gets scoops
-	-- thrown at them just for standing around; nearPlayerShare of them near a player who is on the move. A player who
-	-- has stayed within idleRadius studs for idleSeconds counts as standing still and gets none aimed at them. Only
-	-- players in the arena (Config/Map.arena) get near shots and tutorial shots.
-	nearPlayerShare = 0.2,
-	-- the random spots, weighted towards the middle: a ring (studs from the machine) is picked by its share, then a spot
-	-- in it, all equally likely. No further than about 75 % of the arena radius (135), so the outer arena and the rim
-	-- stay the way out
+	-- Where scoops land (TargetRules): a random spot of the whole arena, every landing spot (Config/Map landing: ground a
+	-- player can stand on, never cover, walls or water) equally likely, so they spread evenly, to the rim and behind
+	-- cover too. Since the kill test of 13.11.2026 none are aimed at players any more (nearPlayerShare was 0.2, and the
+	-- spots were weighted towards the middle and kept within 100 studs). Only a new player's first tutorialShots still
+	-- come down at them, once they are in the arena. A player who has stayed within idleRadius studs for idleSeconds
+	-- counts as standing still (for nearPlayerShare above 0).
+	nearPlayerShare = 0,
+	-- one ring from just outside the machine's trough to the arena's edge: a spot in it, all equally likely
 	randomBands = {
-		{ inner = 25, outer = 55, share = 0.35 },
-		{ inner = 55, outer = 80, share = 0.35 },
-		{ inner = 80, outer = 100, share = 0.30 },
+		{ inner = 28, outer = 135, share = 1 },
 	},
 	playerOffset = 9, -- max studs from the player a near shot lands
 	idleSeconds = 4,
@@ -26,10 +24,12 @@ return {
 	-- landing spots are sampled inside this circle around the machine: the arena only, where all scoops land now
 	landingRadius = 135,
 
-	flightBase = 1.7, -- seconds
-	flightPerStud = 0.012,
-	apexBase = 14, -- studs above the straight line
-	apexPerStud = 0.08,
+	-- the flight: shorter since the kill test of 13.11.2026 (1.7 s + 0.012 per stud, apex 14 + 0.08 per stud): 1.5 s
+	-- to a spot 60 studs away instead of 2.4 s, 2.1 s to the arena's edge instead of 3.3 s
+	flightBase = 1.0, -- seconds
+	flightPerStud = 0.008,
+	apexBase = 10, -- studs above the straight line
+	apexPerStud = 0.06,
 
 	-- Catching: a scoop is caught when its centre comes within catchRadius of the tower column (cone tip to the
 	-- free slot on top, see TowerShape.column), checked on the swept path between frames (ShotMath.firstContact).

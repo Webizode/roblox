@@ -22,12 +22,15 @@ return {
 	perfect = {
 		rise = 0.5, -- seconds from the middle to the outer circle
 		window = 0.12, -- seconds round each moment it touches the outer circle: doable on a phone and a pad
-		speed = 110, -- studs/s at release
+		speed = 165, -- studs/s at release (110 until the kill test of 13.11.2026)
 	},
 	-- seconds of network jitter between the server's measured hold and the client's
 	chargeTolerance = 0.08,
-	minSpeed = 55, -- studs/s at release at strength 0 (a tap)
-	maxSpeed = 90, -- and at 1
+	-- faster and flatter since the kill test of 13.11.2026 (55, 90, gravity 60, maxFlight 1.2): a rival walking at
+	-- 18 studs/s across the line of fire was out of the 2.8 studs of reach before a full ball 40 studs away arrived,
+	-- and a tap did not reach past 66 studs at all
+	minSpeed = 100, -- studs/s at release at strength 0 (a tap)
+	maxSpeed = 140, -- and at 1
 	powerAtMinCharge = 0.6, -- hit power factor of a tap; full strength (and a perfect throw) hits with factor 1
 
 	-- The crosshair (AimHud, AimRules): a thin circle fixed in the middle of the screen, where every throw aims. Its
@@ -60,23 +63,22 @@ return {
 		-- the head (+1.59, Combat.isHeadshot), so aim help never sets up a headshot (it was 1, the neck, until 31.10.2026)
 		aimHeight = 0.2,
 		devices = {
-			keyboard = { friction = 0.15, pull = 0.4 }, -- mouse: hardly felt
-			gamepad = { friction = 0.35, pull = 1.6 },
-			touch = { friction = 0.5, pull = 3 },
+			-- stronger since the kill test of 13.11.2026 (0.15/0.4, 0.35/1.6, 0.5/3); off with the "Aim Assist" setting
+			keyboard = { friction = 0.2, pull = 0.6 }, -- mouse: lightly felt
+			gamepad = { friction = 0.45, pull = 2.2 },
+			touch = { friction = 0.55, pull = 3.6 },
 		},
 	},
-	-- what the thrower sees of a hit (HitFeedback): a red X on the crosshair, the scoops the victim lost rising over
-	-- them, a line in the feed at the bottom. A topple counts as the thrower's when their hit came at most
+	-- what the thrower sees of a hit (HitFeedback): the scoops the victim lost rising over them, a line in the feed at
+	-- the bottom (no X on the crosshair since the kill test of 13.11.2026). On a headshot "HEADSHOT!" and its own sound
+	-- (Sounds.headshot). A topple counts as the thrower's when their hit came at most
 	-- creditSeconds before it.
 	feedback = {
-		markTime = 0.3, -- seconds the X shows
 		creditSeconds = 4,
 		numberTime = 1.2, -- seconds the number rises and fades
 		numberRise = 3, -- studs it rises
 		feedTime = 2.5, -- seconds a feed line stays
 		feedLines = 3, -- at most this many at once, the newest at the bottom
-		-- a headshot: a bigger, thicker gold X, "HEADSHOT!" and its own sound (Sounds.headshot) for the thrower
-		headshotMark = { size = 26, thickness = 4, time = 0.6 },
 		-- the own knockdown meter (KnockMeter) below the crosshair: one segment per point up to knock.knockdownAt,
 		-- shown while there are points or the get-up protection lasts
 		meter = { segment = 18, gap = 3, height = 6, below = 46 }, -- pixels
@@ -199,13 +201,38 @@ return {
 
 	-- flight, simulated by the server; clients draw the same curve
 	lift = 0.12, -- a target out of reach gets a straight aim plus this much upward, so it arcs a little
-	gravity = 60, -- studs/s^2
-	maxFlight = 1.2, -- seconds
+	gravity = 40, -- studs/s^2
+	maxFlight = 1.4, -- seconds
 	ballRadius = 0.6,
 
 	-- the target: a vertical capsule around the HumanoidRootPart
 	hitRadius = 2.2,
 	hitHalfHeight = 2.6,
+	-- the capsule grows with the distance the ball has flown (BallFlight.hitRadius): as it is up to `from` studs, then
+	-- `perStud` wider per stud, at most `max` (100 studs away). Hit power is measured against the grown reach, so the
+	-- edge of a wide far reach is a graze like the edge of a close one.
+	hitGrowth = { from = 20, perStud = 0.025, max = 4.2 },
+
+	-- Aim assist on the ball itself (BallFlight, since the kill test of 13.11.2026), on top of the camera's (aimAssist),
+	-- off with the "Aim Assist" setting. At the throw the server picks the rival closest to the crosshair: within
+	-- `acquire` degrees of the aim, at most maxRange studs away, in plain sight. In its last `range` studs to them the
+	-- ball turns towards their body by up to `turn` degrees a second, unless it is already on its way to pass within
+	-- onCourse studs of it: a ball that would hit anyway (a headshot too) flies on untouched. It aims at the body
+	-- column between bodyLow and bodyHigh studs from the HumanoidRootPart at the height it arrives, never the head
+	-- (+1.59, Combat.isHeadshot). Strength by the input in use, like the camera's.
+	homing = {
+		step = 1 / 120, -- seconds per simulation step, the same on the server and the clients
+		range = 40,
+		maxRange = 160,
+		onCourse = 1.8,
+		bodyLow = -1.6,
+		bodyHigh = 0.6,
+		devices = {
+			keyboard = { acquire = 4, turn = 70 },
+			gamepad = { acquire = 7, turn = 110 },
+			touch = { acquire = 10, turn = 140 },
+		},
+	},
 
 	-- hit power: a centred hit at full charge is 1, a grazing, slowed-down or uncharged one less
 	minPower = 0.5,

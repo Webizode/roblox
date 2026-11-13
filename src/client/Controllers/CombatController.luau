@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
+local BallFlight = require(Shared:WaitForChild("BallFlight"))
 local AimRules = require(Shared:WaitForChild("AimRules"))
 local BallMotion = require(Shared:WaitForChild("BallMotion"))
 local MapQuery = require(Shared:WaitForChild("MapQuery"))
@@ -36,6 +37,7 @@ local Sfx = require(client:WaitForChild("Sfx"))
 local UiKit = require(client:WaitForChild("UiKit"))
 local Keys = require(client:WaitForChild("Keys"))
 local BallVisual = require(client:WaitForChild("BallVisual"))
+local Settings = require(client:WaitForChild("Settings"))
 local VfxEffects = client:WaitForChild("Vfx"):WaitForChild("Effects")
 local PerfectThrow = require(VfxEffects:WaitForChild("PerfectThrow"))
 local ThrowTrail = require(VfxEffects:WaitForChild("ThrowTrail"))
@@ -58,8 +60,9 @@ type Ball = {
 	model: Model?, -- the vanilla ball (BallVisual), hopping and spinning on the path (BallMotion.flight)
 	flight: BallVisual.Flight, -- its streak, twinkles and glow
 	facing: CFrame, -- flat along the throw, so the face starts looking where the ball flies
-	origin: Vector3,
-	velocity: Vector3,
+	path: BallFlight.Ball, -- where it flies: the server's flight, homing in on `target` like there
+	target: Player?,
+	assist: any?, -- the homing strength (Config/Combat homing.devices), nil: none
 	t0: number,
 }
 
@@ -113,7 +116,16 @@ local function destroyBall(ball: Ball)
 	end
 end
 
-local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: Vector3, t0: number, perfect: boolean?)
+local function onThrown(
+	id: number,
+	thrower: Player,
+	origin: Vector3,
+	velocity: Vector3,
+	t0: number,
+	perfect: boolean?,
+	target: Player?,
+	device: string?
+)
 	-- still in the hand until t0, the throw animation's release
 	local model = BallVisual.new("IceBall", CombatConfig.ballRadius * 2)
 	local part: BasePart
@@ -140,8 +152,9 @@ local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: 
 		model = model,
 		flight = flight,
 		facing = if flat.Magnitude > 1e-3 then CFrame.lookAt(Vector3.zero, flat) else CFrame.identity,
-		origin = origin,
-		velocity = velocity,
+		path = BallFlight.new(origin.X, origin.Y, origin.Z, velocity.X, velocity.Y, velocity.Z),
+		target = if typeof(target) == "Instance" and target:IsA("Player") then target else nil,
+		assist = if type(device) == "string" then CombatConfig.homing.devices[device] else nil,
 		t0 = t0,
 	}
 	registry.ThrowAnimator.thrown(thrower, t0)
@@ -302,9 +315,16 @@ local function onRenderStep()
 			ball.flight.emitter.Enabled = true
 			ball.flight.light.Enabled = true
 		end
-		local o, v = ball.origin, ball.velocity
 		local flight = math.clamp(t, 0, CombatConfig.maxFlight)
-		local x, y, z = Combat.position(o.X, o.Y, o.Z, v.X, v.Y, v.Z, CombatConfig.gravity, flight)
+		-- on along the server's flight: the same steps, homing in on where its target stands here
+		local path = ball.path
+		local body = ball.target and ball.target.Character
+		local aimRoot = body and body:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local homeTo = if aimRoot and ball.assist
+			then { x = aimRoot.Position.X, y = aimRoot.Position.Y, z = aimRoot.Position.Z }
+			else nil
+		BallFlight.advance(path, flight - path.t, homeTo, ball.assist, CombatConfig)
+		local x, y, z = path.x, path.y, path.z
 		local model = ball.model
 		if model then
 			-- the hop is only drawn; the server's path (and its hit test) stays exactly the curve above
@@ -396,7 +416,8 @@ local function requestThrow(_: string, inputState: Enum.UserInputState): Enum.Co
 			local aim = aimPoint(camera.ViewportSize / 2) -- always through the middle of the screen
 			lastRequestAt = os.clock()
 			lastThrowAt = os.clock()
-			Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z, strength, perfect)
+			-- the input in use picks the strength of the ball's homing (the server checks it and the setting)
+			Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z, strength, perfect, Settings.inputKind())
 			CombatCamera.thrown(perfect) -- the aim (above) is taken before the camera moves
 			if perfect then
 				Sfx.play("perfectThrow", 1.4) -- the thrower hears it at once; everybody sees its green glitter (Vfx)

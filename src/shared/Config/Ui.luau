@@ -218,7 +218,8 @@ return {
 	ammo = { width = 236, height = 106, ball = 105, step = 70, rise = 8, shrink = 0.94 },
 	-- the dash bar under the ice balls, as wide as their row (the arena); `slice` is the share of the image's height the
 	-- slanted ends keep unstretched
-	dash = { height = 22, slice = 0.22 },
+	-- gap: px between the bars of two dash charges; below 0 their slanted ends tuck into each other
+	dash = { height = 22, slice = 0.22, gap = -1 },
 	-- from the top of the screen to MY PLOT, ARENA and the gear, in the free part of Roblox's top bar: room for the half of
 	-- a key badge that stands over a button's top edge (Config/Ui badge / 2 - 4) and 1 px more
 	topEdge = 10,
@@ -297,6 +298,32 @@ return {
 		pinCombatScale = 0.75,
 		pinFade = 40,
 		pinHide = 22,
+	},
+
+	-- the pins over other players' plots (PlotPins, since the kill test of 13.11.2026: only the own base was
+	-- recognisable): the owner's head shot in a round bubble with a tip in their player colour, their name under it,
+	-- `pin` design pixels across, `pinHeight` studs over the plot's serve point, the same size on screen at any
+	-- distance. Smaller and fainter than the own YOU pin, fainter and smaller in combat mode, fading out from `pinFade`
+	-- studs and gone within `pinHide` (the name stands on the plot sign there); free plots show nothing. A serve there
+	-- makes a coin glint at the pin (`glint` seconds). Rules: GuideRules.pinLook, the same as the own pin.
+	plotPins = {
+		pin = 36,
+		-- the head shot: a round mask `headMask` of the bubble across, the picture `headScale` of the mask, `headDrop` of it
+		-- lower than the middle, so the whole head fits inside the ring
+		headMask = 0.84,
+		headScale = 0.92,
+		headDrop = 0.04,
+		pinHeight = 16,
+		pinTransparency = 0.15,
+		pinStrongTransparency = 0.15,
+		pinStrongScale = 1,
+		pinCombatTransparency = 0.65,
+		pinCombatScale = 0.75,
+		pinFade = 60,
+		pinHide = 35,
+		nameSize = 15, -- design pixels, the main font
+		glint = 0.9,
+		maxPins = 11, -- a full server is 12 players
 	},
 
 	-- seconds: a button sinks in (press), eases back (release), a window pops up (pop), a number counts to its new value

@@ -12,6 +12,7 @@ export type Effective = {
 	fov: number,
 	motionEffects: boolean,
 	aimCamera: boolean,
+	aimAssist: boolean,
 }
 
 local SettingsRules = {}
@@ -102,6 +103,7 @@ function SettingsRules.effective(settings: { [string]: any }, config: any, touch
 		fov = settings.fov,
 		motionEffects = settings.motionEffects == true,
 		aimCamera = settings.aimCamera == true,
+		aimAssist = settings.aimAssist ~= false,
 	}
 end
 

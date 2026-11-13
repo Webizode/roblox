@@ -14,6 +14,7 @@ local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local TowerModel = require(Shared:WaitForChild("TowerModel"))
 local Stance = require(Shared:WaitForChild("Stance"))
+local DashCharges = require(Shared:WaitForChild("DashCharges"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local Dash = require(Shared:WaitForChild("Dash"))
@@ -74,7 +75,9 @@ local lastServeRequest = 0
 -- a tower is only served after it has been carried outside the serve radius once, so catching next to the
 -- cart does not instantly serve every single scoop
 local serveArmed = false
-local dashReadyAt = 0 -- local cooldown so the key cannot spam requests; the server has the final say
+-- the dash charges counted here too (DashCharges), so the key cannot spam requests and the HUD's bar shows them; the
+-- server keeps the ones that count
+local dashCharges = DashCharges.new(Tuning.dash)
 local dashRunningUntil = 0 -- no dash request while one still runs
 local meter = Stance.new() -- the steady stance's energy bar, predicted here; the server's counts
 local stanceStartedAt = 0
@@ -455,7 +458,6 @@ local function onDash(who: Player, dirX: number, dirZ: number, kind: string?)
 	-- the movement and the tower kick first: an error in the effects below must never cost the dash itself
 	if who == player then
 		debugDash(`{dashKind} granted by the server`)
-		dashReadyAt = os.clock() + Tuning.dash.cooldown
 		dashRunningUntil = os.clock() + duration
 		local humanoid = (character :: Model):FindFirstChildOfClass("Humanoid")
 		if humanoid then
@@ -484,10 +486,6 @@ local function askForDash()
 		debugDash("no request: no living character")
 		return
 	end
-	if os.clock() < dashReadyAt then
-		debugDash(string.format("no request: cooling down for %.1f s", dashReadyAt - os.clock()))
-		return
-	end
 	if os.clock() < dashRunningUntil then
 		debugDash("no request: a dash is still running")
 		return
@@ -500,7 +498,10 @@ local function askForDash()
 		debugDash("no request: no direction")
 		return
 	end
-	dashReadyAt = os.clock() + Tuning.dash.cooldown
+	if not DashCharges.tryUse(dashCharges, os.clock(), Tuning.dash) then
+		debugDash(string.format("no request: no charge (%d ready)", dashCharges.charges))
+		return
+	end
 	Remotes.Dash:FireServer(direction.X, direction.Z)
 	TowerController.interruptStance()
 	debugDash(string.format("dash request sent towards (%.2f, %.2f)", direction.X, direction.Z))
@@ -704,10 +705,10 @@ end
 -- A throw or a dash was just requested: the stance ends and is locked for stance.lockout (also one released a
 -- moment ago, like the server does). The server ends and locks its own when it grants the request; the "off" sent
 -- here, after the request, only counts if it refuses.
--- How far the dash has recharged: 0 right after one, 1 when Q (X, the dash button) works again. The same clock the
--- key checks (dashReadyAt), so the HUD's bar is full exactly when a dash can be asked for.
-function TowerController.dashCharge(): number
-	return 1 - math.clamp((dashReadyAt - os.clock()) / Tuning.dash.cooldown, 0, 1)
+-- How full each segment of the dash bar is (0..1, one per charge): the same count the key checks, so a full
+-- segment is a dash that can be asked for.
+function TowerController.dashSegments(): { number }
+	return DashCharges.segments(dashCharges, os.clock(), Tuning.dash)
 end
 
 function TowerController.interruptStance()

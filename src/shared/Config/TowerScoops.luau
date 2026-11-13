@@ -16,7 +16,7 @@ return {
 
 	-- The name and value over a scoop in flight or lying on the ground (not on a tower): readable up to maxDistance
 	-- studs, a fixed size on screen, so it stays readable on a phone. height: studs above the scoop's centre.
-	label = { maxDistance = 40, height = 1.7, textSize = 20, iconSize = 18 },
+	label = { maxDistance = 40, height = 1.7, textSize = 20, iconSize = 18, coinGap = 2 }, -- "Mint 5[coin]"
 	-- the landing circle (ShotRenderer): a Neon disc in the flavour colour, shrinking to 40 % as the scoop comes down.
 	-- On the light arena floor (04.11.2026) it needs an outline: a ring picture as a Decal on its top, in Berry; a
 	-- Decal stays opaque on a see-through part and shrinks with it. The disc is a little less see-through than before

@@ -12,7 +12,8 @@
 -- Close to tipping (the tower groans) the gauge pulses a little and glows red. Without a tower it is greyed out.
 --
 -- The dash bar, after the reference "Schlanke glänzende Neon-Balken": the grey glass with the blue one over it,
--- shown from the left as far as the dash has recharged. When it is full again it bumps and two little stars sparkle.
+-- one bar per dash charge side by side, each shown from the left as far as its charge has recharged. When a charge is
+-- back its bar lights up, bumps and two little stars sparkle at its end.
 -- A key badge on PC (Q) and with a gamepad (X); none on touch screens.
 
 local TweenService = game:GetService("TweenService")
@@ -301,7 +302,7 @@ end
 export type DashBar = {
 	frame: Frame, -- placed by the HUD (design size ammo.width x dash.height)
 	group: CanvasGroup,
-	set: (share: number) -> (), -- 0 just used .. 1 ready
+	set: (fills: { number }) -> (), -- one 0..1 per dash charge (DashCharges.segments), the first first
 }
 
 -- the bar images are 504 x 100: the slanted ends (70 px each side) and the top and bottom keep their shape
@@ -329,46 +330,20 @@ function ArenaHud.dash(parent: Instance): DashBar
 	group.Name = "Bar"
 	group.BackgroundTransparency = 1
 	group.BorderSizePixel = 0
-	-- room round the bar for the sparkle and the bump (a CanvasGroup clips to its box)
+	-- room round the bars for the sparkle and the bump (a CanvasGroup clips to its box)
 	group.Position = UDim2.fromOffset(-BADGE_ROOM, -24)
 	group.Size = UDim2.fromOffset(width + BADGE_ROOM, height + 24 + BAR_PAD)
 	group.GroupTransparency = 1
 	group.Visible = false
 	group.Parent = holder
-	local body = Theme.frame({
-		Name = "Body",
+	local row = Theme.frame({
+		Name = "Row",
 		Position = UDim2.fromOffset(BADGE_ROOM, 24),
 		Size = UDim2.fromOffset(width, height),
 		Parent = group,
 	})
-	local bump = Instance.new("UIScale")
-	bump.Name = "Bump"
-	bump.Parent = body
-	barImage(UiConfig.icons.dashEmpty, { Name = "Empty", Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = body })
-	local clip = Theme.frame({
-		Name = "Fill",
-		Size = UDim2.fromScale(1, 1),
-		ClipsDescendants = true,
-		ZIndex = 2,
-		Parent = body,
-	})
-	barImage(UiConfig.icons.dashFull, {
-		Name = "Full",
-		Size = UDim2.fromOffset(width, height),
-		ZIndex = 2,
-		Parent = clip,
-	})
-	local sparkle = Theme.icon(UiConfig.icons.sparkle, {
-		Name = "Sparkle",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(1, -14, 0, 0),
-		Size = UDim2.fromOffset(30, 30),
-		ImageTransparency = 1,
-		ZIndex = 4,
-		Parent = body,
-	})
-	-- the key badge, left of the bar with a little gap. It sits outside the CanvasGroup (text drawn inside one came out
-	-- far too small) and shows while the group is more than half faded in.
+	-- the key badge, left of the bars with a little gap. It sits outside the CanvasGroup (text drawn inside one came
+	-- out far too small) and shows while the group is more than half faded in.
 	local badgeHolder = Theme.frame({
 		Name = "Key",
 		Size = UDim2.fromOffset(width, height),
@@ -383,28 +358,102 @@ function ArenaHud.dash(parent: Instance): DashBar
 	group:GetPropertyChangedSignal("Visible"):Connect(syncBadge)
 	group:GetPropertyChangedSignal("GroupTransparency"):Connect(syncBadge)
 
-	local wasFull = true
-	local function set(share: number)
-		share = math.clamp(share, 0, 1)
-		clip.Size = UDim2.fromScale(share, 1)
-		local full = share >= 1
-		if full and not wasFull then
-			-- ready again: a little bump and the stars
-			bump.Scale = 1.08
-			TweenService:Create(bump, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
-			sparkle.ImageTransparency = 0
-			sparkle.Size = UDim2.fromOffset(14, 14)
-			TweenService:Create(sparkle, TweenInfo.new(0.2, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(34, 34) })
-				:Play()
-			TweenService:Create(
-				sparkle,
-				TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.35),
-				{ ImageTransparency = 1 }
-			):Play()
+	-- one bar per dash charge, side by side with a small gap, together as wide as the ice-ball row; built for the
+	-- number of charges the first time they are set
+	type Segment = { body: Frame, clip: Frame, bump: UIScale, sparkle: ImageLabel, glow: ImageLabel, full: boolean }
+	local segments: { Segment } = {}
+	local function build(count: number)
+		for _, segment in segments do
+			segment.body:Destroy()
 		end
-		wasFull = full
+		table.clear(segments)
+		local gap = UiConfig.dash.gap
+		local each = (width - gap * (count - 1)) / count
+		for index = 1, count do
+			local body = Theme.frame({
+				Name = "Charge" .. index,
+				Position = UDim2.fromOffset((index - 1) * (each + gap), 0),
+				Size = UDim2.fromOffset(each, height),
+				Parent = row,
+			})
+			local bump = Instance.new("UIScale")
+			bump.Name = "Bump"
+			bump.Parent = body
+			barImage(
+				UiConfig.icons.dashEmpty,
+				{ Name = "Empty", Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = body }
+			)
+			local clip = Theme.frame({
+				Name = "Fill",
+				Size = UDim2.fromScale(1, 1),
+				ClipsDescendants = true,
+				ZIndex = 2,
+				Parent = body,
+			})
+			barImage(UiConfig.icons.dashFull, {
+				Name = "Full",
+				Size = UDim2.fromOffset(each, height),
+				ZIndex = 2,
+				Parent = clip,
+			})
+			-- the light-up when it is full again: the bar's picture in white over it, fading out
+			local glow = barImage(UiConfig.icons.dashFull, {
+				Name = "Glow",
+				Size = UDim2.fromScale(1, 1),
+				ImageColor3 = Color3.new(1, 1, 1),
+				ImageTransparency = 1,
+				ZIndex = 3,
+				Parent = body,
+			})
+			local sparkle = Theme.icon(UiConfig.icons.sparkle, {
+				Name = "Sparkle",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(1, -10, 0, 0),
+				Size = UDim2.fromOffset(26, 26),
+				ImageTransparency = 1,
+				ZIndex = 4,
+				Parent = body,
+			})
+			table.insert(
+				segments,
+				{ body = body, clip = clip, bump = bump, sparkle = sparkle, glow = glow, full = true }
+			)
+		end
 	end
-	set(1)
+
+	local function lightUp(segment: Segment)
+		segment.bump.Scale = 1.1
+		TweenService:Create(segment.bump, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+		segment.glow.ImageTransparency = 0.25
+		TweenService:Create(segment.glow, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { ImageTransparency = 1 }):Play()
+		local sparkle = segment.sparkle
+		sparkle.ImageTransparency = 0
+		sparkle.Size = UDim2.fromOffset(12, 12)
+		TweenService:Create(sparkle, TweenInfo.new(0.2, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(30, 30) })
+			:Play()
+		TweenService:Create(
+			sparkle,
+			TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.35),
+			{ ImageTransparency = 1 }
+		):Play()
+	end
+
+	local function set(fills: { number })
+		local count = math.max(#fills, 1)
+		if #segments ~= count then
+			build(count)
+		end
+		for index, segment in segments do
+			local fill = math.clamp(fills[index] or 0, 0, 1)
+			segment.clip.Size = UDim2.fromScale(fill, 1)
+			local full = fill >= 1
+			if full and not segment.full then
+				lightUp(segment) -- this charge is back
+			end
+			segment.full = full
+		end
+	end
+	set({ 1, 1 })
 	return { frame = holder, group = group, set = set }
 end
 

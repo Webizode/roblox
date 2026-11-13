@@ -7,38 +7,38 @@
  },
  "markers": {
   "Scooped": 1.0333,
-  "Release": 2.3
+  "Release": 2.2667
  },
  "releasePoints": {
   "1": [
-   -24.128,
-   21.556,
+   -24.213,
+   22.172,
    0.0
   ],
   "2": [
-   -12.064,
-   21.556,
-   20.896
+   -12.106,
+   22.172,
+   20.969
   ],
   "3": [
-   12.064,
-   21.556,
-   20.896
+   12.106,
+   22.172,
+   20.969
   ],
   "4": [
-   24.128,
-   21.556,
+   24.213,
+   22.172,
    -0.0
   ],
   "5": [
-   12.064,
-   21.556,
-   -20.896
+   12.106,
+   22.172,
+   -20.969
   ],
   "6": [
-   -12.064,
-   21.556,
-   -20.896
+   -12.106,
+   22.172,
+   -20.969
   ]
  },
  "frames": [
@@ -279,13 +279,13 @@
   },
   {
    "t": 1.5667,
-   "shoulder": -0.869,
-   "wrist": -13.037
+   "shoulder": -0.741,
+   "wrist": -13.039
   },
   {
    "t": 1.6,
-   "shoulder": -0.515,
-   "wrist": -13.296
+   "shoulder": -0.259,
+   "wrist": -13.3
   },
   {
    "t": 1.6333,
@@ -294,203 +294,203 @@
   },
   {
    "t": 1.6667,
-   "shoulder": 0.625,
-   "wrist": -15.322
+   "shoulder": -0.271,
+   "wrist": -15.299
   },
   {
    "t": 1.7,
-   "shoulder": 1.341,
-   "wrist": -17.217
+   "shoulder": -1.008,
+   "wrist": -17.138
   },
   {
    "t": 1.7333,
-   "shoulder": 2.135,
-   "wrist": -19.574
+   "shoulder": -2.101,
+   "wrist": -19.4
   },
   {
    "t": 1.7667,
-   "shoulder": 2.998,
-   "wrist": -22.286
+   "shoulder": -3.437,
+   "wrist": -21.969
   },
   {
    "t": 1.8,
-   "shoulder": 3.917,
-   "wrist": -25.241
+   "shoulder": -4.907,
+   "wrist": -24.729
   },
   {
    "t": 1.8333,
-   "shoulder": 4.883,
-   "wrist": -28.333
+   "shoulder": -6.398,
+   "wrist": -27.565
   },
   {
    "t": 1.8667,
-   "shoulder": 5.882,
-   "wrist": -31.45
+   "shoulder": -7.8,
+   "wrist": -30.361
   },
   {
    "t": 1.9,
-   "shoulder": 6.905,
-   "wrist": -34.485
+   "shoulder": -9.0,
+   "wrist": -33.0
   },
   {
    "t": 1.9333,
-   "shoulder": 7.939,
-   "wrist": -37.327
+   "shoulder": -9.91,
+   "wrist": -35.356
   },
   {
    "t": 1.9667,
-   "shoulder": 8.975,
-   "wrist": -39.869
+   "shoulder": -10.531,
+   "wrist": -37.261
   },
   {
    "t": 2.0,
-   "shoulder": 10.0,
-   "wrist": -42.0
+   "shoulder": -10.887,
+   "wrist": -38.535
   },
   {
    "t": 2.0333,
-   "shoulder": 10.97,
-   "wrist": -43.618
+   "shoulder": -11.0,
+   "wrist": -39.0
   },
   {
    "t": 2.0667,
-   "shoulder": 11.707,
-   "wrist": -44.642
+   "shoulder": -10.487,
+   "wrist": -36.698
   },
   {
    "t": 2.1,
-   "shoulder": 12.0,
-   "wrist": -45.0
+   "shoulder": -9.101,
+   "wrist": -30.293
   },
   {
    "t": 2.1333,
-   "shoulder": 11.4,
-   "wrist": -44.1
+   "shoulder": -7.072,
+   "wrist": -20.539
   },
   {
    "t": 2.1667,
-   "shoulder": 10.8,
-   "wrist": -43.2
+   "shoulder": -4.628,
+   "wrist": -8.19
   },
   {
    "t": 2.2,
-   "shoulder": 11.3,
-   "wrist": -44.2
+   "shoulder": -2.0,
+   "wrist": 6.0
   },
   {
    "t": 2.2333,
-   "shoulder": 11.8,
-   "wrist": -45.2
+   "shoulder": 0.597,
+   "wrist": 20.792
   },
   {
    "t": 2.2667,
-   "shoulder": 8.233,
-   "wrist": -33.044
+   "shoulder": 3.0,
+   "wrist": 33.0
   },
   {
    "t": 2.3,
-   "shoulder": -0.363,
-   "wrist": -5.85
+   "shoulder": 5.04,
+   "wrist": 39.9
   },
   {
    "t": 2.3333,
-   "shoulder": -10.827,
-   "wrist": 22.469
+   "shoulder": 6.464,
+   "wrist": 42.561
   },
   {
    "t": 2.3667,
-   "shoulder": -20.0,
-   "wrist": 38.0
+   "shoulder": 7.0,
+   "wrist": 43.0
   },
   {
    "t": 2.4,
-   "shoulder": -25.369,
-   "wrist": 40.625
+   "shoulder": 6.857,
+   "wrist": 41.377
   },
   {
    "t": 2.4333,
-   "shoulder": -27.0,
-   "wrist": 41.0
+   "shoulder": 6.452,
+   "wrist": 37.09
   },
   {
    "t": 2.4667,
-   "shoulder": -25.59,
-   "wrist": 34.547
+   "shoulder": 5.819,
+   "wrist": 31.015
   },
   {
    "t": 2.5,
-   "shoulder": -21.906,
-   "wrist": 20.125
+   "shoulder": 4.99,
+   "wrist": 24.027
   },
   {
    "t": 2.5333,
-   "shoulder": -16.77,
-   "wrist": 5.141
+   "shoulder": 4.0,
+   "wrist": 17.0
   },
   {
    "t": 2.5667,
-   "shoulder": -11.0,
-   "wrist": -3.0
+   "shoulder": 2.894,
+   "wrist": 10.68
   },
   {
    "t": 2.6,
-   "shoulder": -5.387,
-   "wrist": -4.734
+   "shoulder": 1.762,
+   "wrist": 5.292
   },
   {
    "t": 2.6333,
-   "shoulder": -0.594,
-   "wrist": -5.625
+   "shoulder": 0.706,
+   "wrist": 0.934
   },
   {
    "t": 2.6667,
-   "shoulder": 2.746,
-   "wrist": -5.953
+   "shoulder": -0.174,
+   "wrist": -2.298
   },
   {
    "t": 2.7,
-   "shoulder": 4.0,
-   "wrist": -6.0
+   "shoulder": -0.777,
+   "wrist": -4.309
   },
   {
    "t": 2.7333,
-   "shoulder": 3.376,
-   "wrist": -5.272
+   "shoulder": -1.0,
+   "wrist": -5.0
   },
   {
    "t": 2.7667,
-   "shoulder": 1.888,
-   "wrist": -3.536
+   "shoulder": -0.687,
+   "wrist": -3.75
   },
   {
    "t": 2.8,
-   "shoulder": 0.112,
-   "wrist": -1.464
+   "shoulder": -0.0,
+   "wrist": -1.0
   },
   {
    "t": 2.8333,
-   "shoulder": -1.376,
-   "wrist": 0.272
+   "shoulder": 0.687,
+   "wrist": 1.75
   },
   {
    "t": 2.8667,
-   "shoulder": -2.0,
-   "wrist": 1.0
+   "shoulder": 1.0,
+   "wrist": 3.0
   },
   {
    "t": 2.9,
-   "shoulder": -1.688,
-   "wrist": 0.844
+   "shoulder": 0.844,
+   "wrist": 2.531
   },
   {
    "t": 2.9333,
-   "shoulder": -1.0,
-   "wrist": 0.5
+   "shoulder": 0.5,
+   "wrist": 1.5
   },
   {
    "t": 2.9667,
-   "shoulder": -0.312,
-   "wrist": 0.156
+   "shoulder": 0.156,
+   "wrist": 0.469
   },
   {
    "t": 3.0,

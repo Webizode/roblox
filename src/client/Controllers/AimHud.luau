@@ -1,7 +1,7 @@
 -- The crosshair, only in combat mode: one clean thin circle fixed in the middle of the screen, where every throw aims.
 -- Its size comes from AimRules (bigger while moving, sprinting, after a dash and right after a throw, a little smaller
--- while a throw is held). It stays white; a hit of the local player flashes a red X in it, a headshot a bigger gold
--- one (feedback.headshotMark).
+-- while a throw is held). It stays white; a hit shows no mark in it any more (since the kill test of 13.11.2026: sound,
+-- splash, camera jolt and "HEADSHOT!" say it).
 --
 -- While the throw button is held (mouse, trigger or the touch Throw button alike) the charge arc shows right of it,
 -- after the reference "Glänzende Eiscreme-Bogenmeter nach rechts": the arc fills from the cone up to the icing with
@@ -27,8 +27,6 @@ local Ui = require(client:WaitForChild("Ui"))
 local AimHud = {}
 
 local Look = CombatConfig.crosshair
-local MARK = Ui.color("red")
-local HEADSHOT = Ui.color("yellow")
 local COLOR = Ui.color("white") -- fixed: the crosshair is not a setting
 
 -- the arc, screen pixels: its height, and its width from the images (359 x 710)
@@ -48,9 +46,6 @@ local ONE_FRAME = 1 / 30 -- seconds: a slow frame, the most the shown arc can be
 local holder: Frame
 local outer: Frame
 local outerStroke: UIStroke
-local mark: Frame
-local markUntil = 0
-local markBars: { Frame } = {}
 
 local arcHolder: Frame
 local arcScale: UIScale
@@ -83,17 +78,6 @@ local function ring(name: string): (Frame, UIStroke)
 	edge.Parent = frame
 	frame.Parent = holder
 	return frame, line
-end
-
-local function bar(rotation: number): Frame
-	local line = Instance.new("Frame")
-	line.AnchorPoint = Vector2.new(0.5, 0.5)
-	line.Position = UDim2.fromScale(0.5, 0.5)
-	line.Size = UDim2.new(1, 0, 0, 2)
-	line.Rotation = rotation
-	line.BackgroundColor3 = MARK
-	line.BorderSizePixel = 0
-	return line
 end
 
 local function image(name: string, asset: string, z: number, parent: Instance): ImageLabel
@@ -208,31 +192,6 @@ function AimHud.Init()
 
 	outer, outerStroke = ring("Outer")
 	buildArc()
-
-	mark = Instance.new("Frame")
-	mark.Name = "HitMark"
-	mark.AnchorPoint = Vector2.new(0.5, 0.5)
-	mark.Position = UDim2.fromScale(0.5, 0.5)
-	mark.BackgroundTransparency = 1
-	mark.Size = UDim2.fromOffset(14, 14)
-	mark.Visible = false
-	local a, b = bar(45), bar(-45)
-	a.Parent, b.Parent = mark, mark
-	markBars = { a, b }
-	mark.Parent = holder
-end
-
--- The local player's throw hit somebody: the red X flashes in the crosshair; a headshot shows a bigger, thicker gold
--- X for longer.
-function AimHud.mark(headshot: boolean?)
-	local look = CombatConfig.feedback
-	local size = if headshot then look.headshotMark.size else 14
-	mark.Size = UDim2.fromOffset(size, size)
-	for _, line in markBars do
-		line.BackgroundColor3 = if headshot then HEADSHOT else MARK
-		line.Size = UDim2.new(1, 0, 0, if headshot then look.headshotMark.thickness else 2)
-	end
-	markUntil = os.clock() + (if headshot then look.headshotMark.time else look.markTime)
 end
 
 -- The charge arc for a hold of `held` seconds (nil: not held).
@@ -285,7 +244,6 @@ function AimHud.set(active: boolean, ready: boolean, radius: number, held: numbe
 	outerStroke.Thickness = Look.thickness * CROSS_SCALE * scale
 	outerStroke.Transparency = if ready then 0.05 else 0.6
 	showArc(held, ring, scale)
-	mark.Visible = os.clock() < markUntil
 end
 
 return AimHud

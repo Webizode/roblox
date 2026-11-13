@@ -10,6 +10,7 @@ local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local Stance = require(Shared:WaitForChild("Stance"))
+local DashCharges = require(Shared:WaitForChild("DashCharges"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 local SaveData = require(Shared:WaitForChild("SaveData"))
 local Flavors = require(Config:WaitForChild("Flavors"))
@@ -30,7 +31,7 @@ type TowerState = {
 	sneakersLevel: number,
 	cartLevel: number,
 	controls: string, -- kill-test log bucket; one control scheme since the automatic stabiliser
-	lastDashAt: number, -- the dash and the combat quick dash share this cooldown
+	dash: DashCharges.State, -- the dash and the combat quick dash share these charges
 	dashUntil: number, -- the running dash ends; no other starts before
 	stance: Stance.Meter, -- the steady stance's energy bar; the server's is the one that counts
 	lastStanceAt: number,
@@ -51,7 +52,7 @@ local states: { [Player]: TowerState } = {}
 
 -- honest clients send tilt at Tuning.tiltSendRate (10 Hz); anything faster than twice that is dropped
 local MIN_TILT_INTERVAL = 0.5 / TowerTuning.tiltSendRate
--- the client starts its own cooldown when it asks, so the server allows a little network jitter on top
+-- the client counts its own charges when it asks, so the server allows a little network jitter on top
 local DASH_SLACK = 0.25
 -- share of the stance bar the server lets a start fall short by, for a client whose bar ran a little ahead
 local STANCE_SLACK = 0.1
@@ -145,7 +146,7 @@ local function createState(player: Player): TowerState
 		sneakersLevel = 0,
 		cartLevel = 0,
 		controls = "auto",
-		lastDashAt = 0,
+		dash = DashCharges.new(TowerTuning.dash),
 		dashUntil = 0,
 		stance = Stance.new(),
 		lastStanceAt = 0,
@@ -268,8 +269,8 @@ local function onTilt(player: Player, x: any, z: any)
 end
 
 -- A dash only moves the asker's own character and shakes their own tower; it pays nothing. The server decides
--- whether it may happen (cooldown, alive, not seated, no other dash running) and which one it is: the dash, in
--- combat mode the quick dash (same cooldown). It tells every client the kind, and they play the burst and effect.
+-- whether it may happen (a charge left, alive, not seated, no other dash running) and which one it is: the dash, in
+-- combat mode the quick dash (same charges). It tells every client the kind, and they play the burst and effect.
 local function onDash(player: Player, dirX: any, dirZ: any)
 	local function reject(reason: string)
 		if Features.debugDash then
@@ -290,15 +291,20 @@ local function onDash(player: Player, dirX: any, dirZ: any)
 	if time < state.dashUntil then
 		return reject("another dash is still running")
 	end
-	if time - state.lastDashAt < TowerTuning.dash.cooldown - DASH_SLACK then
-		return reject(string.format("cooldown, %.1f s since the last dash", time - state.lastDashAt))
-	end
 	local humanoid = humanoidOf(player)
 	if not humanoid or humanoid.Health <= 0 or humanoid.Sit then
 		return reject("no living, standing humanoid")
 	end
+	if not DashCharges.tryUse(state.dash, time, TowerTuning.dash, DASH_SLACK) then
+		return reject(
+			string.format(
+				"no charge (%d left, %.2f s since the last dash)",
+				state.dash.charges,
+				time - state.dash.lastAt
+			)
+		)
+	end
 	local duration = if kind == "quick" then TowerTuning.dash.quick.duration else TowerTuning.dash.duration
-	state.lastDashAt = time
 	-- a little short of the burst, so network jitter never blocks the next dash the client already allows
 	state.dashUntil = time + duration * 0.8
 	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length, kind)

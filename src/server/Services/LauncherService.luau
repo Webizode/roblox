@@ -94,9 +94,9 @@ end
 
 -- Every target is one of the map's landing spots (MapService): ground a player can stand on, never water, a roof, a
 -- palm or a railing. Only players in the arena (ArenaService) count: a new one's first shots land right at them
--- (tutorial), otherwise most go to a random spot in the arena, weighted towards the middle (randomBands), and
--- nearPlayerShare near a player who is on the move (TargetRules): a spot within playerOffset of them, or the nearest
--- spot when they stand where nothing may land.
+-- (tutorial), otherwise to a random spot of the whole arena, all equally likely (randomBands), and nearPlayerShare
+-- (0 since 13.11.2026) near a player who is on the move (TargetRules): a spot within playerOffset of them, or the
+-- nearest spot when they stand where nothing may land.
 local function pickTarget(): Vector3?
 	local now = workspace:GetServerTimeNow()
 	local moving = {}

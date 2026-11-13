@@ -127,10 +127,14 @@ return {
 
 	-- Dash (Q on PC, a dash button on touch): a short burst in the move direction that ends with a hard stop back to
 	-- walking (or sprinting) speed, so nothing slides on after it. Distance = speed x duration. The server checks the
-	-- cooldown. The cone is yanked forward, so the tower gets a tilt-rate kick against the dash direction that grows
-	-- with its height: a tower leaning into the dash is pushed upright, one already leaning back can go over.
+	-- charges (DashCharges). The cone is yanked forward, so the tower gets a tilt-rate kick against the dash direction
+	-- that grows with its height: a tower leaning into the dash is pushed upright, one already leaning back can go over.
 	dash = {
-		cooldown = 4, -- seconds
+		-- charges (since the kill test of 13.11.2026, before one dash every 4 s): up to `charges` stored, each one
+		-- recharging on its own in `recharge` seconds, one after the other; two dashes at least `minGap` seconds apart
+		charges = 2,
+		recharge = 2, -- seconds per charge
+		minGap = 0.35, -- seconds
 		speed = 80, -- studs/s during the burst
 		duration = 0.125, -- seconds; 10 studs, the same distance as before
 		acceleration = 6000, -- studs/s^2 the burst may push with, so it is at full speed within a frame or two
@@ -139,7 +143,7 @@ return {
 		kickMax = 0.9, -- rad/s
 		unsteadySeconds = 0.6, -- afterwards pad and walking corrections are weaker for this long
 		unsteadyFactor = 0.3, -- share of the normal correction strength during that window
-		-- In combat mode Q is the quick dash: a harder push of the same dash, same cooldown. No dash starts while
+		-- In combat mode Q is the quick dash: a harder push of the same dash, same charges. No dash starts while
 		-- another one still runs. Same burst as above (wall stop, speed back to walking at the end).
 		quick = { speed = 100, duration = 0.12 }, -- 12 studs
 	},

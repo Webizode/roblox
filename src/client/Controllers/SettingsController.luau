@@ -60,6 +60,7 @@ local TABS: { { title: string, rows: { Row } } } = {
 		title = "Controls",
 		rows = {
 			{ key = "inputMode", label = "Input" },
+			{ key = "aimAssist", label = "Aim Assist" },
 			{ key = "mouseSensitivity", label = "Mouse sensitivity" },
 			{ key = "touchSensitivity", label = "Touch sensitivity" },
 			{ key = "gamepadSensitivity", label = "Controller sensitivity" },

@@ -3,6 +3,7 @@
 -- (simulated here every frame), what it hits, the hit power, the knockdown decision and who may be hit. Clients only draw the ball and play the reaction the server announces; the victim's client
 -- applies the knockback and the tower shove, like every other tower force.
 
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -10,6 +11,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
+local BallFlight = require(Shared:WaitForChild("BallFlight"))
 local HitPoints = require(Shared:WaitForChild("HitPoints"))
 local MouseRules = require(Shared:WaitForChild("MouseRules"))
 local AimRules = require(Shared:WaitForChild("AimRules"))
@@ -49,6 +51,9 @@ type Ball = {
 	vz: number,
 	t0: number,
 	lastT: number,
+	flight: BallFlight.Ball, -- where it is and how it flies now (gravity and the homing)
+	target: Player?, -- the rival it homes in on (BallFlight.pick), nil: none
+	assist: any?, -- the homing strength of the thrower's input (Config/Combat homing.devices)
 	speed: number, -- at release
 	strength: number, -- Combat.strength, as the server accepted it
 	perfect: boolean,
@@ -191,7 +196,70 @@ end
 -- Release: the strength and a perfect throw are the client's claims as far as the server's own timing of the hold
 -- allows (Combat.validateStrength, validatePerfect); the ball flies from the hand through the aim point at the speed
 -- they give. A perfect throw is full strength at perfect.speed.
-local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedStrength: any, claimedPerfect: any)
+-- Whether the player has the "Aim Assist" setting on (the saved settings, as DataService checked them).
+local function wantsAssist(player: Player): boolean
+	local raw = player:GetAttribute("Settings")
+	if type(raw) ~= "string" then
+		return true -- not loaded yet: the default
+	end
+	local ok, settings = pcall(HttpService.JSONDecode, HttpService, raw)
+	return not (ok and type(settings) == "table" and settings.aimAssist == false)
+end
+
+-- The rival a throw from `origin` towards `aim` homes in on (BallFlight.pick): only players in the arena, standing,
+-- in plain sight and not in their cart's safe zone. The input the client names only picks the strength; an unknown
+-- one gets the mouse's, the weakest.
+local function homingTarget(thrower: Player, origin: Vector3, aim: Vector3, device: any): (Player?, any?)
+	if not wantsAssist(thrower) then
+		return nil, nil
+	end
+	local assist = Config.homing.devices[if type(device) == "string" then device else "keyboard"]
+		or Config.homing.devices.keyboard
+	local time = now()
+	local players: { Player } = {}
+	local candidates: { BallFlight.Candidate } = {}
+	for _, other in Players:GetPlayers() do
+		local root = other ~= thrower and rootOf(other)
+		local state = states[other]
+		if root and registry.ArenaService.inArena(other) and not (state and time < state.downUntil) then
+			local shielded = state ~= nil
+				and Loot.isShielded(cartDistance(other, root), time, state.unshieldedUntil, LootConfig)
+			if not shielded then
+				local p = root.Position
+				table.insert(players, other)
+				table.insert(candidates, { x = p.X, y = p.Y, z = p.Z })
+			end
+		end
+	end
+	local direction = aim - origin
+	local index =
+		BallFlight.pick(origin.X, origin.Y, origin.Z, direction.X, direction.Y, direction.Z, candidates, assist, Config)
+	if not index then
+		return nil, nil
+	end
+	local target = players[index]
+	local p = (rootOf(target) :: BasePart).Position
+	local ignore: { Instance } = {}
+	for _, someone in { thrower, target } do
+		if someone.Character then
+			table.insert(ignore, someone.Character)
+		end
+	end
+	if solidRaycast(origin, p - origin, ignore) then
+		return nil, nil -- behind cover: no help through walls
+	end
+	return target, assist
+end
+
+local function onThrow(
+	player: Player,
+	aimX: any,
+	aimY: any,
+	aimZ: any,
+	claimedStrength: any,
+	claimedPerfect: any,
+	device: any
+)
 	local state = states[player]
 	if not state then
 		return
@@ -267,6 +335,11 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedS
 	publishAmmo(player, state)
 	scheduleRefill(player, state) -- every throw makes the reload wait and start over
 
+	local target, assist = homingTarget(player, origin, Vector3.new(aimX, aimY, aimZ), device)
+	if target then
+		debugLog(`{player.Name}'s ball homes in on {target.Name}`)
+	end
+
 	nextId += 1
 	table.insert(balls, {
 		id = nextId,
@@ -277,6 +350,9 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedS
 		vx = vx,
 		vy = vy,
 		vz = vz,
+		flight = BallFlight.new(origin.X, origin.Y, origin.Z, vx, vy, vz),
+		target = target,
+		assist = assist,
 		-- the throw is decided now; the ball leaves the hand releaseDelay later, with the throw animation's release
 		t0 = time + Config.releaseDelay,
 		lastT = 0,
@@ -291,7 +367,14 @@ local function onThrow(player: Player, aimX: any, aimY: any, aimZ: any, claimedS
 		origin,
 		Vector3.new(vx, vy, vz),
 		time + Config.releaseDelay,
-		perfect
+		perfect,
+		target, -- every client flies the same homing towards them
+		if target
+				and type(device) == "string"
+				and Config.homing.devices[device]
+			then device
+			elseif target then "keyboard"
+			else nil
 	)
 end
 
@@ -436,10 +519,19 @@ local function step()
 			continue -- still in the hand
 		end
 		local t = math.min(time - ball.t0, Config.maxFlight)
-		local ax, ay, az =
-			Combat.position(ball.ox, ball.oy, ball.oz, ball.vx, ball.vy, ball.vz, Config.gravity, ball.lastT)
-		local bx, by, bz = Combat.position(ball.ox, ball.oy, ball.oz, ball.vx, ball.vy, ball.vz, Config.gravity, t)
+		-- the segment flown since the last step: gravity and the homing towards the target as it stands now
+		local flight = ball.flight
+		local ax, ay, az = flight.x, flight.y, flight.z
+		local avx, avy, avz = flight.vx, flight.vy, flight.vz
+		local homingRoot = ball.target and ball.assist and rootOf(ball.target)
+		local homeTo = if homingRoot
+			then { x = homingRoot.Position.X, y = homingRoot.Position.Y, z = homingRoot.Position.Z }
+			else nil
+		BallFlight.advance(flight, t - flight.t, homeTo, ball.assist, Config)
+		local bx, by, bz = flight.x, flight.y, flight.z
 		local from, to = Vector3.new(ax, ay, az), Vector3.new(bx, by, bz)
+		-- the reach grows with the distance flown (Config/Combat hitGrowth)
+		local hitRadius = BallFlight.hitRadius(BallFlight.flown(flight), Config)
 
 		local bestS, bestVictim, bestDistance = math.huge, nil :: Player?, 0
 		for _, player in Players:GetPlayers() do
@@ -450,7 +542,7 @@ local function step()
 			if target and root and not (victimState and time < victimState.downUntil) then
 				local p = root.Position
 				local distance, s = Combat.closestToCapsule(ax, ay, az, bx, by, bz, p.X, p.Y, p.Z, Config.hitHalfHeight)
-				if distance <= Config.hitRadius + Config.ballRadius and s < bestS then
+				if distance <= hitRadius + Config.ballRadius and s < bestS then
 					bestS, bestVictim, bestDistance = s, player, distance
 				end
 			end
@@ -464,41 +556,27 @@ local function step()
 		local resolved = true
 		if bestVictim and bestS <= worldS then
 			local hitT = ball.lastT + (t - ball.lastT) * bestS
-			local speed = Vector3.new(ball.vx, ball.vy - Config.gravity * hitT, ball.vz).Magnitude
-			debugLog(string.format("#%d hit %s after %.2f s", ball.id, bestVictim.Name, hitT))
-			-- how centred: the closest its path comes to the axis on through the body, not where it entered the reach
-			local p = (rootOf(bestVictim) :: BasePart).Position
-			local centred = math.min(
-				bestDistance,
-				Combat.passDistance(
-					ball.ox,
-					ball.oy,
-					ball.oz,
-					ball.vx,
-					ball.vy,
-					ball.vz,
-					ball.lastT,
-					p.X,
-					p.Y,
-					p.Z,
-					Config
+			local speed = Vector3.new(avx, avy - Config.gravity * (hitT - ball.lastT), avz).Magnitude
+			debugLog(
+				string.format(
+					"#%d hit %s after %.2f s, %.1f studs from the hand (reach %.2f)%s",
+					ball.id,
+					bestVictim.Name,
+					hitT,
+					BallFlight.flown(flight),
+					hitRadius,
+					if flight.homed then ", homed in" else ""
 				)
 			)
+			-- how centred: the closest its path comes to the axis on through the body, not where it entered the reach,
+			-- measured against the grown reach (the edge of a wide far reach is a graze like the edge of a close one)
+			local p = (rootOf(bestVictim) :: BasePart).Position
+			local passed =
+				math.min(bestDistance, Combat.passDistance(ax, ay, az, avx, avy, avz, 0, p.X, p.Y, p.Z, Config))
+			local centred = passed * (Config.hitRadius + Config.ballRadius) / (hitRadius + Config.ballRadius)
 			-- headshot: the arc on through the body reaches the head zone before the tower on the back
 			local head, tower = headAndTower(bestVictim, rootOf(bestVictim) :: BasePart)
-			local headshot = head ~= nil
-				and Combat.isHeadshot(
-					ball.ox,
-					ball.oy,
-					ball.oz,
-					ball.vx,
-					ball.vy,
-					ball.vz,
-					ball.lastT,
-					head,
-					tower,
-					Config
-				)
+			local headshot = head ~= nil and Combat.isHeadshot(ax, ay, az, avx, avy, avz, 0, head, tower, Config)
 			hitPlayer(ball, bestVictim, from:Lerp(to, bestS), centred, speed, headshot)
 		elseif worldHit then
 			debugLog(

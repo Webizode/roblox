@@ -1,7 +1,7 @@
--- What the local player sees of their own hits (Config/Combat feedback): a red X on the crosshair when their ball hits
--- somebody (AimHud.mark), the number of scoops a victim lost rising over the victim, and a line in the feed at the
--- bottom of the screen: "YOU KNOCKED DOWN Name" when their hit knocks somebody down, "YOU TOPPLED Name (+X)" when a
--- tower falls soon after their hit (the server credits it, CombatService.toppled); other news too (HitFeedback.say).
+-- What the local player sees of their own hits (Config/Combat feedback): the number of scoops a victim lost rising over
+-- the victim, and a line in the feed at the bottom of the screen: "YOU KNOCKED DOWN Name" when their hit knocks
+-- somebody down, "YOU TOPPLED Name (+X)" when a tower falls soon after their hit (the server credits it,
+-- CombatService.toppled); other news too (HitFeedback.say).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,7 +18,6 @@ local HitFeedback = {}
 
 local Look = CombatConfig.feedback
 local player = Players.LocalPlayer
-local registry
 local feed: Frame
 local lines: { TextLabel } = {}
 
@@ -82,13 +81,6 @@ local function number(victim: Player, lost: number)
 	end)
 end
 
-local function onResolved(_: number, thrower: Player, victim: Player?, ...)
-	local shielded, headshot = select(6, ...)
-	if thrower == player and victim and not shielded then
-		registry.AimHud.mark(headshot == true)
-	end
-end
-
 local function onFeedback(kind: string, victim: Player, lost: number)
 	if typeof(victim) ~= "Instance" or not victim:IsA("Player") then
 		return
@@ -108,8 +100,7 @@ function HitFeedback.say(text: string)
 	end
 end
 
-function HitFeedback.Init(reg)
-	registry = reg
+function HitFeedback.Init()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "HitFeed"
 	gui.ResetOnSpawn = false
@@ -128,7 +119,6 @@ function HitFeedback.Init(reg)
 end
 
 function HitFeedback.Start()
-	Remotes.IceBallResolved.OnClientEvent:Connect(onResolved)
 	Remotes.HitFeedback.OnClientEvent:Connect(onFeedback)
 end
 

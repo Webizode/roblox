@@ -220,7 +220,10 @@ local function ownStep(dt: number)
 	touchDelta = Vector2.zero
 	-- the aim help: near a rival the player's own turning slows down and the camera is drawn gently to them
 	local device = AimRules.device(Settings.inputKind(), CombatConfig)
-	local target, closeness = assistTarget(camera, character :: Model)
+	local target, closeness = nil, 0
+	if Settings.effective().aimAssist then -- the "Aim Assist" setting switches it off with the ball's homing
+		target, closeness = assistTarget(camera, character :: Model)
+	end
 	local slow = AimRules.friction(closeness, device)
 	yaw -= (delta.X * speed + turn.X + swipe.X) * slow
 	pitch = math.clamp(pitch - (delta.Y * speed - turn.Y + swipe.Y) * slow, Look.pitchMin, Look.pitchMax)

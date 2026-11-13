@@ -2,14 +2,14 @@
 Blender session (it uses its set_arm_pose and pose constants):
     exec(open(r"<repo>/assets/BigSwirl/animate_bigswirl.py").read())
 
-One cycle per arm, 30 fps: down into the trough, scoop, swing up, pull back, fire, back to rest, with anticipation,
-overshoot and a short spring at the end. Each key is (frame, arm pitch, cup tilt) in degrees: the pitch lifts the
+One cycle per arm, 30 fps: down into the trough, scoop, swing up, a soft underhand lob, back to rest, with
+anticipation and follow-through. Each key is (frame, arm pitch, cup tilt) in degrees: the pitch lifts the
 arm about its shoulder (positive = up), the tilt leans the cup's opening away from straight up (positive = outward,
 the way the scoop flies). Both stay inside the poses build_bigswirl.py checked for collisions.
 
 Markers (time in seconds from the cycle's start):
     Scooped  the cup leaves the mix with a scoop in it: the game shows the scoop in the flavour that will fly
-    Release  the fastest point of the forward whip: the game starts the scoop's flight here
+    Release  the scoop leaves the cup on the way up of the lob: the game starts the scoop's flight here
 
 The animation reaches Roblox through export_bigswirl.py (one FBX per arm for the Animation Editor). The bake
 (arm_cycle.json in ASSET_DIR) is for the game code: the marker times, where each arm releases its scoop, and per frame
@@ -40,18 +40,20 @@ KEYS = [
     (42, REST_P + 3, -6),  # swings up, overshooting a little
     (46, REST_P - 1, 0),
     (49, REST_P, -2),
-    (60, 35, -40),  # pulls back, slow, gathering tension
-    (63, 37, -45),  # cocked
-    (65, 35.8, -42),  # a tremble
-    (67, 36.8, -45),
-    (71, 5, 70),  # FIRE: the arm whips forward, the cup flicks the scoop out
-    (73, -2, 80),  # overshoot forward
-    (77, 14, 20),  # springs back
-    (81, REST_P + 4, 2),  # overshoots the rest pose
-    (86, REST_P - 2, 15),
+    # the throw: a soft underhand lob (since the kill test of 13.11.2026; before, the arm pulled back up to 37 degrees and
+    # whipped down, so the scoop left a cup going down and seemed to jump): it dips a little below rest, swings up and
+    # out and lets go on the way up, the cup tipping outward, so the scoop carries on the arm's own arc
+    (57, REST_P - 9, -12),  # dips back and down, gathering
+    (61, REST_P - 11, -16),  # lowest point
+    (66, REST_P - 2, 20),  # swings up and out
+    (68, REST_P + 3, 42),  # RELEASE on the way up: the cup tips out
+    (71, REST_P + 7, 48),  # follows through, not higher than 32 degrees
+    (76, REST_P + 4, 25),  # eases back
+    (82, REST_P - 1, 8),
+    (86, REST_P + 1, 14),
     (90, REST_P, REST_T),  # rest
 ]
-MARKERS = {"Scooped": 31, "Release": 69}
+MARKERS = {"Scooped": 31, "Release": 68}
 LENGTH = KEYS[-1][0]
 
 scene = bpy.context.scene

@@ -481,7 +481,8 @@ describe("Tower reaction to a hit", function()
 end)
 
 describe("Hits: how centred they count", function()
-	-- a ball thrown flat at the axis of a player 15 studs away, checked frame by frame like the server does
+	-- a ball thrown flat at the axis of a player 15 studs away, checked step by step like the server does (at 240 Hz:
+	-- the balls are fast enough since 13.11.2026 that a 60 Hz frame can already land deep inside the reach)
 	local function firstHit(offset: number, strength: number)
 		local speed = Combat.throwSpeed(strength, false, Config)
 		local ox, oy, oz = 0, 5, 0
@@ -490,8 +491,8 @@ describe("Hits: how centred they count", function()
 		local _, vx, vy, vz = Combat.aimVelocity(ox, oy, oz, 0, 5, 15, speed, Config)
 		local reach = Config.hitRadius + Config.ballRadius
 		local last = 0
-		for frame = 1, 120 do
-			local t = frame / 60
+		for frame = 1, 480 do
+			local t = frame / 240
 			local ax, ay, az = Combat.position(ox, oy, oz, vx, vy, vz, Config.gravity, last)
 			local bx, by, bz = Combat.position(ox, oy, oz, vx, vy, vz, Config.gravity, t)
 			local entry = Combat.closestToCapsule(ax, ay, az, bx, by, bz, cx, cy, cz, Config.hitHalfHeight)

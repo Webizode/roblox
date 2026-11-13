@@ -25,18 +25,25 @@ describe("Big Swirl aim: standing still", function()
 end)
 
 describe("Big Swirl aim: random or near a player", function()
-	it("about 80 % random, the rest near a moving player, set in the config", function()
-		expect(Config.nearPlayerShare).toBe(0.2)
+	it("none aimed at players any more (kill test of 13.11.2026): all random, set in the config", function()
+		expect(Config.nearPlayerShare).toBe(0)
+		for _, roll in { 0, 0.05, 0.19, 0.5, 0.99 } do
+			expect(TargetRules.choose(roll, 0.3, 4, Config)).toBeNil()
+		end
+	end)
+
+	it("with a share near players: that share of the shots near a moving player", function()
+		local share = { nearPlayerShare = 0.2 }
 		local near, shots = 0, 10000
 		local roll = 0
 		for _ = 1, shots do
 			-- an even spread of rolls, like a random generator over many shots
 			roll = (roll + 0.6180339887) % 1
-			if TargetRules.choose(roll, 0.5, 3, Config) then
+			if TargetRules.choose(roll, 0.5, 3, share) then
 				near += 1
 			end
 		end
-		expect(near / shots).toBeCloseTo(Config.nearPlayerShare, 0.01)
+		expect(near / shots).toBeCloseTo(share.nearPlayerShare, 0.01)
 	end)
 
 	it("never near anybody when everybody stands still: all random", function()
@@ -48,32 +55,30 @@ describe("Big Swirl aim: random or near a player", function()
 	it("picks every moving player, none twice as often", function()
 		local count = {}
 		for step = 0, 999 do
-			local index = TargetRules.choose(0, step / 1000, 4, Config) :: number
+			local index = TargetRules.choose(0, step / 1000, 4, { nearPlayerShare = 0.2 }) :: number
 			count[index] = (count[index] or 0) + 1
 		end
 		for index = 1, 4 do
 			expect(count[index]).toBe(250)
 		end
-		expect(TargetRules.choose(0, 0.9999999, 4, Config)).toBe(4)
+		expect(TargetRules.choose(0, 0.9999999, 4, { nearPlayerShare = 0.2 })).toBe(4)
 	end)
 end)
 
 describe("Big Swirl aim: the random spots", function()
-	it("weighted towards the middle: 35 % at 25-55, 35 % at 55-80, 30 % at 80-100, set in the config", function()
+	it("evenly over the whole arena: one ring from the trough to the arena's edge, set in the config", function()
 		local bands = Config.randomBands
-		expect(#bands).toBe(3)
-		local expected = { { 25, 55, 0.35 }, { 55, 80, 0.35 }, { 80, 100, 0.30 } }
-		for index, band in bands do
-			expect(band.inner).toBe(expected[index][1])
-			expect(band.outer).toBe(expected[index][2])
-			expect(band.share).toBe(expected[index][3])
-		end
-		-- no further than about 75 % of the arena radius (135), never near the rim
-		expect(bands[#bands].outer <= 0.76 * 135).toBe(true)
+		expect(#bands).toBe(1)
+		expect(bands[1].inner <= 30).toBe(true) -- just outside the machine's trough (radius 26)
+		expect(bands[1].outer).toBe(Config.landingRadius) -- out to the rim
 	end)
 
 	it("picks a ring by its share", function()
-		local bands = Config.randomBands
+		local bands = {
+			{ inner = 25, outer = 55, share = 0.35 },
+			{ inner = 55, outer = 80, share = 0.35 },
+			{ inner = 80, outer = 100, share = 0.30 },
+		}
 		local count = {}
 		local rolls = 10000
 		for i = 0, rolls - 1 do

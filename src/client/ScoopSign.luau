@@ -1,6 +1,7 @@
--- The name sign over a scoop in flight or lying on the ground: "Vanilla (5 [coin])", the name in its rarity's colour,
--- the coin the same as the HUD's (Ui.coinIcon), a fixed size on screen so it reads on a phone, and only drawn up to
--- Config/TowerScoops label.maxDistance studs from the camera (Roblox skips the rest, so many scoops cost little).
+-- The name sign over a scoop in flight or lying on the ground: "Vanilla 5[coin]", the name in its rarity's colour, the
+-- worth in the HUD's number font with the coin right behind it, the same coin as the HUD's (Ui.coinIcon), a fixed
+-- size on screen so it reads on a phone, and only drawn up to Config/TowerScoops label.maxDistance studs from the
+-- camera (Roblox skips the rest, so many scoops cost little).
 -- What it says comes from ScoopLabel. ScoopModel keeps it on whichever of its models shows.
 
 local Players = game:GetService("Players")
@@ -33,12 +34,12 @@ local function root(): Folder
 	return made
 end
 
--- the name in the main font, the worth (a number) in the text font
+-- the name in the main font, the worth in the HUD's number font
 local function piece(text: string, order: number, color: Color3?, number: boolean?): TextLabel
 	local label = Ui.text({ Text = text, TextSize = Look.label.textSize, LayoutOrder = order })
 	label.TextColor3 = color or Color3.new(1, 1, 1)
 	if number then
-		label.FontFace = Theme.fontText
+		label.FontFace = Theme.fontNumbers
 	end
 	-- a dark rim round the letters keeps it readable over sky, sand and ice cream
 	Ui.stroke(label, "ink", 2, 0.1).ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
@@ -69,9 +70,16 @@ function ScoopSign.new(flavorId: string, golden: boolean): BillboardGui?
 	row.Position = UDim2.fromScale(0.5, 0.5)
 	Ui.list(row, Enum.FillDirection.Horizontal, 6)
 	piece(label.name, 1, Color3.fromHex(label.color)).Parent = row
-	piece(`({label.value}`, 2, nil, true).Parent = row
-	Ui.coinIcon(Look.label.iconSize, { LayoutOrder = 3 }).Parent = row
-	piece(")", 4, nil, true).Parent = row
+	-- the worth and its coin as one piece, the coin tight behind the number
+	local worth = Instance.new("Frame")
+	worth.BackgroundTransparency = 1
+	worth.AutomaticSize = Enum.AutomaticSize.X
+	worth.Size = UDim2.fromScale(0, 1)
+	worth.LayoutOrder = 2
+	Ui.list(worth, Enum.FillDirection.Horizontal, Look.label.coinGap)
+	piece(tostring(label.value), 1, nil, true).Parent = worth
+	Ui.coinIcon(Look.label.iconSize, { LayoutOrder = 2 }).Parent = worth
+	worth.Parent = row
 	row.Parent = sign
 
 	sign.Parent = root()

@@ -362,7 +362,7 @@ function Hud.Start()
 		end
 		updateShown()
 		gauge.step()
-		dashBar.set(registry.TowerController.dashCharge())
+		dashBar.set(registry.TowerController.dashSegments())
 		local left = if type(readyAt) == "number" then readyAt - serverNow else 0
 		reloadText.Visible = loaded <= 0 and left > 0
 		if reloadText.Visible then
