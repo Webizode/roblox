@@ -34,6 +34,7 @@ return {
 		ring = "rbxassetid://105040632730662", -- Vfx_Ring.png
 		flash = "rbxassetid://105144777635970", -- Vfx_Flash.png
 		splat = "rbxassetid://105830721155613", -- Vfx_Splat.png, 4 x 4 frames
+		coin = "rbxassetid://94064830097616", -- Vfx_Coin.png, 4 x 4 frames: one turn of a spinning coin
 	},
 
 	colors = {
@@ -50,6 +51,11 @@ return {
 		-- pastel, but strong enough to read on the arena's cream floor
 		dustPink = "#FF9DBC",
 		dustBlue = "#9FD3F5",
+		dustCream = "#EBCDA8", -- a dash's dust: the floor's cream, a shade darker so it reads on it
+		coin = "#FFD23F", -- Palette.lemon, the coin of the HUD
+		coinLight = "#FFF1B0",
+		confettiBlue = "#7CC8F2",
+		steam = "#FFF8F0", -- the Big Swirl's steam: warm white
 	},
 	-- the scoop colour of a throw whose flavor is not known (the ice ball is vanilla so far)
 	defaultFlavor = "vanilla",
@@ -641,6 +647,375 @@ return {
 				},
 			},
 		},
+
+		-- round 3 ---------------------------------------------------------------------------------------------------
+
+		-- scoops are served: coins spin up out of the player and rain back down, a little confetti, a short flash,
+		-- bigger with more scoops (Config/Vfx.serve). The local player's coins also fly to the coin counter (UI).
+		serve = {
+			budget = { particles = 30, duration = 1.1 },
+			layers = {
+				{
+					texture = "coin",
+					flipbook = true,
+					count = 10,
+					color = "coin",
+					lifetime = { 0.8, 1.05 },
+					speed = { 16, 24 },
+					spread = 28,
+					size = { { 0, 0.5 }, { 0.15, 1.1 }, { 0.85, 1.1 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					accel = -46,
+					drag = 0.6,
+					bright = 1.1,
+					z = 0.5,
+				},
+				{
+					texture = "sprinkle",
+					count = 6,
+					color = "sprinklePink",
+					lifetime = { 0.7, 1 },
+					speed = { 12, 20 },
+					spread = 55,
+					size = { { 0, 0.4 }, { 0.85, 0.4 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					accel = -30,
+					drag = 1.5,
+					rotation = { 0, 360 },
+					rotSpeed = { -540, 540 },
+					z = 0.4,
+				},
+				{
+					texture = "sprinkle",
+					extra = true,
+					count = 6,
+					color = "confettiBlue",
+					lifetime = { 0.7, 1 },
+					speed = { 12, 20 },
+					spread = 55,
+					size = { { 0, 0.4 }, { 0.85, 0.4 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					accel = -30,
+					drag = 1.5,
+					rotation = { 0, 360 },
+					rotSpeed = { -540, 540 },
+					z = 0.4,
+				},
+				{
+					texture = "sprinkle",
+					extra = true,
+					count = 6,
+					color = "sprinkleMint",
+					lifetime = { 0.7, 1 },
+					speed = { 12, 20 },
+					spread = 55,
+					size = { { 0, 0.4 }, { 0.85, 0.4 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					accel = -30,
+					drag = 1.5,
+					rotation = { 0, 360 },
+					rotSpeed = { -540, 540 },
+					z = 0.4,
+				},
+				{
+					texture = "flash",
+					count = 1,
+					color = "coinLight",
+					lifetime = { 0.2, 0.2 },
+					speed = { 0, 0 },
+					spread = 0,
+					size = { { 0, 2.5 }, { 1, 6 } },
+					transparency = { { 0, 0.2 }, { 1, 1 } },
+					light = 0.7,
+					z = 1,
+				},
+			},
+		},
+
+		-- the Big Swirl lets a scoop go: a puff of steam out of the cup and sparks in the scoop's colour along its way
+		swirlShot = {
+			budget = { particles = 11, duration = 0.95 },
+			reach = 2, -- distance times 2: the Big Swirl stands in the middle and is seen from all of the arena
+			layers = {
+				{
+					texture = "cloud",
+					count = 4,
+					color = "steam",
+					lifetime = { 0.6, 0.9 },
+					speed = { 3, 7 },
+					spread = 50,
+					size = { { 0, 1.2 }, { 0.4, 2.6 }, { 1, 3.4 } },
+					transparency = { { 0, 0.25 }, { 0.5, 0.45 }, { 1, 1 } },
+					accel = 3, -- steam rises
+					drag = 2,
+					rotation = { 0, 360 },
+					rotSpeed = { -40, 40 },
+				},
+				{
+					texture = "star",
+					count = 5,
+					color = "scoop",
+					lighten = 0.2,
+					lifetime = { 0.3, 0.5 },
+					speed = { 14, 24 },
+					spread = 30,
+					size = { { 0, 0.5 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					accel = -20,
+					drag = 2,
+					rotation = { 0, 360 },
+					rotSpeed = { -400, 400 },
+					light = 0.3,
+					z = 0.4,
+				},
+				{
+					texture = "flash",
+					extra = true,
+					count = 2,
+					color = "white",
+					lifetime = { 0.15, 0.25 },
+					speed = { 0, 2 },
+					spread = 20,
+					size = { { 0, 1.5 }, { 1, 3.5 } },
+					transparency = { { 0, 0.2 }, { 1, 1 } },
+					light = 0.8,
+					z = 0.6,
+				},
+			},
+		},
+
+		-- a scoop nobody caught comes down on its landing circle: a soft puff in its colour (and a ring,
+		-- groundRings.landed)
+		landed = {
+			budget = { particles = 6, duration = 0.6 },
+			layers = {
+				{
+					texture = "cloud",
+					count = 4,
+					color = "scoop",
+					lighten = 0.6,
+					lifetime = { 0.4, 0.6 },
+					speed = { 4, 7 },
+					spread = 80,
+					size = { { 0, 0.8 }, { 1, 2.2 } },
+					transparency = { { 0, 0.2 }, { 1, 1 } },
+					drag = 4,
+					rotation = { 0, 360 },
+				},
+				{
+					texture = "drop",
+					extra = true,
+					orient = "velocity",
+					count = 2,
+					color = "scoop",
+					lifetime = { 0.3, 0.45 },
+					speed = { 8, 12 },
+					spread = 45,
+					size = { { 0, 0.4 }, { 1, 0.1 } },
+					transparency = { { 0, 0 }, { 0.8, 0 }, { 1, 1 } },
+					accel = -40,
+					z = 0.3,
+				},
+			},
+		},
+
+		-- a teleport, at the start and at the target: a pastel puff with sprinkles and stars (and a ring on the
+		-- ground, groundRings.teleport)
+		teleport = {
+			budget = { particles = 22, duration = 0.8 },
+			layers = {
+				{
+					texture = "cloud",
+					count = 6,
+					color = "dustPink",
+					lifetime = { 0.5, 0.75 },
+					speed = { 5, 10 },
+					spread = 70,
+					size = { { 0, 1.6 }, { 0.5, 3.4 }, { 1, 4 } },
+					transparency = { { 0, 0.15 }, { 0.6, 0.35 }, { 1, 1 } },
+					accel = 2,
+					drag = 3,
+					rotation = { 0, 360 },
+					rotSpeed = { -60, 60 },
+				},
+				{
+					texture = "cloud",
+					extra = true,
+					count = 4,
+					color = "dustBlue",
+					lifetime = { 0.5, 0.75 },
+					speed = { 5, 10 },
+					spread = 70,
+					size = { { 0, 1.4 }, { 0.5, 3 }, { 1, 3.6 } },
+					transparency = { { 0, 0.15 }, { 0.6, 0.35 }, { 1, 1 } },
+					accel = 2,
+					drag = 3,
+					rotation = { 0, 360 },
+					rotSpeed = { -60, 60 },
+				},
+				{
+					texture = "star",
+					count = 5,
+					color = "white",
+					lifetime = { 0.4, 0.7 },
+					speed = { 8, 14 },
+					spread = 60,
+					size = { { 0, 0.2 }, { 0.2, 0.6 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					drag = 3,
+					rotation = { 0, 360 },
+					rotSpeed = { -300, 300 },
+					light = 0.2,
+					z = 0.8,
+				},
+				{
+					texture = "sprinkle",
+					extra = true,
+					count = 6,
+					color = "sprinkleLemon",
+					lifetime = { 0.45, 0.7 },
+					speed = { 10, 16 },
+					spread = 70,
+					size = { { 0, 0.4 }, { 0.8, 0.4 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					accel = -30,
+					drag = 2,
+					rotation = { 0, 360 },
+					rotSpeed = { -540, 540 },
+					z = 0.7,
+				},
+				{
+					texture = "flash",
+					count = 1,
+					color = "white",
+					lifetime = { 0.18, 0.18 },
+					speed = { 0, 0 },
+					spread = 0,
+					size = { { 0, 3 }, { 1, 6.5 } },
+					transparency = { { 0, 0.2 }, { 1, 1 } },
+					light = 0.8,
+					z = 1,
+				},
+			},
+		},
+
+		-- a dash: dust kicked up behind the feet where it starts and where it ends (the speed lines are on the screen,
+		-- dashLines; the trail, ground streak and afterimages are MovementController's)
+		dashDust = {
+			budget = { particles = 6, duration = 0.55 },
+			layers = {
+				{
+					texture = "cloud",
+					count = 4,
+					color = "dustCream",
+					lifetime = { 0.35, 0.55 },
+					speed = { 4, 8 },
+					spread = 55,
+					size = { { 0, 0.9 }, { 1, 2.4 } },
+					transparency = { { 0, 0.2 }, { 1, 1 } },
+					drag = 4,
+					rotation = { 0, 360 },
+					rotSpeed = { -60, 60 },
+				},
+				{
+					texture = "cloud",
+					extra = true,
+					count = 2,
+					color = "dustPink",
+					lifetime = { 0.35, 0.55 },
+					speed = { 4, 8 },
+					spread = 55,
+					size = { { 0, 0.7 }, { 1, 2 } },
+					transparency = { { 0, 0.3 }, { 1, 1 } },
+					drag = 4,
+					rotation = { 0, 360 },
+				},
+			},
+		},
+
+		-- a lying scoop in its last moment blinks: a small glint each time it lights up (lootBlink)
+		blinkGlint = {
+			budget = { particles = 2, duration = 0.3 },
+			layers = {
+				{
+					texture = "star",
+					count = 1,
+					color = "white",
+					lifetime = { 0.25, 0.25 },
+					speed = { 0, 0 },
+					spread = 0,
+					size = { { 0, 0.2 }, { 0.4, 0.9 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					rotation = { 0, 45 },
+					rotSpeed = { 180, 180 },
+					light = 0.6,
+					z = 1,
+				},
+				{
+					texture = "flash",
+					extra = true,
+					count = 1,
+					color = "white",
+					lifetime = { 0.15, 0.15 },
+					speed = { 0, 0 },
+					spread = 0,
+					size = { { 0, 1 }, { 1, 2.2 } },
+					transparency = { { 0, 0.4 }, { 1, 1 } },
+					light = 0.8,
+					z = 0.9,
+				},
+			},
+		},
+
+		-- its time is up: it pops in a puff of its colour with a few blobs and sprinkles
+		lootPuff = {
+			budget = { particles = 10, duration = 0.55 },
+			layers = {
+				{
+					texture = "cloud",
+					count = 4,
+					color = "scoop",
+					lighten = 0.45,
+					lifetime = { 0.35, 0.5 },
+					speed = { 3, 6 },
+					spread = 180,
+					size = { { 0, 1 }, { 1, 2.6 } },
+					transparency = { { 0, 0.1 }, { 1, 1 } },
+					drag = 4,
+					rotation = { 0, 360 },
+				},
+				{
+					texture = "blob",
+					count = 3,
+					color = "scoop",
+					lifetime = { 0.35, 0.5 },
+					speed = { 7, 11 },
+					spread = 70,
+					size = { { 0, 0.45 }, { 1, 0.1 } },
+					transparency = { { 0, 0 }, { 0.8, 0 }, { 1, 1 } },
+					accel = -35,
+					drag = 2,
+					rotation = { 0, 360 },
+					z = 0.3,
+				},
+				{
+					texture = "sprinkle",
+					extra = true,
+					count = 3,
+					color = "sprinklePink",
+					lifetime = { 0.35, 0.5 },
+					speed = { 7, 12 },
+					spread = 80,
+					size = { { 0, 0.35 }, { 0.8, 0.35 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					accel = -35,
+					drag = 2,
+					rotation = { 0, 360 },
+					rotSpeed = { -540, 540 },
+					z = 0.4,
+				},
+			},
+		},
 	},
 
 	-- Rings that run out flat over the ground (Vfx.groundRings): the ring picture on a thin pooled part, growing from
@@ -665,6 +1040,20 @@ return {
 			{ color = "ringOutline", from = 1.9, to = 6.9, time = 0.35, transparency = 0.25 },
 			{ color = "scoop", from = 1.5, to = 6.4, time = 0.35, transparency = 0 },
 			{ color = "white", from = 1, to = 3.8, time = 0.25, transparency = 0.25, extra = true },
+		},
+		-- a new landing circle shows itself: a ring in the scoop's colour runs out of it (the circle is
+		-- Config/TowerScoops.landingCircle.size, 7, across)
+		circle = {
+			{ color = "ringOutline", from = 7.4, to = 13.4, time = 0.45, transparency = 0.35 },
+			{ color = "scoop", from = 7, to = 13, time = 0.45, transparency = 0 },
+		},
+		-- a scoop nobody caught comes down on it
+		landed = {
+			{ color = "scoop", from = 1.5, to = 6, time = 0.35, transparency = 0.1 },
+		},
+		teleport = {
+			{ color = "dustPink", from = 2, to = 11, time = 0.5, transparency = 0 },
+			{ color = "white", from = 1, to = 7, time = 0.4, transparency = 0.2, extra = true },
 		},
 	},
 
@@ -716,4 +1105,21 @@ return {
 	},
 	-- seconds after the knocking hit the dust rises: the body is down by then
 	knockdownDustDelay = 0.28,
+
+	-- a serve's coin fountain grows with the scoops served: times `perScoop` each, up to maxScale; it rises from
+	-- `lift` studs above the player's feet
+	serve = { perScoop = 0.04, maxScale = 1.7, lift = 2.5 },
+	-- the local player's coins fly from the character to the HUD's coin counter while it counts up: one coin per
+	-- scoop, between min and max (fewer at a lower VFX quality, never fewer than min), `size` pixels at 720 px
+	-- screen height, one every `gap` seconds, each `time` seconds on its way; the counter pops when the first lands
+	uiCoins = { min = 3, max = 10, size = 30, gap = 0.05, time = 0.5, arc = 0.25, pop = 1.18 },
+
+	-- speed lines over the local player's screen while dashing (with the motion effects setting): `count` thin white
+	-- streaks round the edge, pointing at the middle, `length` and `width` shares of the screen height, at most
+	-- `alpha` opaque; they slide `slide` of their length inwards over the dash and fade in and out in `fade` seconds
+	dashLines = { count = 16, length = 0.22, width = 0.006, alpha = 0.55, slide = 0.5, fade = 0.08, inner = 0.42 },
+
+	-- a lying scoop's last moment (Config/Loot blinkSeconds, landedBlinkSeconds): it blinks `from` times a second
+	-- at the start, `to` at the end, and glints each time it lights up (blinkGlint, only close by)
+	lootBlink = { from = 6, to = 14, see = 0.65, glintLift = 0.6 },
 }

@@ -43,6 +43,8 @@ local DEFINITIONS = {
 	-- ArenaService checks it (TeleportRules)
 	TeleportRequest = "RemoteEvent",
 	TeleportDenied = "RemoteEvent", -- server -> asker: why a teleport was refused ("down", "hit"; TeleportRules)
+	-- server -> all: player, from, to (a teleport went through: the puff at both ends, Vfx.Effects.Teleport)
+	Teleported = "RemoteEvent",
 }
 
 local remotes = {}

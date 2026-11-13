@@ -33,6 +33,7 @@ local Sfx = require(client:WaitForChild("Sfx"))
 local Settings = require(client:WaitForChild("Settings"))
 local CombatCamera = require(client:WaitForChild("CombatCamera"))
 local VfxCamera = require(client:WaitForChild("Vfx"):WaitForChild("Camera"))
+local DashVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Dash"))
 
 local MovementController = {}
 
@@ -906,12 +907,7 @@ function MovementController.dash(character: Model, duration: number, dirX: numbe
 	end
 	dashParticles(root, dirX, dirZ)
 	groundStreak(character, root, dirX, dirZ, distance or 10)
-	task.delay(duration, function()
-		local floor = root.Parent and floorBelow(character, root.Position)
-		if floor then
-			dust(floor.Position + Vector3.new(0, 0.1, 0), 0.4)
-		end
-	end)
+	DashVfx.play(character, duration, dirX, dirZ) -- dust at both ends, the local player's speed lines
 	if effects.heavyDashEffects then
 		local count = math.max(1, Movement.dashAfterimages)
 		for index = 0, count - 1 do

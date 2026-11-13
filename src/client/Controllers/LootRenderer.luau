@@ -22,9 +22,9 @@ local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local ScoopModel = require(client:WaitForChild("ScoopModel"))
 local ScoopSign = require(client:WaitForChild("ScoopSign"))
-local Settings = require(client:WaitForChild("Settings"))
 local UiKit = require(client:WaitForChild("UiKit"))
 local PickupVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Pickup"))
+local LootFade = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("LootFade"))
 
 local LootRenderer = {}
 
@@ -61,6 +61,7 @@ type Drawn = {
 	claimedAt: number?, -- os.clock of the claim; the scoop flies to the own tower until the server answers
 	retryAt: number, -- os.clock; after a refused claim, not again before this
 	blinking: boolean,
+	blinkCount: number?, -- blinks so far in its last moment (LootFade.blink); a new one glints
 	readyShown: boolean, -- the flash that it may be picked up now has played
 }
 
@@ -230,40 +231,10 @@ local function vanish(part: BasePart, seconds: number)
 	end)
 end
 
--- A free scoop's time is up: it pops in a small cloud of its own colour (a quick swelling ball, a few flecks at a
--- lower VFX quality fewer).
-local function puff(part: BasePart)
-	local position, color = part.Position, part.Color
+-- A free scoop's time is up: it pops in a puff of its own colour (Vfx.Effects.LootFade).
+local function puff(part: BasePart, flavorId: string)
+	LootFade.puff(part.Position, flavorId)
 	part:Destroy()
-	local cloud = makePart()
-	cloud.Shape = Enum.PartType.Ball
-	cloud.Color = color
-	cloud.Transparency = 0.25
-	cloud.Size = Vector3.one * 1.4
-	cloud.CFrame = CFrame.new(position)
-	TweenService:Create(cloud, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Size = Vector3.one * 3.4,
-		Transparency = 1,
-	}):Play()
-	local flecks = math.floor(10 * Settings.effective().particleScale)
-	if flecks > 0 then
-		local attachment = Instance.new("Attachment")
-		attachment.Parent = cloud
-		local emitter = Instance.new("ParticleEmitter")
-		emitter.Color = ColorSequence.new(color, Color3.new(1, 1, 1))
-		emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 0) })
-		emitter.Transparency = NumberSequence.new(0.1, 1)
-		emitter.Lifetime = NumberRange.new(0.25, 0.45)
-		emitter.Speed = NumberRange.new(4, 8)
-		emitter.SpreadAngle = Vector2.new(180, 180)
-		emitter.Drag = 6
-		emitter.Rate = 0
-		emitter.Parent = attachment
-		emitter:Emit(flecks)
-	end
-	task.delay(0.6, function()
-		cloud:Destroy()
-	end)
 end
 
 local function splash(position: Vector3)
@@ -325,7 +296,7 @@ local function onRemoved(id: number, catcher: Player?, reason: string)
 		splash(Vector3.new(part.Position.X, MapConfig.waterLevel, part.Position.Z))
 		part:Destroy()
 	elseif reason == "puff" then
-		puff(part)
+		puff(part, scoop.wire.flavorId)
 	else
 		vanish(part, 0.25)
 	end
@@ -443,7 +414,14 @@ local function onRenderStep(dt: number)
 
 		local blinking = Loot.blinks(scoop.wire.endAt, now, scoop.wire.landed == true, scoop.wire.sinks, LootConfig)
 		if blinking then
-			scoop.part.Transparency = if math.floor(now * 8) % 2 == 0 then 0.65 else 0
+			-- faster and faster towards the end, with a glint each time it lights up again (LootFade)
+			local span = if scoop.wire.landed then LootConfig.landedBlinkSeconds else LootConfig.blinkSeconds
+			local see, count = LootFade.blink(scoop.wire.endAt - now, span)
+			scoop.part.Transparency = see
+			if count ~= scoop.blinkCount then
+				scoop.blinkCount = count
+				LootFade.glint(scoop.part.Position)
+			end
 		elseif scoop.blinking then
 			scoop.part.Transparency = 0
 		end

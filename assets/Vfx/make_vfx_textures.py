@@ -1,6 +1,6 @@
 """The particle pictures of the game's effects (src/client/Vfx, ids in src/shared/Config/Vfx.luau). Run in a
 background Blender, without touching an open session:
-    blender -b --factory-startup --python assets/Vfx/make_vfx_textures.py -- [--preview <folder>]
+    blender -b --factory-startup --python assets/Vfx/make_vfx_textures.py -- [--preview <folder>] [--only <names>]
 Writes assets/Vfx/textures/<name>.png and saves the splat scene as assets/Vfx/Vfx.blend. With --preview it also writes
 a contact sheet (Texturen.png, every picture tinted on the arena floor colour) into that folder (the vault's
 "VFX Vorschau"; previews do not go into the repo).
@@ -17,6 +17,8 @@ stays dark, the body takes the colour. Small on purpose (256 px, the flipbook 51
     Vfx_Flash      a short bright flash: a soft core with four rays, no outline
     Vfx_Splat      a splash of cream as a flipbook, 4 x 4 frames of 128 px, rendered from metaballs (the one picture
                    that needs Blender's 3D: the cream bursts, strings out and thins away)
+    Vfx_Coin       a spinning coin as a flipbook, 4 x 4 frames of 128 px: the HUD's coin (lemon disc, waffle rim, inner
+                   ring) squeezed sideways frame by frame, one full turn
 
 After a change: upload the PNGs again (`lune run scripts/vfx-serve`, then Studio MCP upload_image) and put the new
 ids into Config/Vfx.textures.
@@ -284,6 +286,36 @@ def splat():
     return sheet
 
 
+
+
+def coin_frame(size, turn):
+    """The coin seen at `turn` (0..1 of a full spin round its upright axis): a lemon disc with a waffle rim and an
+    inner ring like the HUD's coin (Ui.coinIcon), squeezed sideways as it turns."""
+    x, y = grid(size)
+    squeeze = max(abs(math.cos(turn * 2 * math.pi)), 0.14)
+    radius = 0.78
+    distance = np.hypot(x / squeeze, y)
+    sdf = (distance - radius) * squeeze  # roughly a distance in pixels' terms, so the outline keeps its width
+    rgba = candy(sdf, x, y, outline=0.1, gloss=(-0.24 * squeeze, 0.3, 0.16 * squeeze + 0.03, 0.1))
+    # the inner ring, half the coin across, drawn in the outline's colour at half strength
+    inner = np.abs(distance - radius * 0.55) * squeeze - 0.035
+    line = (1 - smooth(-0.012, 0.012, inner)) * 0.55 * (sdf < -0.1)
+    rgba[..., :3] = rgba[..., :3] * (1 - line[..., None]) + OUTLINE[None, None, :] * line[..., None]
+    return rgba
+
+
+def coin():
+    """Vfx_Coin: a spinning coin as a flipbook, 4 x 4 frames of 128 px, one full turn."""
+    sheet = np.zeros((CELL * 4, CELL * 4, 4))
+    for frame in range(FRAMES):
+        cell = coin_frame(CELL, frame / FRAMES)
+        cell[:2] = cell[-2:] = 0
+        cell[:, :2] = cell[:, -2:] = 0
+        row, column = divmod(frame, 4)
+        sheet[row * CELL : (row + 1) * CELL, column * CELL : (column + 1) * CELL] = cell
+    return sheet
+
+
 def contact_sheet(pictures):
     """Every picture tinted in a game colour on the arena floor's cream, to judge them at a glance."""
     tints = {
@@ -323,19 +355,25 @@ def contact_sheet(pictures):
     print("wrote the contact sheet to", PREVIEW)
 
 
-PICTURES = {
-    "Vfx_Sprinkle": sprinkle(),
-    "Vfx_Blob": blob(),
-    "Vfx_Drop": drop(),
-    "Vfx_Star": star_sprite(),
-    "Vfx_Cloud": cloud(),
-    "Vfx_Ring": ring(),
-    "Vfx_Flash": flash(),
-    "Vfx_Splat": splat(),
+# every picture is built lazily, so --only <name>[,<name>] renders just those (the splat's render takes a while, and
+# pictures that did not change keep their uploaded ids)
+BUILDERS = {
+    "Vfx_Sprinkle": sprinkle,
+    "Vfx_Blob": blob,
+    "Vfx_Drop": drop,
+    "Vfx_Star": star_sprite,
+    "Vfx_Cloud": cloud,
+    "Vfx_Ring": ring,
+    "Vfx_Flash": flash,
+    "Vfx_Splat": splat,
+    "Vfx_Coin": coin,
 }
+ONLY = ARGS[ARGS.index("--only") + 1].split(",") if "--only" in ARGS else list(BUILDERS)
+PICTURES = {name: BUILDERS[name]() for name in ONLY}
 for picture_name, picture in PICTURES.items():
     save(picture_name, picture)
-if PREVIEW:
+if PREVIEW and len(PICTURES) == len(BUILDERS):
     contact_sheet(PICTURES)
-bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, "Vfx.blend"), compress=True)
-print("saved", os.path.join(HERE, "Vfx.blend"))
+if "Vfx_Splat" in PICTURES:
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, "Vfx.blend"), compress=True)
+    print("saved", os.path.join(HERE, "Vfx.blend"))

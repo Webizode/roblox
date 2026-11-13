@@ -5,11 +5,16 @@
 --   LootSpawned      a tower toppled: the puff where it stood (its scoops fly apart in LootRenderer)
 --   IceBallResolved  the hit (splash, sprinkles, flash; a headshot with golden stars), the knockdown (stars over the
 --                    head, dust) and the small camera jolt for the local player whose ball hit
+--   Served           the coin fountain with confetti; the local player's coins fly to the coin counter
+--   Teleported       the puff at the start and at the target
 -- In Studio the attribute VfxPreview on Workspace plays an effect in front of the local character, for looking at it
 -- and for screenshots: "hit", "headshot", "world", "perfect", "knockdown", "topple", "saved", "savedsmall",
--- "catch" or "pickup" (set it again to play it again).
--- A catch and a pickup are started by the renderers that know where the scoop is (ShotRenderer, LootRenderer),
--- "SAVED!" by the tower simulation (TowerController), the ball's trail by CombatController.
+-- "catch", "pickup", "serve", "swirl", "circle", "landed", "teleport", "dash", "blink" or "lootpuff" (set it again
+-- to play it again).
+-- A catch, a pickup and the Big Swirl's shots (steam and sparks, the landing circle's ring, the puff where an
+-- uncaught one comes down) are started by the renderers that know where the scoop is (ShotRenderer, LootRenderer),
+-- like a lying scoop's blinking and puff; "SAVED!" by the tower simulation (TowerController), the ball's trail by
+-- CombatController, a dash's dust and speed lines by MovementController.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -30,6 +35,11 @@ local Topple = require(Effects:WaitForChild("Topple"))
 local Saved = require(Effects:WaitForChild("Saved"))
 local Catch = require(Effects:WaitForChild("Catch"))
 local Pickup = require(Effects:WaitForChild("Pickup"))
+local Serve = require(Effects:WaitForChild("Serve"))
+local SwirlShot = require(Effects:WaitForChild("SwirlShot"))
+local Teleport = require(Effects:WaitForChild("Teleport"))
+local Dash = require(Effects:WaitForChild("Dash"))
+local LootFade = require(Effects:WaitForChild("LootFade"))
 
 local VfxController = {}
 
@@ -110,6 +120,21 @@ local function onLootSpawned(list: any)
 	end
 end
 
+-- Somebody served `count` scoops: the coin fountain at them (and the coins to the counter for the local player).
+local function onServed(who: Player, count: number)
+	local character = typeof(who) == "Instance" and who:IsA("Player") and who.Character
+	if character and type(count) == "number" and count > 0 then
+		Serve.play(character, count, who == player)
+	end
+end
+
+-- Somebody teleported: the puff at both ends.
+local function onTeleported(who: Player, from: Vector3, to: Vector3)
+	if typeof(from) == "Vector3" and typeof(to) == "Vector3" then
+		Teleport.play(from, to, who == player)
+	end
+end
+
 -- Studio only: plays the effect named by the VfxPreview attribute in front of the local character.
 local function preview()
 	local kind = workspace:GetAttribute("VfxPreview")
@@ -144,6 +169,23 @@ local function preview()
 		Catch.play(spot + Vector3.new(0, 3, 0), spot - Vector3.new(0, 3.8, 0), "mint", true)
 	elseif kind == "pickup" then
 		Pickup.play(spot - Vector3.new(0, 3, 0), spot.Y - 4, "watermelon", true)
+	elseif kind == "serve" then
+		Serve.play(character, 12, true)
+	elseif kind == "swirl" then
+		SwirlShot.fire(spot, spot + look * 30, "strawberry")
+	elseif kind == "circle" then
+		SwirlShot.circle(spot - Vector3.new(0, 4, 0), "mint")
+	elseif kind == "landed" then
+		SwirlShot.landed(spot - Vector3.new(0, 4, 0), "lemon")
+	elseif kind == "teleport" then
+		Teleport.play(root.Position, root.Position + look * 12, true)
+	elseif kind == "dash" then
+		Dash.dust(spot - Vector3.new(0, 4, 0), look.X, look.Z, true)
+		Dash.lines(0.35)
+	elseif kind == "blink" then
+		LootFade.glint(spot - Vector3.new(0, 3, 0))
+	elseif kind == "lootpuff" then
+		LootFade.puff(spot - Vector3.new(0, 3, 0), "bubblegum")
 	end
 	workspace:SetAttribute("VfxPreview", nil)
 end
@@ -153,6 +195,8 @@ function VfxController.Start()
 	Remotes.IceBallThrown.OnClientEvent:Connect(onThrown)
 	Remotes.IceBallResolved.OnClientEvent:Connect(onResolved)
 	Remotes.LootSpawned.OnClientEvent:Connect(onLootSpawned)
+	Remotes.Served.OnClientEvent:Connect(onServed)
+	Remotes.Teleported.OnClientEvent:Connect(onTeleported)
 	if RunService:IsStudio() then
 		workspace:GetAttributeChangedSignal("VfxPreview"):Connect(preview)
 	end

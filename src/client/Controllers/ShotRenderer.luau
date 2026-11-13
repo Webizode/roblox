@@ -34,6 +34,7 @@ local ScoopSign = require(client:WaitForChild("ScoopSign"))
 local BigSwirlArms = require(client:WaitForChild("BigSwirlArms"))
 local Settings = require(client:WaitForChild("Settings"))
 local CatchVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Catch"))
+local SwirlShotVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("SwirlShot"))
 
 local ShotRenderer = {}
 
@@ -53,6 +54,7 @@ type Shot = {
 	spin0: number, -- its turn at the start, so scoops in the air do not all face the same way
 	claimed: boolean,
 	released: boolean?, -- left the cup (its trail is on)
+	down: boolean?, -- came down on its landing circle uncaught (its puff has played)
 	claimedAt: number?, -- os.clock of the claim
 	claimAxis: Vector3?, -- the tip it had then, undone by the swing back upright
 	claimAngle: number?,
@@ -252,6 +254,7 @@ local function onShotFired(
 	outline.Texture = Look.landingCircle.outlineImage
 	outline.Color3 = Color3.fromHex(Look.landingCircle.outline)
 	outline.Parent = circle
+	SwirlShotVfx.circle(to, flavorId)
 
 	local trail = if Features.towerScoopFlight then makeTrail(flavorId) else nil
 	if trail then
@@ -381,6 +384,7 @@ local function onRenderStep()
 				shot.released = true
 				scoop:setTransparency(0)
 				setTrail(shot.trail, true)
+				SwirlShotVfx.fire(part.Position, shot.to, shot.flavorId) -- steam and sparks out of the cup
 			end
 			local grown = math.clamp(1 - alpha * shot.flight / ArmConfig.shrinkTime, 0, 1)
 			scoop:setScale(Vector3.one * FLIGHT_SCALE * (1 + (ArmConfig.scoopInCupScale - 1) * grown))
@@ -407,6 +411,10 @@ local function onRenderStep()
 				scoop:at(CFrame.new(shot.to + Vector3.new(0, scoop:restHeight(), 0)) * CFrame.Angles(0, shot.spin0, 0))
 			moveTrail(shot.trail, shot.to)
 			hideCircle(shot.circle)
+			if not shot.down then
+				shot.down = true
+				SwirlShotVfx.landed(shot.to, shot.flavorId)
+			end
 		else
 			local position, axis, angle, spin = flying(shot, alpha, now)
 			part.CFrame = scoop:at(CFrame.new(position) * turned(axis, angle, spin))

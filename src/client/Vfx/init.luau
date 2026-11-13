@@ -41,10 +41,10 @@ function Vfx.quality(): string
 end
 
 -- How much of an effect at `position` plays (VfxRules.tier), by its distance to the camera.
-function Vfx.tier(position: Vector3, own: boolean?): VfxRules.Tier
+function Vfx.tier(position: Vector3, own: boolean?, reach: number?): VfxRules.Tier
 	local camera = workspace.CurrentCamera
 	local distance = if camera then (position - camera.CFrame.Position).Magnitude else 0
-	return VfxRules.tier(distance, own == true, Config)
+	return VfxRules.tier(distance, own == true, Config, reach)
 end
 
 -- The colour of a flavor's scoop, for splashes; the default flavor's for an unknown one.
@@ -67,7 +67,7 @@ function Vfx.burst(name: string, where: CFrame, options: Options?): number
 		return 0
 	end
 	local own = options ~= nil and options.own == true
-	local tier = Vfx.tier(where.Position, own)
+	local tier = Vfx.tier(where.Position, own, effect.reach)
 	local room = if own then math.huge else Config.maxLive - live
 	local plan = VfxRules.plan(effect, Vfx.quality(), tier, room, Config)
 	if plan.total <= 0 then

@@ -128,7 +128,9 @@ local function onTeleport(player: Player, where: any)
 		player:RequestStreamAroundAsync(target)
 	end)
 	if player.Character == character and humanoid.Health > 0 then
+		local from = root.Position
 		registry.PlotService.placeCharacter(character, target, facing)
+		Remotes.Teleported:FireAllClients(player, from, root.Position) -- only for the puffs at both ends
 	end
 end
 

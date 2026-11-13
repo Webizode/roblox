@@ -110,6 +110,7 @@ describe("Vfx: quality and distance", function()
 		expect(VfxRules.tier(Config.distance.full + 1, false, Config)).toBe("reduced")
 		expect(VfxRules.tier(Config.distance.reduced + 1, false, Config)).toBe("off")
 		expect(VfxRules.tier(Config.distance.reduced + 1, true, Config)).toBe("full")
+		expect(VfxRules.tier(Config.distance.reduced + 1, false, Config, 2)).toBe("reduced")
 		local hit = Config.effects.hit
 		local near = VfxRules.plan(hit, "high", "full", math.huge, Config)
 		local far = VfxRules.plan(hit, "high", "reduced", math.huge, Config)
@@ -145,6 +146,58 @@ describe("Vfx: quality and distance", function()
 			expect(VfxRules.items(stars.count, stars.min, "high", "off", Config)).toBe(0)
 		end
 	)
+
+	it(
+		"a busy arena stays under the cap: six shots at once, six coming down, six dashes, ten scoops blinking",
+		function()
+			local effects = Config.effects
+			for _, quality in QUALITIES do
+				local total = 6 * VfxRules.peak(effects.swirlShot, quality, Config)
+					+ 6 * VfxRules.peak(effects.landed, quality, Config)
+					+ 12 * VfxRules.peak(effects.dashDust, quality, Config)
+					+ 10 * VfxRules.peak(effects.blinkGlint, quality, Config)
+				if total > Config.maxLive then
+					error(`{quality}: {total} particles, cap {Config.maxLive}`)
+				end
+			end
+		end
+	)
+
+	it("a lying scoop blinks faster towards its end, starting lit", function()
+		local blink = Config.lootBlink
+		local span = 1
+		local count, seeThrough = VfxRules.blink(span, span, blink)
+		expect(count).toBe(0)
+		expect(seeThrough).toBe(false)
+		-- the blinks in the first and in the last tenth of the span: more at the end
+		local early = VfxRules.blink(span - 0.1, span, blink)
+		local beforeEnd = VfxRules.blink(0.1, span, blink)
+		local atEnd = VfxRules.blink(0, span, blink)
+		expect(atEnd - beforeEnd).toBeGreaterThan(early)
+		-- over the whole span the average of `from` and `to` blinks, never going back
+		expect(atEnd).toBe(math.floor((blink.from + blink.to) / 2 * span))
+		local last = -1
+		for step = 0, 100 do
+			local now = VfxRules.blink(span - step / 100, span, blink)
+			expect(now >= last).toBe(true)
+			last = now
+		end
+		-- before its last moment and after it the count stays put
+		expect(VfxRules.blink(5, span, blink)).toBe(0)
+		expect(VfxRules.blink(-1, span, blink)).toBe(atEnd)
+	end)
+
+	it("a serve's coins: one per scoop between min and max, its fountain grows up to its cap", function()
+		local coins = Config.uiCoins
+		expect(VfxRules.uiCoins(1, "high", Config)).toBe(coins.min)
+		expect(VfxRules.uiCoins(6, "high", Config)).toBe(6)
+		expect(VfxRules.uiCoins(500, "high", Config)).toBe(coins.max)
+		expect(VfxRules.uiCoins(500, "low", Config) < coins.max).toBe(true)
+		expect(VfxRules.uiCoins(500, "low", Config) >= coins.min).toBe(true)
+		expect(VfxRules.serveScale(1, Config)).toBe(1)
+		expect(VfxRules.serveScale(10, Config)).toBeGreaterThan(1)
+		expect(VfxRules.serveScale(1000, Config)).toBe(Config.serve.maxScale)
+	end)
 
 	it("an unknown quality counts as high, and every quality of the settings is known here", function()
 		local hit = Config.effects.hit

@@ -9,11 +9,12 @@ export type Plan = { counts: { number }, total: number }
 local VfxRules = {}
 
 -- How much of an effect `distance` studs from the camera still plays. The local player's own effects always play in
--- full.
-function VfxRules.tier(distance: number, own: boolean, config: any): Tier
-	if own or distance <= config.distance.full then
+-- full. `reach` (an effect's own, default 1) stretches both distances: the Big Swirl's shots read across the arena.
+function VfxRules.tier(distance: number, own: boolean, config: any, reach: number?): Tier
+	local stretch = reach or 1
+	if own or distance <= config.distance.full * stretch then
 		return "full"
-	elseif distance <= config.distance.reduced then
+	elseif distance <= config.distance.reduced * stretch then
 		return "reduced"
 	end
 	return "off"
@@ -86,6 +87,31 @@ end
 function VfxRules.rate(rate: number, quality: string, config: any): number
 	local share = VfxRules.scale(quality, "full", config)
 	return rate * share
+end
+
+-- A lying scoop's blink in its last `span` seconds, `left` seconds before it goes: the blink count so far (a whole
+-- number per blink; it changes when the scoop lights up again) and whether it is see-through right now. It blinks
+-- `blink.from` times a second at the start and speeds up evenly to `blink.to` at the end.
+function VfxRules.blink(left: number, span: number, blink: any): (number, boolean)
+	local t = math.clamp(span - left, 0, span)
+	-- the blinks so far: the integral of a rate rising evenly from `from` to `to` over the span
+	local phase = blink.from * t + (blink.to - blink.from) * t * t / (2 * math.max(span, 1e-3))
+	local count = math.floor(phase)
+	return count, phase - count >= 0.5
+end
+
+-- How many coins fly to the coin counter for a serve of `scoops` (Config/Vfx.uiCoins): one per scoop between min
+-- and max, fewer at a lower quality but never fewer than min.
+function VfxRules.uiCoins(scoops: number, quality: string, config: any): number
+	local coins = config.uiCoins
+	local count = math.clamp(scoops, coins.min, coins.max)
+	return VfxRules.items(count, coins.min, quality, "full", config)
+end
+
+-- The size of a serve's coin fountain for `scoops` served (Config/Vfx.serve).
+function VfxRules.serveScale(scoops: number, config: any): number
+	local serve = config.serve
+	return math.clamp(1 + (math.max(scoops, 1) - 1) * serve.perScoop, 1, serve.maxScale)
 end
 
 return VfxRules
