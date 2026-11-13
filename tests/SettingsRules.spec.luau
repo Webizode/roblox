@@ -111,6 +111,19 @@ describe("Settings: input", function()
 		expect(SettingsRules.inputKind("touch", all, "keyboard")).toBe("touch")
 		expect(SettingsRules.inputKind("gamepad", { touch = true }, "touch")).toBe("touch")
 	end)
+
+	it("an input the device does not have never counts, even as the last one used", function()
+		-- a phone (touch only) that last saw a keyboard, e.g. Studio switched from PC to phone
+		expect(SettingsRules.inputKind("auto", { touch = true }, "keyboard")).toBe("touch")
+		expect(SettingsRules.inputKind("keyboard", { touch = true }, "keyboard")).toBe("touch")
+		-- a console (gamepad only) and a PC without touch
+		expect(SettingsRules.inputKind("auto", { gamepad = true }, "touch")).toBe("gamepad")
+		expect(SettingsRules.inputKind("auto", { keyboard = true }, "touch")).toBe("keyboard")
+		-- a touch laptop keeps the keyboard it was used with
+		expect(SettingsRules.inputKind("auto", { touch = true, keyboard = true }, "keyboard")).toBe("keyboard")
+		-- nothing reported: what was used stays
+		expect(SettingsRules.inputKind("auto", {}, "gamepad")).toBe("gamepad")
+	end)
 end)
 
 describe("Settings: camera sensitivity", function()

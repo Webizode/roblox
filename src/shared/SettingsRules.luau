@@ -95,13 +95,26 @@ function SettingsRules.effective(settings: { [string]: any }, config: any): Effe
 	}
 end
 
--- The input the hints and the combat camera follow: the chosen one if the device has it, else the detected one.
--- `available` says which inputs the device has; `detected` is the automatic choice.
+-- the order an input is picked in when neither the chosen nor the detected one is on the device
+local FALLBACK = { "touch", "gamepad", "keyboard" }
+
+-- The input the hints, the HUD and the combat camera follow: the chosen one if the device has it, else the detected
+-- one if the device has it (a phone never keeps "keyboard" from before, so its HUD does not jump at the first tap),
+-- else the first the device has (touch, gamepad, keyboard). `available` says which inputs the device has; `detected`
+-- is the last one used.
 function SettingsRules.inputKind(chosen: string, available: { [string]: boolean }, detected: string): string
 	if chosen ~= "auto" and available[chosen] then
 		return chosen
 	end
-	return detected
+	if available[detected] then
+		return detected
+	end
+	for _, kind in FALLBACK do
+		if available[kind] then
+			return kind
+		end
+	end
+	return detected -- the device reports no input at all: keep what was used
 end
 
 return SettingsRules
