@@ -234,7 +234,7 @@ function Buttons.icon(
 ): IconButton
 	local size = props.size or Theme.config.iconButton
 	local button, face = baseButton(props.name, size, size, props.shrink)
-	local _, gradient = Theme.body(face, props.color, UDim.new(0.24, 0))
+	local skin = Theme.skin(face, "square", size, props.color)
 	local hasText = props.text ~= nil and props.text ~= ""
 	Theme.icon(props.icon, {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -265,7 +265,7 @@ function Buttons.icon(
 		button = button,
 		badge = badge,
 		setColor = function(color: Color3)
-			Theme.recolor(gradient, color)
+			skin.setColor(color)
 		end,
 		setText = function(text: string)
 			if label then
@@ -343,7 +343,8 @@ export type WideButton = {
 
 -- A wide button: optional icon on the left, the word beside it. Pressed it sinks in (Anim); locked it turns grey with
 -- a padlock and its Activated still fires (the caller decides, e.g. to say why). props: name, text, color, icon,
--- width, height, action (its key badge), textSize.
+-- width, height, action (its key badge), textSize, sprinkles (Config/Ui.sprinkles placements, on the top edge, clear
+-- of icon and word). A button too narrow for the pill's round ends gets the square surface.
 function Buttons.wide(
 	props: {
 		name: string,
@@ -355,12 +356,17 @@ function Buttons.wide(
 		action: string?, -- its key badge (Config/Controls)
 		textSize: number?,
 		shrink: boolean?,
+		sprinkles: { { any } }?,
 	}
 ): WideButton
 	local width = props.width or Theme.config.wideButton.width
 	local height = props.height or Theme.config.wideButton.height
 	local button, face = baseButton(props.name, width, height, props.shrink)
-	local _, gradient = Theme.body(face, props.color, UDim.new(0.5, 0), true)
+	local pill = width >= Theme.skinInset("pill", height, 1) * 2 + 4
+	local skin = Theme.skin(face, if pill then "pill" else "square", height, props.color)
+	for _, place in props.sprinkles or {} do
+		Theme.sprinkle(face, place[1], UDim2.new(place[2], 0, 0, place[3]), place[4], 5)
+	end
 	local iconSize = height * 1.05
 	local icon: ImageLabel? = nil
 	if props.icon then
@@ -401,7 +407,7 @@ function Buttons.wide(
 		badge = badge,
 		setLocked = function(locked: boolean)
 			isLocked = locked
-			Theme.recolor(gradient, if locked then Theme.color("locked") else color)
+			skin.setColor(if locked then Theme.color("locked") else color)
 			lock.Visible = locked
 			label.TextTransparency = if locked then 0.25 else 0
 			if icon then
@@ -414,7 +420,7 @@ function Buttons.wide(
 		setColor = function(newColor: Color3)
 			color = newColor
 			if not isLocked then
-				Theme.recolor(gradient, newColor)
+				skin.setColor(newColor)
 			end
 		end,
 		locked = function()
@@ -427,7 +433,7 @@ end
 function Buttons.close(size: number?): TextButton
 	local side = size or 48
 	local button = baseButton("Close", side, side)
-	Theme.body(button, Theme.color("red"), UDim.new(0.28, 0))
+	Theme.skin(button, "square", side, Theme.color("red"))
 	for _, rotation in { 45, -45 } do
 		local bar = Theme.frame({
 			BackgroundTransparency = 0,

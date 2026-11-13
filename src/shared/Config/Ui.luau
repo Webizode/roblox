@@ -59,6 +59,85 @@ return {
 		},
 	},
 
+	-- The kit's surfaces (Theme.skin): 9-slice images cut out of "Buntes Candy-UI-Asset-Sheet" (vault: Wooble scoops Map
+	-- assets), drawn with ScaleType.Slice so corners, rims and glaze drips stay sharp at any size. Each image: id and
+	-- size in source pixels; `inset` = left, top, right, bottom in source pixels, the part that is never stretched.
+	-- `colors` are images drawn in a UI colour (the key is a token of `colors` below); any other colour gets `neutral`
+	-- (light grey shading, dark outline) tinted with it. `scale`, if set, is the slice scale (design px per source px)
+	-- whatever the height.
+	skins = {
+		-- MY PLOT, ARENA and the wide buttons
+		pill = {
+			inset = { 95, 60, 95, 60 },
+			neutral = { id = "rbxassetid://115747297830724", w = 567, h = 163 },
+			colors = {
+				mint = { id = "rbxassetid://139330568477792", w = 567, h = 163 },
+				pink = { id = "rbxassetid://117851583590393", w = 567, h = 163 },
+				sky = { id = "rbxassetid://119475889313498", w = 567, h = 163 },
+				yellow = { id = "rbxassetid://92154550549251", w = 567, h = 163 },
+				red = { id = "rbxassetid://125587456468243", w = 566, h = 156 },
+			},
+		},
+		-- the square icon buttons, the close button, tabs and buttons too narrow for a pill
+		square = {
+			inset = { 42, 42, 42, 42 },
+			neutral = { id = "rbxassetid://91572493145695", w = 159, h = 152 },
+			colors = {
+				mint = { id = "rbxassetid://99000955043772", w = 159, h = 152 },
+				pink = { id = "rbxassetid://100670758514977", w = 159, h = 152 },
+				sky = { id = "rbxassetid://99269750304108", w = 159, h = 152 },
+				purple = { id = "rbxassetid://128916004938741", w = 159, h = 152 },
+				yellow = { id = "rbxassetid://90557718416522", w = 159, h = 152 },
+				red = { id = "rbxassetid://96077048306813", w = 159, h = 152 },
+			},
+		},
+		-- the chocolate info pill with the cream glaze on top: coins and the tower display
+		info = { inset = { 210, 100, 210, 45 }, neutral = { id = "rbxassetid://112441439164525", w = 786, h = 162 } },
+		-- the window: chocolate panel, pink glaze with cream drips along the top
+		window = {
+			inset = { 210, 150, 210, 55 },
+			neutral = { id = "rbxassetid://130221680104782", w = 827, h = 428 },
+			scale = 0.55,
+		},
+		-- the item cards, one per rarity (Config/Flavors.rarityColors order)
+		card = {
+			inset = { 50, 50, 50, 50 },
+			neutral = { id = "rbxassetid://139738383645675", w = 233, h = 236 },
+			rarities = {
+				common = { id = "rbxassetid://139738383645675", w = 233, h = 236 },
+				uncommon = { id = "rbxassetid://85219406357817", w = 233, h = 236 },
+				rare = { id = "rbxassetid://110059342698382", w = 233, h = 236 },
+				epic = { id = "rbxassetid://75057026689916", w = 233, h = 236 },
+				legendary = { id = "rbxassetid://99059262292542", w = 233, h = 236 },
+				-- the sheet's lower-left sparkle painted out: it sat on the name
+				golden = { id = "rbxassetid://81475550744420", w = 233, h = 236 },
+			},
+		},
+	},
+	-- the window's pink glaze: where its middle is, in source pixels from the top, and where the drips end
+	windowGlaze = { middle = 52, band = 88, drips = 155 },
+	-- The waffle pattern of "Glänzendes Eiswaffel-UI-Set" as a seamless tile (dark grooves, light ridges), repeated never
+	-- stretched, faint on the window's panel and in the info pills. `tile` in design pixels.
+	waffle = { id = "rbxassetid://119973752443891", tile = 37, transparency = 0.78 },
+	-- single sprinkles from the same sheet, as decoration: a few on the window's glaze and on MY PLOT and ARENA, never
+	-- over an icon or a word. Each placement: colour, x as a share of the width, y in design pixels from the top edge,
+	-- rotation in degrees. `size` is a sprinkle's length in design pixels.
+	sprinkles = {
+		images = {
+			pink = { id = "rbxassetid://86836605339940", w = 46, h = 38 },
+			yellow = { id = "rbxassetid://91226069730612", w = 48, h = 36 },
+			blue = { id = "rbxassetid://107655028167871", w = 40, h = 40 },
+		},
+		size = 24,
+		-- on the pill's upper band, above the word (its letters start about 16 px down); the images lie diagonally, so
+		-- these rotations lay them nearly flat
+		plot = { { "yellow", 0.6, 9, -32 }, { "pink", 0.76, 9, -10 } },
+		arena = { { "blue", 0.7, 9, -30 } },
+		-- on the window's pink glaze, either side of the title: colour, x in design pixels from the left edge (negative:
+		-- from the right edge), rotation; they sit on the glaze's middle line
+		window = { { "yellow", 40, -24 }, { "blue", 70, 30 }, { "yellow", -84, 20 } },
+	},
+
 	-- the UI's colours, stronger than the world's pastels so buttons read on the beach (from the reference images)
 	colors = {
 		outline = "#3B2016", -- chocolate, round every button, card and word

@@ -17,21 +17,30 @@ Widgets.withCommas = withCommas
 
 export type CoinCounter = { frame: Frame, set: (value: number, animate: boolean?) -> () }
 
--- A chocolate bar with the gold coin on its left end and the amount; `animate` counts up to a new value.
+-- The faint waffle inside an info pill `height` high, below its cream glaze and inside its rim.
+function Widgets.infoWaffle(pill: GuiObject, height: number)
+	local waffle = Theme.waffle(pill, 3, UDim.new(0.5, 0))
+	local rim = height * 0.1
+	waffle.Position = UDim2.fromOffset(rim * 2, height * 0.34)
+	waffle.Size = UDim2.new(1, -rim * 4, 1, -height * 0.34 - rim)
+	return waffle
+end
+
+-- The chocolate info pill with its cream glaze, the gold coin on its left end and the amount; `animate` counts up to a
+-- new value.
 function Widgets.coins(width: number, height: number): CoinCounter
 	local frame = Theme.frame({ Name = "Coins", Size = UDim2.fromOffset(width, height) })
+	local barHeight = height * 0.8
 	local bar = Theme.frame({
 		Name = "Bar",
-		BackgroundTransparency = 0,
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.fromScale(1, 0.5),
-		Size = UDim2.new(1, -height * 0.45, 0.8, 0),
+		Size = UDim2.new(1, -height * 0.45, 0, barHeight),
 		ZIndex = 1,
 		Parent = frame,
 	})
-	Theme.corner(bar, UDim.new(0.5, 0))
-	Theme.shade(bar, Theme.color("chocolate"))
-	Theme.outline(bar)
+	Theme.skin(bar, "info", barHeight)
+	Widgets.infoWaffle(bar, barHeight)
 	Theme.icon(Theme.icons.coin, {
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.fromScale(0, 0.5),
@@ -43,8 +52,9 @@ function Widgets.coins(width: number, height: number): CoinCounter
 		Name = "Amount",
 		Text = "0",
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, height * 1.12, 0.5, 0),
-		Size = UDim2.new(1, -height * 1.3, 0.62, 0),
+		-- a little under the middle: the glaze takes the pill's top
+		Position = UDim2.new(0, height * 1.12, 0.5, height * 0.05),
+		Size = UDim2.new(1, -height * 1.3, 0.56, 0),
 		TextScaled = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 4,
@@ -127,14 +137,14 @@ end
 function Widgets.itemCard(props: { rarity: string, name: string, image: string, unknown: boolean? }): Frame
 	local rarityColor = Theme.rarity(props.rarity)
 	local card = Theme.frame({ Name = "Item_" .. props.name, Size = UDim2.fromOffset(124, 156) })
-	Theme.body(card, rarityColor, UDim.new(0, 16))
+	Theme.skin(card, "card", 156, rarityColor, props.rarity)
 	local window = Theme.frame({
 		Name = "Picture",
 		BackgroundTransparency = 0,
 		BackgroundColor3 = Theme.color("cream"),
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 22),
-		Size = UDim2.new(1, -18, 0, 92),
+		Position = UDim2.new(0.5, 0, 0, 27),
+		Size = UDim2.new(1, -18, 0, 89),
 		ZIndex = 4,
 		Parent = card,
 	})
@@ -159,8 +169,9 @@ function Widgets.itemCard(props: { rarity: string, name: string, image: string, 
 		Name = "Rarity",
 		Text = string.upper(props.rarity),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0, 12),
-		Size = UDim2.new(1, -14, 0, 15),
+		-- clear of the card's dark rim, on its light inner edge
+		Position = UDim2.new(0.5, 0, 0, 17),
+		Size = UDim2.new(1, -24, 0, 13),
 		TextScaled = true,
 		ZIndex = 6,
 		Parent = card,
@@ -237,15 +248,12 @@ function Widgets.safeSign(width: number, height: number): Frame
 	local sign = Theme.frame({ Name = "SafeZone", Size = UDim2.fromOffset(width, height) })
 	local pill = Theme.frame({
 		Name = "Pill",
-		BackgroundTransparency = 0,
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.fromScale(1, 0.5),
 		Size = UDim2.new(1, -height * 0.3, 1, 0),
 		Parent = sign,
 	})
-	Theme.corner(pill, UDim.new(0.5, 0))
-	Theme.shade(pill, Color3.fromHex("#CFE9FF"))
-	Theme.outline(pill)
+	Theme.skin(pill, "pill", height, Color3.fromHex("#CFE9FF"))
 	Theme.icon(Theme.icons.safe, {
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.fromScale(0, 0.5),

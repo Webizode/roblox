@@ -139,12 +139,12 @@ local function smallButton(text: string, parent: Instance, order: number): TextB
 	return button.button
 end
 
--- Dark text on the cream window.
+-- Light text on the window's chocolate panel (the controls hint on its cream card sets it dark).
 local function plainText(props: { [string]: any }): TextLabel
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
 	label.Font = Theme.font
-	label.TextColor3 = Theme.color("textDark")
+	label.TextColor3 = Theme.color("cream")
 	label.TextSize = 22
 	label.AutomaticSize = Enum.AutomaticSize.XY
 	label.ZIndex = 5
@@ -336,6 +336,7 @@ local function buildHint()
 	padding.PaddingBottom = UDim.new(0, 8)
 	padding.Parent = hint
 	hintLines = plainText({
+		TextColor3 = Theme.color("textDark"),
 		TextSize = 18,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		LineHeight = 1.15,

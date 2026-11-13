@@ -114,10 +114,6 @@ local function frame(props: { [string]: any }): Frame
 	return Theme.frame(props)
 end
 
-local function round(target: GuiObject)
-	Theme.corner(target, UDim.new(0.5, 0))
-end
-
 -- Bottom right (on touch screens above the jump and action buttons), only in combat mode: the three ice balls, big,
 -- as one overlapping row like the reference ("Drei glänzende Eiskugeln mit Streuseln"): the left one in front, each
 -- next a third under the one before, a little higher and smaller. A loaded one is pink, a spent one grey (the same
@@ -294,16 +290,15 @@ local function buildBottom()
 	-- the tower pill: the stacked cone, the count big, worth and steady bonus small under it
 	towerPill = frame({
 		Name = "Tower",
-		BackgroundTransparency = 0,
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -UiConfig.shadow),
 		Size = UDim2.new(1, -16, 0, PILL),
 		Visible = false,
 		Parent = bottom,
 	})
-	round(towerPill)
-	Theme.shade(towerPill, COLORS.cream)
-	Theme.outline(towerPill)
+	-- the chocolate info pill with the cream glaze and the faint waffle, like the coins
+	Theme.skin(towerPill, "info", PILL)
+	Widgets.infoWaffle(towerPill, PILL)
 	Theme.icon(Theme.icons.scoops, {
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, -6, 1, 2),
@@ -314,8 +309,8 @@ local function buildBottom()
 	countText = Theme.text({
 		Name = "Count",
 		AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.fromOffset(PILL + 2, 3),
-		Size = UDim2.new(1, -PILL - 12, 0, 28),
+		Position = UDim2.fromOffset(PILL + 2, 7), -- under the glaze's thickest part
+		Size = UDim2.new(1, -PILL - 12, 0, 26),
 		TextScaled = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 4,

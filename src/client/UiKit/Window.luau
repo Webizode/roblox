@@ -16,7 +16,15 @@ local Window = {}
 
 local CLOSE_ACTION = "UiKitWindowClose"
 local PRIORITY = Enum.ContextActionPriority.High.Value + 200
-local TITLE = 58
+-- the window surface (Config/Ui.skins.window): its glaze in design pixels, the rim round the panel, and the space
+-- round the content (callers give a window's size for a content area of height - CONTENT_LESS)
+local SCALE = Theme.config.skins.window.scale
+local GLAZE = Theme.config.windowGlaze
+local GLAZE_MIDDLE = GLAZE.middle * SCALE
+local CONTENT_TOP = math.ceil(GLAZE.drips * SCALE) + 4
+local RIM = 14
+local CONTENT_LESS = 98
+local TITLE_SIDE = 100 -- each side of the title stays free for the sprinkles and the close button
 
 export type Window = {
 	gui: ScreenGui,
@@ -32,28 +40,12 @@ export type Window = {
 
 local current: Window? = nil
 
--- The drips of glaze hanging from the title bar: rounded drops of different lengths.
-local function drips(bar: Frame, color: Color3, width: number)
-	local spots = { 0.12, 0.27, 0.41, 0.58, 0.71, 0.86 }
-	local lengths = { 18, 10, 24, 12, 20, 9 }
-	for index, share in spots do
-		local drop = Theme.frame({
-			Name = "Drip",
-			BackgroundTransparency = 0,
-			BackgroundColor3 = Theme.darker(color, 0.1),
-			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.new(share, 0, 1, -14),
-			Size = UDim2.fromOffset(math.max(14, width * 0.03), 14 + lengths[index]),
-			ZIndex = 3,
-			Parent = bar,
-		})
-		Theme.corner(drop, UDim.new(0.5, 0))
-	end
-end
-
--- props: name, title, color (the title bar), width, height (design pixels).
+-- props: name, title, color (the window's accent, e.g. a message's big line), width, height (design pixels; the
+-- content area is height - 98 high, the window itself as much taller as its glaze needs).
 function Window.new(props: { name: string, title: string, color: Color3, width: number?, height: number? }): Window
-	local width, height = props.width or 560, props.height or 380
+	local width = props.width or 560
+	local contentHeight = (props.height or 380) - CONTENT_LESS
+	local height = CONTENT_TOP + contentHeight + 22
 	local gui = Screen.gui(props.name, 30)
 	gui.Enabled = false
 
@@ -84,60 +76,26 @@ function Window.new(props: { name: string, title: string, color: Color3, width: 
 		layoutScale.Scale = math.min(plan.scale, room)
 	end)
 
-	local body = Theme.frame({
-		Name = "Panel",
-		BackgroundTransparency = 0,
-		BackgroundColor3 = Theme.color("cream"),
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = 1,
-		Parent = root,
-	})
-	Theme.corner(body, UDim.new(0, 26))
-	Theme.outline(body, 4)
-	-- the glaze rim inside the outline
-	local rim = Theme.frame({
-		Name = "Glaze",
-		Position = UDim2.fromOffset(7, 7),
-		Size = UDim2.new(1, -14, 1, -14),
-		ZIndex = 1,
-		Parent = body,
-	})
-	Theme.corner(rim, UDim.new(0, 20))
-	local rimStroke = Theme.outline(rim, 5, Theme.lighter(props.color, 0.45))
-	rimStroke.Transparency = 0.15
-
-	local bar = Theme.frame({
-		Name = "TitleBar",
-		BackgroundTransparency = 0,
-		Size = UDim2.new(1, 0, 0, TITLE),
-		ZIndex = 2,
-		Parent = root,
-	})
-	Theme.corner(bar, UDim.new(0, 26))
-	Theme.shade(bar, props.color)
-	Theme.outline(bar, 4)
-	-- square off the bar's lower corners, under the drips
-	local foot = Theme.frame({
-		Name = "Foot",
-		BackgroundTransparency = 0,
-		BackgroundColor3 = Theme.darker(props.color, 0.1),
-		Position = UDim2.new(0, 0, 1, -16),
-		Size = UDim2.new(1, 0, 0, 16),
-		ZIndex = 2,
-		Parent = bar,
-	})
-	foot.BorderSizePixel = 0
-	drips(bar, props.color, width)
+	-- the chocolate panel with the pink glaze and its drips (one 9-slice), the faint waffle on the panel under the glaze
+	local panel = Theme.frame({ Name = "Panel", Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = root })
+	Theme.skin(panel, "window", height)
+	local waffle = Theme.waffle(panel, 3, UDim.new(0, 22))
+	waffle.Position = UDim2.fromOffset(RIM, GLAZE.band * SCALE)
+	waffle.Size = UDim2.new(1, -RIM * 2, 1, -GLAZE.band * SCALE - RIM)
 	Theme.text({
 		Name = "Title",
 		Text = props.title,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.48),
-		Size = UDim2.new(1, -140, 0, 36),
+		Position = UDim2.new(0.5, 0, 0, GLAZE_MIDDLE),
+		Size = UDim2.new(1, -TITLE_SIDE * 2, 0, 34),
 		TextScaled = true,
 		ZIndex = 5,
-		Parent = bar,
+		Parent = root,
 	})
+	for _, place in Theme.config.sprinkles.window do
+		local x = place[2]
+		Theme.sprinkle(root, place[1], UDim2.new(if x < 0 then 1 else 0, x, 0, GLAZE_MIDDLE), place[3], 5)
+	end
 
 	local closeButton = Buttons.close(50)
 	closeButton.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -149,8 +107,8 @@ function Window.new(props: { name: string, title: string, color: Color3, width: 
 
 	local content = Theme.frame({
 		Name = "Content",
-		Position = UDim2.fromOffset(22, TITLE + 22),
-		Size = UDim2.new(1, -44, 1, -TITLE - 40),
+		Position = UDim2.fromOffset(22, CONTENT_TOP),
+		Size = UDim2.new(1, -44, 0, contentHeight),
 		ZIndex = 3,
 		Parent = root,
 	})
@@ -255,7 +213,7 @@ function Window.message(props: {
 		sub.Name = "Subtext"
 		sub.BackgroundTransparency = 1
 		sub.Font = Theme.font
-		sub.TextColor3 = Theme.color("textDark")
+		sub.TextColor3 = Theme.color("creamDark") -- light on the chocolate panel
 		sub.TextScaled = true
 		sub.Text = props.subtext
 		sub.Size = UDim2.new(1, -20, 0, 26)
@@ -282,12 +240,10 @@ function Window.popup(props: {
 		Size = UDim2.new(1, 0, 0, 70),
 		TextScaled = true,
 		TextWrapped = true,
-		TextColor3 = Theme.color("textDark"),
+		TextColor3 = Theme.color("cream"), -- light on the chocolate panel, with the outline
 		ZIndex = 4,
 		Parent = window.content,
 	})
-		:FindFirstChildOfClass("UIStroke")
-		:Destroy()
 	local row = Theme.frame({
 		Name = "Buttons",
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -337,13 +293,13 @@ function Window.tabs(parent: GuiObject, names: { string }, color: Color3, onSele
 	list.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	list.Parent = frame
 	local buttons: { TextButton } = {}
-	local gradients: { UIGradient } = {}
+	local skins: { Theme.Skin } = {}
 	local labels: { TextLabel } = {}
 	local selected = 1
 	local function paint()
 		for index, button in buttons do
 			local on = index == selected
-			Theme.recolor(gradients[index], if on then color else Theme.color("creamDark"))
+			skins[index].setColor(if on then color else Theme.color("creamDark"))
 			button.Size = UDim2.new(1 / #names, -8, 0, if on then 46 else 40)
 			labels[index].TextColor3 = if on then Theme.color("text") else Theme.color("textDark")
 			labels[index]:FindFirstChildOfClass("UIStroke").Enabled = on
@@ -362,8 +318,7 @@ function Window.tabs(parent: GuiObject, names: { string }, color: Color3, onSele
 		button.ZIndex = 4
 		button.Parent = frame
 		Anim.button(button)
-		local _, gradient = Theme.body(button, Theme.color("creamDark"), UDim.new(0, 14))
-		gradients[index] = gradient
+		skins[index] = Theme.skin(button, "square", 44, Theme.color("creamDark"))
 		labels[index] = Theme.text({
 			Text = name,
 			AnchorPoint = Vector2.new(0.5, 0.5),

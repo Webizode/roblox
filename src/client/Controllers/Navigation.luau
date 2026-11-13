@@ -197,6 +197,7 @@ local function build()
 			icon = Theme.icons[entry.id],
 			action = entry.id,
 			shrink = true,
+			sprinkles = UiConfig.sprinkles[entry.id],
 		})
 		button.button.LayoutOrder = order
 		button.button.Parent = bigRow
