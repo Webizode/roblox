@@ -2,10 +2,10 @@
 -- ballModel.template; imported from Blender, body and face welded, pivot at the body's centre, the face towards -Z),
 -- anchored and non-colliding like the towers, scaled to the ball that flies (ballRadius). HeldBalls and
 -- CombatController draw it; without the template in the place both keep their plain ice ball. It also carries the
--- ball's ice look: the frost in the hand, the streak and twinkles in flight and the shards of a hit.
+-- ball's ice look: the frost in the hand and the streak and twinkles in flight. What a hit and a perfect throw look
+-- like is the effects' (client/Vfx).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -176,21 +176,6 @@ function BallVisual.addFlight(part: BasePart, radius: number): Flight
 	}
 end
 
--- A perfect throw (Config/Combat perfect): its streak runs from white to gold, twice the twinkles sparkle gold and
--- the glow is warm, so everybody sees the fast one coming.
-function BallVisual.perfect(flight: Flight)
-	local gold = Color3.fromHex(Palette.lemon)
-	flight.trail.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, WHITE),
-		ColorSequenceKeypoint.new(0.35, gold),
-		ColorSequenceKeypoint.new(1, Color3.fromHex(Palette.waffle)),
-	})
-	flight.trail.Lifetime *= 1.4
-	flight.emitter.Color = ColorSequence.new(WHITE, gold)
-	flight.emitter.Rate *= 2
-	flight.light.Color = gold
-end
-
 -- The ball is gone: its streak and twinkles stay where it ended and fade out there instead of vanishing with it.
 function BallVisual.leaveFlight(flight: Flight, where: CFrame)
 	local holder = Instance.new("Part")
@@ -212,47 +197,6 @@ function BallVisual.leaveFlight(flight: Flight, where: CFrame)
 	flight.light:Destroy()
 	task.delay(Vfx.fadeOut + Vfx.trail.lifetime, function()
 		holder:Destroy()
-	end)
-end
-
--- The hit: a quick pinwheel of thin ice shards spinning out from the impact and fading, plus a burst of sparkles.
--- Bigger on a player than on the world.
-function BallVisual.hitShards(position: Vector3, hit: boolean)
-	local root = workspace:FindFirstChild("LocalVisuals") or workspace
-	local size = if hit then 1 else 0.7
-	for index = 1, Vfx.shards do
-		local angle = (index / Vfx.shards) * math.pi * 2
-		local shard = Instance.new("WedgePart")
-		shard.Name = "IceShard"
-		shard.Anchored = true
-		shard.CanCollide = false
-		shard.CanQuery = false
-		shard.CanTouch = false
-		shard.CastShadow = false
-		shard.Material = Enum.Material.Neon
-		shard.Color = if index % 2 == 0 then ICE else WHITE
-		shard.Transparency = 0.15
-		shard.Size = Vector3.new(0.08, 0.5, 0.9) * size
-		local start = CFrame.new(position) * CFrame.Angles(0, angle, 0) * CFrame.Angles(math.rad(20), 0, 0)
-		shard.CFrame = start
-		shard.Parent = root
-		TweenService:Create(shard, TweenInfo.new(Vfx.shardTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			CFrame = start * CFrame.new(0, 0, -1.6 * size) * CFrame.Angles(0, 0, math.rad(120)),
-			Transparency = 1,
-			Size = shard.Size * 0.3,
-		}):Play()
-		task.delay(Vfx.shardTime + 0.05, function()
-			shard:Destroy()
-		end)
-	end
-	local burst = Instance.new("Attachment")
-	burst.Parent = workspace.Terrain
-	burst.WorldPosition = position
-	local emitter = sparkles(burst, 0, 0.5, 0.3 * size)
-	emitter.Speed = NumberRange.new(4, 9)
-	emitter:Emit(if hit then 22 else 12)
-	task.delay(0.6, function()
-		burst:Destroy()
 	end)
 end
 

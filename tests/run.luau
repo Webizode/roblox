@@ -35,6 +35,7 @@ require("./LeaderboardRules.spec")
 require("./TeleportRules.spec")
 require("./UiLayout.spec")
 require("./GuideRules.spec")
+require("./VfxRules.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

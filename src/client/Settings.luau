@@ -34,7 +34,7 @@ end
 
 -- What the settings mean for the effects (SettingsRules.effective).
 function Settings.effective(): SettingsRules.Effective
-	return SettingsRules.effective(current, SettingsConfig)
+	return SettingsRules.effective(current, SettingsConfig, UserInputService.TouchEnabled)
 end
 
 -- Calls `listener(settings)` now and after every change.

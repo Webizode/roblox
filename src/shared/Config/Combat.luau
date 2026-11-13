@@ -146,9 +146,6 @@ return {
 		twinkle = { rate = 35, lifetime = 0.45, size = 0.2 },
 		glow = { brightness = 2, range = 7 },
 		fadeOut = 0.35, -- seconds the streak and twinkles linger where the ball ended
-		-- the hit: a quick pinwheel of ice shards around the impact
-		shards = 6,
-		shardTime = 0.35,
 	},
 
 	-- the vanilla ball model (BallVisual) drawn for the held and the flying ball, scaled to ballRadius; purely visual.

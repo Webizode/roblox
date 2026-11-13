@@ -56,6 +56,7 @@ for _, name in
 		"MapQuery",
 		"SaveData",
 		"SettingsRules",
+		"VfxRules",
 		"LaunchArms",
 		"ScoopFlight",
 		"ScoopLabel",
@@ -89,6 +90,7 @@ for _, name in
 		"BigSwirl",
 		"BigSwirlCycle",
 		"TowerScoops",
+		"Vfx",
 	}
 do
 	expectInstance({ "ReplicatedStorage", "Shared", "Config", name }, "ModuleScript")
@@ -134,6 +136,7 @@ for _, name in
 		"AimHud",
 		"CombatController",
 		"HitFeedback",
+		"VfxController",
 		"Backpacks",
 		"HeldBalls",
 		"ThrowAnimator",

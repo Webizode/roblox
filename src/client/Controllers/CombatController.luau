@@ -13,7 +13,6 @@ local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -37,6 +36,7 @@ local Sfx = require(client:WaitForChild("Sfx"))
 local UiKit = require(client:WaitForChild("UiKit"))
 local Keys = require(client:WaitForChild("Keys"))
 local BallVisual = require(client:WaitForChild("BallVisual"))
+local PerfectThrow = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("PerfectThrow"))
 
 local CombatController = {}
 
@@ -129,7 +129,7 @@ local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: 
 	flight.emitter.Enabled = false
 	flight.light.Enabled = false
 	if perfect then
-		BallVisual.perfect(flight) -- a perfect throw sparkles gold for everybody
+		PerfectThrow.dress(flight) -- a perfect throw glows green for everybody
 	end
 	local flat = Vector3.new(velocity.X, 0, velocity.Z)
 	balls[id] = {
@@ -154,36 +154,6 @@ local function onThrown(id: number, thrower: Player, origin: Vector3, velocity: 
 		)
 	end
 	Sfx.play("throw")
-end
-
--- A puff of ice where the ball ended, bigger on a hit; see-through and small enough not to hide the player behind it
--- (BallVisual.hitShards adds the shards around it).
-local function puff(position: Vector3, hit: boolean)
-	local size = if hit then 2 else 1.3
-	local part = effectPart("IcePuff", size, Color3.fromHex(Palette.vanilla), position)
-	part.Transparency = 0.45
-	TweenService:Create(part, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Size = Vector3.new(size * 2, size * 2, size * 2),
-		Transparency = 1,
-	}):Play()
-	task.delay(0.4, function()
-		part:Destroy()
-	end)
-end
-
--- A short white flash on whoever was hit, seen by everyone.
-local function flash(character: Model)
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "IceHit"
-	highlight.FillColor = Color3.new(1, 1, 1)
-	highlight.FillTransparency = 0.3
-	highlight.OutlineTransparency = 1
-	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
-	highlight.Parent = character
-	TweenService:Create(highlight, TweenInfo.new(0.3), { FillTransparency = 1 }):Play()
-	task.delay(0.35, function()
-		highlight:Destroy()
-	end)
 end
 
 -- Controlled knockback on the local character: away from the thrower and a little up, for a moment.
@@ -258,8 +228,7 @@ local function onResolved(
 			)
 		end
 	end
-	puff(position, victim ~= nil)
-	BallVisual.hitShards(position, victim ~= nil)
+	-- the splash, the flash and the stars of a hit are the effects' (VfxController, from the same message)
 	if not victim then
 		return
 	end
@@ -274,7 +243,6 @@ local function onResolved(
 	local character = victim.Character
 	local strength = if knockdown then power * CombatConfig.knockdownBoost else power
 	if character then
-		flash(character)
 		registry.MovementController.stumble(character, dirX, dirZ, strength)
 		if knockdown then
 			registry.MovementController.knockDown(character, CombatConfig.knockdownTime)
@@ -428,7 +396,7 @@ local function requestThrow(_: string, inputState: Enum.UserInputState): Enum.Co
 			Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z, strength, perfect)
 			CombatCamera.thrown(perfect) -- the aim (above) is taken before the camera moves
 			if perfect then
-				Sfx.play("perfectThrow", 1.4) -- the thrower hears it at once; everybody sees its sparkle (onThrown)
+				Sfx.play("perfectThrow", 1.4) -- the thrower hears it at once; everybody sees its green glitter (Vfx)
 			end
 			registry.TowerController.interruptStance() -- after the request, so the server locks its stance too
 			registry.ThrowAnimator.release() -- the throw animation starts with the button-up, like the server's clock

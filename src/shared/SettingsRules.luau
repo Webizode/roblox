@@ -3,7 +3,7 @@
 -- server (before saving) and the Lune tests use the same checks.
 
 export type Effective = {
-	vfxQuality: string, -- "high", "medium" or "low"; the performance mode counts as "low"
+	vfxQuality: string, -- "high", "medium" or "low" ("auto" resolved by the device); the performance mode counts as "low"
 	particleScale: number, -- multiplies particle counts
 	heavyDashEffects: boolean, -- afterimages and limb trails
 	shadows: boolean,
@@ -78,10 +78,20 @@ function SettingsRules.step(key: string, current: any, direction: number, config
 	return current
 end
 
--- What the settings mean for the game's effects, with the performance mode taken into account.
-function SettingsRules.effective(settings: { [string]: any }, config: any): Effective
+-- The VFX quality a setting stands for: "auto" is the device's default (config.autoQuality; `touch`: a touch device),
+-- anything else is itself.
+function SettingsRules.quality(chosen: any, touch: boolean, config: any): string
+	if chosen == "auto" or config.particleScale[chosen] == nil then
+		return if touch then config.autoQuality.touch else config.autoQuality.other
+	end
+	return chosen
+end
+
+-- What the settings mean for the game's effects, with the performance mode and the device (`touch`: a touch device,
+-- for the "auto" VFX quality) taken into account.
+function SettingsRules.effective(settings: { [string]: any }, config: any, touch: boolean?): Effective
 	local performance = settings.performanceMode == true
-	local quality = if performance then "low" else settings.vfxQuality
+	local quality = if performance then "low" else SettingsRules.quality(settings.vfxQuality, touch == true, config)
 	return {
 		vfxQuality = quality,
 		particleScale = config.particleScale[quality] or 1,

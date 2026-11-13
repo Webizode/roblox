@@ -59,8 +59,9 @@ describe("Settings: the menu buttons", function()
 
 	it("choices cycle round both ways", function()
 		expect(SettingsRules.step("vfxQuality", "high", 1, Config)).toBe("medium")
-		expect(SettingsRules.step("vfxQuality", "low", 1, Config)).toBe("high")
-		expect(SettingsRules.step("vfxQuality", "high", -1, Config)).toBe("low")
+		expect(SettingsRules.step("vfxQuality", "low", 1, Config)).toBe("auto")
+		expect(SettingsRules.step("vfxQuality", "auto", 1, Config)).toBe("high")
+		expect(SettingsRules.step("vfxQuality", "auto", -1, Config)).toBe("low")
 	end)
 
 	it("toggles flip", function()
@@ -79,6 +80,24 @@ describe("Settings: what they mean for the effects", function()
 		expect(effects.shadows).toBe(true)
 		settings.vfxQuality = "low"
 		expect(SettingsRules.effective(settings, Config).heavyDashEffects).toBe(false)
+	end)
+
+	it("the VFX quality is automatic by default: medium on a touch device, high elsewhere; a choice stays", function()
+		expect(Config.defaults.vfxQuality).toBe("auto")
+		local settings = SettingsRules.sanitize({}, Config)
+		expect(SettingsRules.effective(settings, Config, true).vfxQuality).toBe("medium")
+		expect(SettingsRules.effective(settings, Config, true).particleScale).toBe(Config.particleScale.medium)
+		expect(SettingsRules.effective(settings, Config, false).vfxQuality).toBe("high")
+		expect(SettingsRules.effective(settings, Config).vfxQuality).toBe("high")
+		for _, chosen in { "high", "medium", "low" } do
+			settings.vfxQuality = chosen
+			expect(SettingsRules.effective(settings, Config, true).vfxQuality).toBe(chosen)
+			expect(SettingsRules.effective(settings, Config, false).vfxQuality).toBe(chosen)
+		end
+		-- the performance mode still wins on every device
+		settings.vfxQuality = "auto"
+		settings.performanceMode = true
+		expect(SettingsRules.effective(settings, Config, false).vfxQuality).toBe("low")
 	end)
 
 	it("the performance mode means low VFX plus no shadows and post effects, whatever the quality says", function()

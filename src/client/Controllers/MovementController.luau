@@ -32,6 +32,7 @@ local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local Sfx = require(client:WaitForChild("Sfx"))
 local Settings = require(client:WaitForChild("Settings"))
 local CombatCamera = require(client:WaitForChild("CombatCamera"))
+local VfxCamera = require(client:WaitForChild("Vfx"):WaitForChild("Camera"))
 
 local MovementController = {}
 
@@ -57,12 +58,8 @@ type Pose = {
 	lastLook: Vector3,
 }
 
-local SHAKE_STEP = "WobbleCameraShake"
-
 local player = Players.LocalPlayer
 local poses: { [Model]: Pose } = {}
-local shakeUntil = 0
-local shakeStrength = 0
 local fovTween: Tween? = nil
 -- the field of view this controller wants (the setting, sprint, the dash kick), tweened here; every frame the camera
 -- gets it plus what the aim camera adds (CombatCamera.fovOffset), so the two never fight over the camera
@@ -276,39 +273,15 @@ local function stepCombatTracks()
 	end
 end
 
-local function shake(degrees: number)
-	shakeStrength = math.max(if os.clock() < shakeUntil then shakeStrength else 0, degrees)
-	shakeUntil = os.clock() + Movement.shakeTime
-end
-
--- Runs after the camera script while a shake lasts, then unbinds itself.
-local function onShakeStep()
-	local left = shakeUntil - os.clock()
-	if left <= 0 then
-		RunService:UnbindFromRenderStep(SHAKE_STEP)
-		return
-	end
-	local amount = math.rad(shakeStrength) * (left / Movement.shakeTime)
-	local t = os.clock() * 40
-	local camera = workspace.CurrentCamera
-	camera.CFrame *= CFrame.Angles(math.sin(t) * amount, math.cos(t * 1.3) * amount, 0)
-end
-
 -- The camera's field of view: the setting, widened while sprinting if the motion effects are on.
 local function fovTarget(): number
 	local effects = Settings.effective()
 	return effects.fov + (if effects.motionEffects then sprintFov else 0)
 end
 
+-- A camera shake for the local player (Vfx.Camera, off with the camera shake setting).
 local function startShake(degrees: number)
-	if not Settings.effective().cameraShake then
-		return -- switched off in the settings
-	end
-	local running = os.clock() < shakeUntil
-	shake(degrees)
-	if not running then
-		RunService:BindToRenderStep(SHAKE_STEP, Enum.RenderPriority.Camera.Value + 1, onShakeStep)
-	end
+	VfxCamera.shake(degrees, Movement.shakeTime)
 end
 
 local function dust(position: Vector3, amount: number)

@@ -6,7 +6,7 @@ return {
 	defaults = {
 		sfxVolume = 0.8,
 		musicVolume = 0.5,
-		vfxQuality = "high",
+		vfxQuality = "auto", -- the device decides (autoQuality) until the player picks one
 		performanceMode = false,
 		cameraShake = true,
 		fov = 80,
@@ -35,7 +35,7 @@ return {
 
 	-- choices, in the order the menu's arrows cycle through them
 	choices = {
-		vfxQuality = { "high", "medium", "low" },
+		vfxQuality = { "auto", "high", "medium", "low" },
 		inputMode = { "auto", "touch", "keyboard", "gamepad" },
 	},
 
@@ -44,6 +44,8 @@ return {
 	-- what the VFX quality means: particle counts scale, the heavy dash effects (afterimages, limb trails) only above
 	-- "low". The performance mode is "low" plus no shadows, bloom or sun rays on this device.
 	particleScale = { high = 1, medium = 0.5, low = 0.2 },
+	-- what "auto" means: medium on a touch device (phones and tablets), high everywhere else
+	autoQuality = { touch = "medium", other = "high" },
 
 	-- background music: a playlist in the Music sound group (MusicPlaylist, Sfx). The songs take turns in random order,
 	-- never the same one twice in a row, with pauseMin to pauseMax seconds of quiet between them. An entry with an
