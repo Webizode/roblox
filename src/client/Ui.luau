@@ -1,4 +1,4 @@
--- Older helpers for 2D UI (ink cards, FredokaOne, rounded corners); new UI is built from UiKit. Ui.color knows the
+-- Older helpers for 2D UI (ink cards, the main font, rounded corners); new UI is built from UiKit. Ui.color knows the
 -- world colours (Config/Palette) and, for names the world lacks, the kit's (Config/Ui.colors). The crosshair, the
 -- knockdown meter, the kill feed and the scoop name signs are built from these helpers.
 
@@ -7,10 +7,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ConfigFolder = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
 local Palette = require(ConfigFolder:WaitForChild("Palette"))
 local UiConfig = require(ConfigFolder:WaitForChild("Ui"))
+local Theme = require(script.Parent:WaitForChild("UiKit"):WaitForChild("Theme"))
 
 local Ui = {}
 
-Ui.FONT = Enum.Font.FredokaOne
+Ui.FONT = Theme.fontMain -- the kill feed, hit messages, PROTECTED and the scoop signs (Config/Ui.fonts)
 Ui.CARD_TRANSPARENCY = 0.15
 
 local scales: { UIScale } = {}
@@ -88,7 +89,7 @@ function Ui.button(props: { [string]: any }?): TextButton
 	button.BackgroundTransparency = Ui.CARD_TRANSPARENCY
 	button.BorderSizePixel = 0
 	button.AutoButtonColor = true
-	button.Font = Ui.FONT
+	button.FontFace = Ui.FONT
 	button.TextColor3 = Ui.color("vanilla")
 	button.TextSize = 22
 	button.Text = ""
@@ -102,7 +103,7 @@ end
 function Ui.text(props: { [string]: any }?): TextLabel
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
-	label.Font = Ui.FONT
+	label.FontFace = Ui.FONT
 	label.TextColor3 = Ui.color("vanilla")
 	label.TextSize = 22
 	label.AutomaticSize = Enum.AutomaticSize.XY

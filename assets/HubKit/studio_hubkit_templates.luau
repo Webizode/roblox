@@ -196,7 +196,7 @@ local function makeSign(part, area, word)
 	label.BackgroundTransparency = 1
 	label.Position = UDim2.fromScale(area[1], area[3])
 	label.Size = UDim2.fromScale(area[2] - area[1], area[4] - area[3])
-	label.Font = Enum.Font.FredokaOne
+	label.FontFace = Font.fromEnum((Enum.Font :: any)[require(game:GetService("ReplicatedStorage").Shared.Config.Ui).fonts.main]) -- the main font (Config/Ui.fonts)
 	label.Text = word
 	label.TextScaled = true
 	label.TextColor3 = Color3.new(1, 1, 1)

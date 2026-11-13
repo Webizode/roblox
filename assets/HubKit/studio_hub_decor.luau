@@ -776,7 +776,7 @@ local function buildPlaceholders()
 			label.BackgroundTransparency = 1
 			label.Size = UDim2.fromScale(1, 0.3)
 			label.Position = UDim2.fromScale(0, 0.35)
-			label.Font = Enum.Font.FredokaOne
+			label.FontFace = Font.fromEnum((Enum.Font :: any)[require(game:GetService("ReplicatedStorage").Shared.Config.Ui).fonts.main]) -- the main font (Config/Ui.fonts)
 			label.TextScaled = true
 			label.TextColor3 = Color3.fromHex("#7A4528")
 			label.Text = what
@@ -812,7 +812,7 @@ local function buildPlaceholders()
 		label.BackgroundTransparency = 1
 		label.Size = UDim2.fromScale(1, 0.4)
 		label.Position = UDim2.fromScale(0, 0.3)
-		label.Font = Enum.Font.FredokaOne
+		label.FontFace = Font.fromEnum((Enum.Font :: any)[require(game:GetService("ReplicatedStorage").Shared.Config.Ui).fonts.main]) -- the main font (Config/Ui.fonts)
 		label.TextScaled = true
 		label.TextColor3 = Color3.new(1, 1, 1)
 		label.Text = "LEADERBOARD"

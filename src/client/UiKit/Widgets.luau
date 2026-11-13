@@ -16,6 +16,50 @@ end
 Widgets.withCommas = withCommas
 
 export type CoinCounter = { frame: Frame, set: (value: number, animate: boolean?) -> () }
+export type Counter = { set: (value: number, animate: boolean?) -> (), refresh: () -> () }
+
+-- A number display that counts smoothly up or down to each new value (Config/Ui.anim.count seconds, from the number
+-- it shows right then) and pops `pill` a little (Anim.bump); `show(whole number)` writes it. Setting the value it
+-- already heads for does nothing, so it may be called every frame. Without `animate` it jumps (the first value).
+function Widgets.counter(show: (value: number) -> (), pill: GuiObject?): Counter
+	local holder = Instance.new("NumberValue")
+	local target: number? = nil
+	local tween: Tween? = nil
+	holder.Changed:Connect(function(value)
+		show(math.round(value))
+	end)
+	return {
+		set = function(value: number, animate: boolean?)
+			if value == target then
+				return
+			end
+			target = value
+			if tween then
+				tween:Cancel()
+				tween = nil
+			end
+			if animate then
+				local running = TweenService:Create(
+					holder,
+					TweenInfo.new(Theme.config.anim.count, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ Value = value }
+				)
+				tween = running
+				running:Play()
+				if pill then
+					Anim.bump(pill)
+				end
+			else
+				holder.Value = value
+				show(math.round(value))
+			end
+		end,
+		-- writes the number it shows now again (when what goes round it changed)
+		refresh = function()
+			show(math.round(holder.Value))
+		end,
+	}
+end
 
 -- The faint waffle inside an info pill `height` high, below its cream glaze and inside its rim.
 function Widgets.infoWaffle(pill: GuiObject, height: number)
@@ -26,8 +70,8 @@ function Widgets.infoWaffle(pill: GuiObject, height: number)
 	return waffle
 end
 
--- The chocolate info pill with its cream glaze, the gold coin on its left end and the amount; `animate` counts up to a
--- new value.
+-- The chocolate info pill with its cream glaze, the gold coin on its left end and the amount (Theme.fontNumbers,
+-- shrinking to fit big amounts); `animate` counts up or down to a new value and pops the pill.
 function Widgets.coins(width: number, height: number): CoinCounter
 	local frame = Theme.frame({ Name = "Coins", Size = UDim2.fromOffset(width, height) })
 	local barHeight = height * 0.8
@@ -50,6 +94,7 @@ function Widgets.coins(width: number, height: number): CoinCounter
 	})
 	local amount = Theme.text({
 		Name = "Amount",
+		FontFace = Theme.fontNumbers,
 		Text = "0",
 		AnchorPoint = Vector2.new(0, 0.5),
 		-- a little under the middle: the glaze takes the pill's top
@@ -60,30 +105,10 @@ function Widgets.coins(width: number, height: number): CoinCounter
 		ZIndex = 4,
 		Parent = frame,
 	})
-	local shown = 0
-	local counter = Instance.new("NumberValue")
-	counter.Changed:Connect(function(value)
+	local counter = Widgets.counter(function(value)
 		amount.Text = withCommas(value)
-	end)
-	local tween: Tween? = nil
-	return {
-		frame = frame,
-		set = function(value: number, animate: boolean?)
-			if tween then
-				tween:Cancel()
-			end
-			if animate and value > shown then
-				counter.Value = shown
-				tween = TweenService:Create(counter, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Value = value });
-				(tween :: Tween):Play()
-				Anim.tap(frame)
-			else
-				counter.Value = value
-				amount.Text = withCommas(value)
-			end
-			shown = value
-		end,
-	}
+	end, frame)
+	return { frame = frame, set = counter.set }
 end
 
 export type ProgressBar = { frame: Frame, set: (share: number, text: string?) -> () }
@@ -112,6 +137,7 @@ function Widgets.progress(width: number, height: number, color: Color3): Progres
 	sizeLimit.Parent = fill
 	local label = Theme.text({
 		Name = "Text",
+		FontFace = Theme.fontText,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.new(1, -16, 0.7, 0),
@@ -219,6 +245,7 @@ function Widgets.reward(parent: GuiObject, props: { icon: string, text: string, 
 		Theme.icon(props.icon, { Size = UDim2.fromOffset(46, 46), LayoutOrder = 1, ZIndex = 21, Parent = card })
 	local label = Theme.text({
 		Text = props.text,
+		FontFace = Theme.fontText,
 		TextSize = 34,
 		TextColor3 = Theme.color("yellow"),
 		AutomaticSize = Enum.AutomaticSize.XY,

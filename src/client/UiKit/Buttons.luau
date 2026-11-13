@@ -90,7 +90,8 @@ function Buttons.badge(parent: GuiObject, action: string?, height: number?): Bad
 	label.BackgroundTransparency = 1
 	label.AnchorPoint = Vector2.new(0.5, 0.5)
 	label.Size = UDim2.new(1, -side * 0.3, 0, side * 0.6)
-	label.Font = Theme.font
+	label.FontFace = Theme.fontMain
+	Theme.centreMain(label)
 	label.TextColor3 = Color3.fromHex(STYLE.text)
 	if STYLE.stroke then
 		-- a fine dark edge so the cream letter reads on the chocolate

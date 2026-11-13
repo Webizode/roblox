@@ -212,7 +212,7 @@ function Window.message(props: {
 		local sub = Instance.new("TextLabel")
 		sub.Name = "Subtext"
 		sub.BackgroundTransparency = 1
-		sub.Font = Theme.font
+		sub.FontFace = Theme.fontText -- a description
 		sub.TextColor3 = Theme.color("creamDark") -- light on the chocolate panel
 		sub.TextScaled = true
 		sub.Text = props.subtext
@@ -241,6 +241,7 @@ function Window.popup(props: {
 		TextScaled = true,
 		TextWrapped = true,
 		TextColor3 = Theme.color("cream"), -- light on the chocolate panel, with the outline
+		FontFace = Theme.fontText,
 		ZIndex = 4,
 		Parent = window.content,
 	})

@@ -143,7 +143,7 @@ end
 local function plainText(props: { [string]: any }): TextLabel
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
-	label.Font = Theme.font
+	label.FontFace = Theme.fontText
 	label.TextColor3 = Theme.color("cream")
 	label.TextSize = 22
 	label.AutomaticSize = Enum.AutomaticSize.XY

@@ -13,6 +13,9 @@ local EconomyConfig = require(Config:WaitForChild("Economy"))
 local MapConfig = require(Config:WaitForChild("Map"))
 local Palette = require(Config:WaitForChild("Palette"))
 local MapRules = require(Shared:WaitForChild("MapRules"))
+local UiConfig = require(Config:WaitForChild("Ui"))
+
+local FONT_MAIN = Font.fromEnum((Enum.Font :: any)[UiConfig.fonts.main]) -- the plot signs (Config/Ui.fonts)
 
 local PlotService = {}
 
@@ -109,7 +112,7 @@ local function signText(plate: BasePart, plaque: boolean): TextLabel
 	text.Position = UDim2.fromScale(0.5, 0.5)
 	text.Size = UDim2.fromScale(0.86, 0.72)
 	text.BackgroundTransparency = 1
-	text.Font = Enum.Font.FredokaOne
+	text.FontFace = FONT_MAIN
 	text.TextColor3 = SIGN_INK
 	text.TextScaled = true
 	local limit = Instance.new("UITextSizeConstraint")

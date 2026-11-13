@@ -54,7 +54,7 @@ local function nameSign(field, spec)
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(0.92, 0.8)
 	label.Position = UDim2.fromScale(0.04, 0.1)
-	label.Font = Enum.Font.FredokaOne
+	label.FontFace = Font.fromEnum((Enum.Font :: any)[require(game:GetService("ReplicatedStorage").Shared.Config.Ui).fonts.main]) -- the main font (Config/Ui.fonts)
 	label.TextScaled = true
 	label.Text = spec.title
 	label.TextColor3 = Color3.fromHex(spec.ink)

@@ -92,6 +92,10 @@ local towerPill: Frame
 local countText: TextLabel
 local worthText: TextLabel
 local steadyText: TextLabel
+-- the tower pill's numbers count smoothly to each new value (Widgets.counter); the capacity they are shown against
+local countCounter: any
+local worthCounter: any
+local towerCapacity = 0
 local hintHolder: Frame
 local hintCard: Frame
 local hintText: TextLabel
@@ -169,6 +173,7 @@ local function buildAmmo()
 	end
 	reloadText = Theme.text({
 		Name = "Reload",
+		FontFace = Theme.fontText,
 		TextSize = 40,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -308,6 +313,7 @@ local function buildBottom()
 	})
 	countText = Theme.text({
 		Name = "Count",
+		FontFace = Theme.fontNumbers,
 		AnchorPoint = Vector2.new(0, 0),
 		Position = UDim2.fromOffset(PILL + 2, 7), -- under the glaze's thickest part
 		Size = UDim2.new(1, -PILL - 12, 0, 26),
@@ -332,6 +338,7 @@ local function buildBottom()
 	Theme.icon(Theme.icons.coin, { Size = UDim2.fromOffset(17, 17), LayoutOrder = 1, ZIndex = 4, Parent = details })
 	worthText = Theme.text({
 		Name = "Worth",
+		FontFace = Theme.fontNumbers,
 		TextSize = 16,
 		TextColor3 = COLORS.yellow,
 		AutomaticSize = Enum.AutomaticSize.XY,
@@ -341,6 +348,7 @@ local function buildBottom()
 	})
 	steadyText = Theme.text({
 		Name = "Steady",
+		FontFace = Theme.fontText,
 		TextSize = 16,
 		TextColor3 = COLORS.mint,
 		AutomaticSize = Enum.AutomaticSize.XY,
@@ -348,6 +356,17 @@ local function buildBottom()
 		ZIndex = 4,
 		Parent = details,
 	})
+	-- the count pops the pill when it changes; a full cone says so in red (from the count it heads for)
+	countCounter = Widgets.counter(function(count)
+		local full = towerCapacity > 0 and towerCount >= towerCapacity
+		countText.Text = if full
+			then string.format("%d/%d FULL", count, towerCapacity)
+			else string.format("%d/%d", count, towerCapacity)
+		countText.TextColor3 = if full then COLORS.red else COLORS.text
+	end, towerPill)
+	worthCounter = Widgets.counter(function(worth)
+		worthText.Text = tostring(worth)
+	end)
 
 	-- the hint, over the cluster: a cream card, as wide as the space between the touch controls allows
 	hintHolder = frame({ Name = "HintHolder", AnchorPoint = Vector2.new(0.5, 1), Parent = gui })
@@ -365,7 +384,7 @@ local function buildBottom()
 	hintText = Instance.new("TextLabel")
 	hintText.Name = "Text"
 	hintText.BackgroundTransparency = 1
-	hintText.Font = Theme.font
+	hintText.FontFace = Theme.fontText
 	hintText.TextColor3 = COLORS.textDark
 	hintText.TextWrapped = true
 	hintText.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -380,7 +399,7 @@ end
 local HINT_PAD_X, HINT_PAD_Y = 14, 7
 local SLACK = 1.12
 local function fitHint()
-	local text, font = hintText.Text, hintText.Font
+	local text, font = hintText.Text, Theme.fontTextEnum
 	local size, width, height = HINT_TEXT_MIN, hintMax, 0
 	for candidate = HINT_TEXT, HINT_TEXT_MIN, -1 do
 		size = candidate
@@ -433,7 +452,7 @@ local function buildCartMarker()
 	tag.Size = UDim2.new(1, 0, 0, 34)
 	tag.BackgroundColor3 = COLORS.yellow
 	tag.BorderSizePixel = 0
-	tag.Font = Theme.font
+	tag.FontFace = Theme.fontMain
 	tag.TextSize = 20
 	tag.TextColor3 = COLORS.textDark
 	tag.Text = "YOUR PLOT"
@@ -588,15 +607,18 @@ end
 
 -- count scoops of the cone's capacity; a full cone says so in red, since it takes no more until served.
 function Hud.setTower(count: number, capacity: number, value: number, steady: number)
+	-- the numbers count to their new values while the pill shows; appearing, it starts with them
+	local animate = towerPill.Visible and count > 0
 	towerCount = count
 	towerPill.Visible = count > 0
 	if count > 0 then
-		local full = count >= capacity
-		countText.Text = if full
-			then string.format("%d/%d FULL", count, capacity)
-			else string.format("%d/%d", count, capacity)
-		countText.TextColor3 = if full then COLORS.red else COLORS.text
-		worthText.Text = tostring(math.floor(value))
+		local newCapacity = capacity ~= towerCapacity
+		towerCapacity = capacity
+		countCounter.set(count, animate)
+		if newCapacity then
+			countCounter.refresh() -- a bigger cone: the same count against the new capacity
+		end
+		worthCounter.set(math.floor(value), animate)
 		local percent = math.floor(steady * 100 + 0.5)
 		steadyText.Visible = percent > 0 and not touchScreen -- too small to read on a phone
 		steadyText.Text = string.format("+%d%%", percent) -- the steady bonus, in mint

@@ -14,6 +14,7 @@ local Economy = require(Config:WaitForChild("Economy"))
 local Look = require(Config:WaitForChild("TowerScoops"))
 
 local Ui = require(script.Parent:WaitForChild("Ui"))
+local Theme = require(script.Parent:WaitForChild("UiKit"):WaitForChild("Theme"))
 
 local ScoopSign = {}
 
@@ -32,9 +33,13 @@ local function root(): Folder
 	return made
 end
 
-local function piece(text: string, order: number, color: Color3?): TextLabel
+-- the name in the main font, the worth (a number) in the text font
+local function piece(text: string, order: number, color: Color3?, number: boolean?): TextLabel
 	local label = Ui.text({ Text = text, TextSize = Look.label.textSize, LayoutOrder = order })
 	label.TextColor3 = color or Color3.new(1, 1, 1)
+	if number then
+		label.FontFace = Theme.fontText
+	end
 	-- a dark rim round the letters keeps it readable over sky, sand and ice cream
 	Ui.stroke(label, "ink", 2, 0.1).ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 	return label
@@ -64,9 +69,9 @@ function ScoopSign.new(flavorId: string, golden: boolean): BillboardGui?
 	row.Position = UDim2.fromScale(0.5, 0.5)
 	Ui.list(row, Enum.FillDirection.Horizontal, 6)
 	piece(label.name, 1, Color3.fromHex(label.color)).Parent = row
-	piece(`({label.value}`, 2).Parent = row
+	piece(`({label.value}`, 2, nil, true).Parent = row
 	Ui.coinIcon(Look.label.iconSize, { LayoutOrder = 3 }).Parent = row
-	piece(")", 4).Parent = row
+	piece(")", 4, nil, true).Parent = row
 	row.Parent = sign
 
 	sign.Parent = root()

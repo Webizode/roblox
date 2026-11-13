@@ -25,6 +25,7 @@ local Features = require(Config:WaitForChild("Features"))
 local Launcher = require(Config:WaitForChild("Launcher"))
 local MapConfig = require(Config:WaitForChild("Map"))
 local Palette = require(Config:WaitForChild("Palette"))
+local UiConfig = require(Config:WaitForChild("Ui"))
 
 local DebugDummies = {}
 
@@ -151,7 +152,7 @@ local function makeDummy(index: number, plot: Model): Dummy?
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
 	label.TextScaled = true
-	label.Font = Enum.Font.GothamBold
+	label.FontFace = Font.fromEnum((Enum.Font :: any)[UiConfig.fonts.main])
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.3
 	label.Parent = gui

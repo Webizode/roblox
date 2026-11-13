@@ -158,7 +158,20 @@ return {
 		shadow = "#000000",
 	},
 
-	font = "FredokaOne", -- Enum.Font name (Theme turns it into the Enum)
+	-- The two fonts of the whole game (Theme.fontMain, Theme.fontText; the server's signs and boards read them here too),
+	-- as Enum.Font names: LuckiestGuy is the family LuckiestGuy.json, BuilderSansExtraBold the family BuilderSans.json at
+	-- weight ExtraBold. `main` is the bold cartoon face of buttons, titles, badges, the kill feed, hit messages, plot
+	-- signs and the leaderboard; `text` is for numbers (coins, the tower, prices), hints, descriptions and the settings.
+	fonts = {
+		main = "LuckiestGuy",
+		text = "BuilderSansExtraBold",
+		-- the number displays (coins, the scoop count, the worth under it, later shop prices): a rounder face, Nunito at
+		-- its heaviest weight (Black); a family and a weight, as no Enum.Font has that weight
+		numbers = { family = "rbxasset://fonts/families/Nunito.json", weight = "Heavy" },
+	},
+	-- Luckiest Guy keeps room for descenders it hardly uses, so its capitals sit high in their box: words in the main
+	-- font get this share of their box as padding on top (Theme.text, the key badges), which centres them again
+	mainFontLift = 0.14,
 
 	-- design sizes (pixels at 1280 x 720)
 	reference = { width = 1280, height = 720 },
@@ -209,5 +222,7 @@ return {
 		buttons = { x = 0.62, y = 0.42, w = 0.38, h = 0.58 },
 	},
 
-	anim = { press = 0.07, pop = 0.16, hover = 0.1 },
+	-- seconds: a button sinks in (press), eases back (release), a window pops up (pop), a number counts to its new value
+	-- (count) while its pill pops `bump` times as big and back
+	anim = { press = 0.07, release = 0.14, pop = 0.16, hover = 0.1, count = 0.4, bump = 1.08 },
 }

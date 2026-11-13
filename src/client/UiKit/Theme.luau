@@ -11,7 +11,14 @@ local Palette = require(Config:WaitForChild("Palette"))
 local Theme = {}
 
 Theme.config = UiConfig
-Theme.font = (Enum.Font :: any)[UiConfig.font] :: Enum.Font
+-- The game's two fonts (Config/Ui.fonts): every text sets one of these, none names a font itself. The Enum forms are
+-- for measuring text (TextService:GetTextSize takes no Font).
+Theme.fontMainEnum = (Enum.Font :: any)[UiConfig.fonts.main] :: Enum.Font
+Theme.fontTextEnum = (Enum.Font :: any)[UiConfig.fonts.text] :: Enum.Font
+Theme.fontMain = Font.fromEnum(Theme.fontMainEnum) -- Luckiest Guy: buttons, titles, badges, messages
+Theme.fontText = Font.fromEnum(Theme.fontTextEnum) -- Builder Sans ExtraBold: hints, descriptions, settings, small numbers
+-- Nunito Black: the number displays (coins, the scoop count and its worth, shop prices)
+Theme.fontNumbers = Font.new(UiConfig.fonts.numbers.family, (Enum.FontWeight :: any)[UiConfig.fonts.numbers.weight])
 Theme.icons = UiConfig.icons
 
 -- the six rarities in order, common to golden (Config/Flavors.rarityColors)
@@ -100,15 +107,27 @@ function Theme.gloss(parent: GuiObject, wide: boolean?)
 	return gloss
 end
 
--- A word in the kit's style: white with the chocolate outline round every letter.
+-- Moves a word in the main font down to the middle of its box (Config/Ui.mainFontLift).
+function Theme.centreMain(label: TextLabel)
+	local padding = Instance.new("UIPadding")
+	padding.Name = "FontLift"
+	padding.PaddingTop = UDim.new(UiConfig.mainFontLift, 0)
+	padding.Parent = label
+end
+
+-- A word in the kit's style: white with the chocolate outline round every letter, in the main font (numbers and
+-- hints pass FontFace = Theme.fontText).
 function Theme.text(props: { [string]: any }?): TextLabel
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
-	label.Font = Theme.font
+	label.FontFace = Theme.fontMain
 	label.TextColor3 = Theme.color("text")
 	label.TextSize = 22
 	label.Text = ""
 	apply(label, props)
+	if label.FontFace.Family == Theme.fontMain.Family then
+		Theme.centreMain(label)
+	end
 	local stroke = Instance.new("UIStroke")
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 	stroke.Color = Theme.color("outline")

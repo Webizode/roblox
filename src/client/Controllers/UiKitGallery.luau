@@ -26,7 +26,7 @@ local function section(parent: Instance, order: number, title: string, height: n
 	})
 	local heading = Instance.new("TextLabel")
 	heading.BackgroundTransparency = 1
-	heading.Font = Theme.font
+	heading.FontFace = Theme.fontText
 	heading.TextSize = 22
 	heading.TextColor3 = Theme.color("textDark")
 	heading.TextXAlignment = Enum.TextXAlignment.Left

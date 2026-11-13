@@ -21,7 +21,12 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local LeaderboardConfig = require(Config:WaitForChild("Leaderboard"))
 local MapConfig = require(Config:WaitForChild("Map"))
+local UiConfig = require(Config:WaitForChild("Ui"))
 local LeaderboardRules = require(Shared:WaitForChild("LeaderboardRules"))
+
+-- the game's fonts (Config/Ui.fonts): the main one for words, the text one for the coin numbers
+local FONT_MAIN = Font.fromEnum((Enum.Font :: any)[UiConfig.fonts.main])
+local FONT_TEXT = Font.fromEnum((Enum.Font :: any)[UiConfig.fonts.text])
 
 local LeaderboardService = {}
 
@@ -112,7 +117,7 @@ local function makeBoard(display: BasePart): Frame
 		badge.Position = UDim2.fromScale(0.005, 0.05)
 		badge.BackgroundColor3 = colour(cfg.colours.top[math.min(rank, 3)])
 		badge.BackgroundTransparency = if rank <= 3 then 0 else 1
-		badge.Font = Enum.Font.FredokaOne
+		badge.FontFace = FONT_MAIN
 		badge.Text = tostring(rank)
 		badge.TextScaled = true
 		badge.TextColor3 = if rank <= 3 then colour(cfg.colours.titleStroke) else colour(cfg.colours.dim)
@@ -125,7 +130,7 @@ local function makeBoard(display: BasePart): Frame
 		name.BackgroundTransparency = 1
 		name.Position = UDim2.fromScale(0.17, 0.08)
 		name.Size = UDim2.fromScale(0.5, 0.84)
-		name.Font = Enum.Font.FredokaOne
+		name.FontFace = FONT_MAIN
 		name.TextScaled = true
 		name.TextXAlignment = Enum.TextXAlignment.Left
 		name.TextColor3 = colour(cfg.colours.text)
@@ -137,7 +142,7 @@ local function makeBoard(display: BasePart): Frame
 		coins.BackgroundTransparency = 1
 		coins.Position = UDim2.fromScale(0.68, 0.08)
 		coins.Size = UDim2.fromScale(0.31, 0.84)
-		coins.Font = Enum.Font.FredokaOne
+		coins.FontFace = FONT_TEXT
 		coins.TextScaled = true
 		coins.TextXAlignment = Enum.TextXAlignment.Right
 		coins.TextColor3 = if rank <= 3 then colour(cfg.colours.top[rank]) else colour(cfg.colours.text)
@@ -149,7 +154,7 @@ local function makeBoard(display: BasePart): Frame
 	empty.Name = "Empty"
 	empty.BackgroundTransparency = 1
 	empty.Size = UDim2.fromScale(1, 1)
-	empty.Font = Enum.Font.FredokaOne
+	empty.FontFace = FONT_MAIN
 	empty.TextScaled = true
 	empty.TextColor3 = colour(cfg.colours.dim)
 	empty.Text = cfg.emptyText
@@ -169,7 +174,7 @@ local function makeHeader(header: BasePart)
 	local title = Instance.new("TextLabel")
 	title.BackgroundTransparency = 1
 	title.Size = UDim2.fromScale(1, 1)
-	title.Font = Enum.Font.FredokaOne
+	title.FontFace = FONT_MAIN
 	title.TextScaled = true
 	title.Text = cfg.title
 	title.TextColor3 = colour(cfg.colours.titleText)
