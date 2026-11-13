@@ -169,7 +169,7 @@ local function build(): ScreenGui
 
 	-- coins, progress, the safe sign
 	local displays = section(scroll, 6, "Coins, progress, safe zone", 110)
-	local coins = Widgets.coins(Theme.config.coins.width, Theme.config.coins.height)
+	local coins = Widgets.coins()
 	coins.set(7450)
 	coins.frame.LayoutOrder = 1
 	coins.frame.Parent = displays
@@ -184,7 +184,7 @@ local function build(): ScreenGui
 	sign.Parent = displays
 
 	-- what opens: a window, a popup, a reward message
-	local opens = section(scroll, 7, "Window, popup, reward (press them)", 64)
+	local opens = section(scroll, 7, "Window, popup, reward, short messages (press them)", 144)
 	local window = Window.message({
 		name = "GalleryWindow",
 		title = "INDEX",
@@ -214,6 +214,23 @@ local function build(): ScreenGui
 			end,
 		},
 	}
+	-- the four kinds of short message (UiKit.Toast)
+	for _, entry in
+		{
+			{ "TOAST", "sky", "SAFE!", "normal", "safe" },
+			{ "WARN", "yellow", "CONE FULL!", "warn", "scoops" },
+			{ "BAD", "red", "TOPPLED!", "bad", "scoopEmpty" },
+			{ "GOOD", "mint", "SERVE! +120", "good", "coin" },
+		}
+	do
+		table.insert(actions, {
+			entry[1],
+			entry[2],
+			function()
+				UiKit.Toast.show(entry[3], entry[4], entry[5])
+			end,
+		})
+	end
 	for order, entry in actions do
 		local button = Buttons.wide({ name = entry[1], text = entry[1], color = Theme.color(entry[2]), width = 170 })
 		button.button.LayoutOrder = order

@@ -165,8 +165,16 @@ local function endTrail(trail: Trail?)
 	end)
 end
 
+-- the light-up of each new landing circle, stopped if the circle hides before it ends
+local flashes: { [Part]: Tween } = setmetatable({}, { __mode = "k" }) :: any
+
 -- Hides a landing circle with its outline (a Decal stays visible on a see-through part).
 local function hideCircle(circle: Part)
+	local flash = flashes[circle]
+	if flash then
+		flash:Cancel()
+		flashes[circle] = nil
+	end
 	circle.Transparency = 1
 	local outline = circle:FindFirstChild("Outline") :: Decal?
 	if outline then
@@ -224,9 +232,17 @@ local function onShotFired(
 	circle.Shape = Enum.PartType.Cylinder
 	circle.Size = Vector3.new(0.2, CIRCLE_SIZE, CIRCLE_SIZE)
 	circle.CFrame = CFrame.new(to + Vector3.new(0, 0.12, 0)) * CIRCLE_ROTATION
-	circle.Transparency = Look.landingCircle.transparency
 	TowerVisual.applyFlavor(circle, flavorId)
 	circle.Material = Enum.Material.Neon
+	-- it lights up as the Big Swirl fires and settles to its normal faintness
+	circle.Transparency = 0
+	local flash = TweenService:Create(
+		circle,
+		TweenInfo.new(Look.landingCircle.flash, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ Transparency = Look.landingCircle.transparency }
+	)
+	flashes[circle] = flash
+	flash:Play()
 	-- the dark outline: a ring picture on the disc's top face (the cylinder's +X face points up), so it reads on the
 	-- light floor; it shrinks with the disc and goes with it
 	local outline = Instance.new("Decal")

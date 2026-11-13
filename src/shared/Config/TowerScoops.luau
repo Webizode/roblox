@@ -24,6 +24,9 @@ return {
 	landingCircle = {
 		size = 7, -- studs across at the start
 		transparency = 0.35,
+		-- when the Big Swirl fires, each new circle lights up (fully opaque) and settles to `transparency` in this many
+		-- seconds: where the scoops will come down shows itself
+		flash = 0.7,
 		outline = "#633F52", -- Berry
 		outlineImage = "rbxassetid://88345459876129", -- assets/ArenaKit/textures/LandingCircle_Ring.png (ring 80-100 %)
 	},

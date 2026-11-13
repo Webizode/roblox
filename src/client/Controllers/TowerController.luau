@@ -136,13 +136,13 @@ local function onEvent(event: string)
 	elseif event == "saved" then
 		visual:setGroan(false)
 		Sfx.play("saved")
-		registry.Hud.toast("SAVED!", Palette.mint)
+		UiKit.Toast.show("SAVED!", "good", "scoops")
 	elseif event == "toppled" then
 		visual:setGroan(false)
 		toppledAt = os.clock()
 		visual:spill(Economy.keepOnTopple(#scoops, EconomyConfig))
 		Sfx.play("topple")
-		registry.Hud.toast("TOPPLED!", Palette.awning)
+		UiKit.Toast.show("TOPPLED!", "bad", "scoopEmpty")
 		Remotes.TowerToppled:FireServer()
 	end
 end
@@ -214,7 +214,6 @@ local function updateHud(root: BasePart)
 
 	local target = servePoint()
 	local distance = if target then (root.Position - target.Position).Magnitude else math.huge
-	registry.Hud.setCartTarget(target, distance <= EconomyConfig.serveRadius + 1)
 
 	local steady = TowerModel.steadyBonus(state, Tuning)
 	local value = Economy.serveValue(scoops, Flavors.byId, EconomyConfig, { steadyBonus = steady })
@@ -621,9 +620,10 @@ function TowerController.Start()
 	Remotes.Served.OnClientEvent:Connect(function(who: Player, count: number, value: number)
 		if who == player then
 			Sfx.play("serve")
-			registry.Hud.toast(string.format("SERVE! +%d", value), Palette.lemon)
+			UiKit.Toast.show(string.format("SERVE! +%d", value), "good", "coin")
 		elseif count >= 15 then
-			registry.Hud.toast(string.format("%s served %d scoops!", who.DisplayName, count), Palette.strawberry)
+			-- somebody else's big serve is news, not feedback: a line in the feed, not a message mid-screen
+			registry.HitFeedback.say(string.format("%s SERVED %d SCOOPS!", who.DisplayName, count))
 		end
 	end)
 	Remotes.Dash.OnClientEvent:Connect(onDash)
@@ -726,6 +726,16 @@ end
 -- Whether the local tower can take a scoop right now (not toppling, room on the cone): catching and picking up.
 function TowerController.canTake(): boolean
 	return canCatch()
+end
+
+-- How many scoops the tower holds and how many the cone takes (Config/Economy upgrades.cone.capacity).
+function TowerController.fill(): (number, number)
+	return #scoops, Economy.capacity(coneLevel(), EconomyConfig)
+end
+
+-- The own plot's serve point (nil while the plot is not known yet).
+function TowerController.servePoint(): BasePart?
+	return servePoint()
 end
 
 -- Whether the cone holds as many scoops as its level allows (Config/Economy upgrades.cone.capacity).

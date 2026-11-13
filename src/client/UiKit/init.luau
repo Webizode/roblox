@@ -5,6 +5,7 @@
 --   Buttons  icon button, wide button (normal, pressed, locked), close button, key badge
 --   Window   window with title bar, glaze rim and close button; popup; tabs
 --   Widgets  coin counter, progress bar, item card (six rarities, silhouette), reward message, safe-zone sign
+--   Toast    the short messages (Toast.show(text, kind, icon)), all in one look
 -- The test page with every piece: Controllers/UiKitGallery (Studio only).
 
 local UiKit = {
@@ -14,6 +15,7 @@ local UiKit = {
 	Buttons = require(script:WaitForChild("Buttons")),
 	Window = require(script:WaitForChild("Window")),
 	Widgets = require(script:WaitForChild("Widgets")),
+	Toast = require(script:WaitForChild("Toast")),
 }
 
 return UiKit

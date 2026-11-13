@@ -18,7 +18,9 @@ return {
 		mouseSensitivity = 1,
 		touchSensitivity = 1,
 		gamepadSensitivity = 1,
-		controlsHint = true,
+		-- the controls overview at the right edge in combat mode: off by default (the tutorial teaches the controls), for
+		-- whoever wants it
+		controlsHint = false,
 	},
 
 	-- numbers: { min, max, step }; the menu's - and + buttons move by one step

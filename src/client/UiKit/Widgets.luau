@@ -70,47 +70,94 @@ function Widgets.infoWaffle(pill: GuiObject, height: number)
 	return waffle
 end
 
--- The chocolate info pill with its cream glaze, the gold coin on its left end and the amount (Theme.fontNumbers,
--- shrinking to fit big amounts); `animate` counts up or down to a new value and pops the pill.
-function Widgets.coins(width: number, height: number): CoinCounter
-	local frame = Theme.frame({ Name = "Coins", Size = UDim2.fromOffset(width, height) })
-	local barHeight = height * 0.8
-	local bar = Theme.frame({
-		Name = "Bar",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.fromScale(1, 0.5),
-		Size = UDim2.new(1, -height * 0.45, 0, barHeight),
+export type InfoPill = { frame: Frame, pill: Frame, row: Frame }
+
+-- An info pill (Config/Ui.infoPill), the one look of coins and tower: `icon` overhanging the chocolate pill's left end,
+-- then one row of parts `gap` apart under the cream glaze. The pill is exactly as long as its row, so it never shows
+-- much empty room. `frame` holds icon and pill and is as wide as both.
+function Widgets.infoPill(name: string, icon: string): InfoPill
+	local L = Theme.config.infoPill
+	local h = L.height
+	local inset = L.icon * 0.45 -- the pill starts under the icon's middle
+	local frame = Theme.frame({ Name = name, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, h) })
+	local pill = Theme.frame({
+		Name = "Pill",
+		AutomaticSize = Enum.AutomaticSize.X,
+		Position = UDim2.fromOffset(inset, 0),
+		Size = UDim2.fromOffset(0, h),
 		ZIndex = 1,
 		Parent = frame,
 	})
-	Theme.skin(bar, "info", barHeight)
-	Widgets.infoWaffle(bar, barHeight)
-	Theme.icon(Theme.icons.coin, {
+	Theme.skin(pill, "info", h)
+	Widgets.infoWaffle(pill, h)
+	local row = Theme.frame({
+		Name = "Row",
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, h),
+		ZIndex = 4,
+		Parent = pill,
+	})
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, L.icon - inset + L.gap) -- the parts start a gap after the icon
+	padding.PaddingRight = UDim.new(0, L.padRight)
+	padding.PaddingTop = UDim.new(0, h * L.glaze) -- nothing reaches under the glaze
+	padding.PaddingBottom = UDim.new(0, h * 0.06)
+	padding.Parent = row
+	local list = Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Horizontal
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.VerticalAlignment = Enum.VerticalAlignment.Center
+	list.Padding = UDim.new(0, L.gap)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = row
+
+	Theme.icon(icon, {
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.fromScale(0, 0.5),
-		Size = UDim2.fromOffset(height * 1.08, height * 1.08),
-		ZIndex = 3,
+		Size = UDim2.fromOffset(L.icon, L.icon),
+		ZIndex = 5,
 		Parent = frame,
 	})
-	local amount = Theme.text({
-		Name = "Amount",
-		FontFace = Theme.fontNumbers,
-		Text = "0",
-		AnchorPoint = Vector2.new(0, 0.5),
-		-- a little under the middle: the glaze takes the pill's top
-		Position = UDim2.new(0, height * 1.12, 0.5, height * 0.05),
-		Size = UDim2.new(1, -height * 1.3, 0.56, 0),
-		TextScaled = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 4,
-		Parent = frame,
-	})
-	local counter = Widgets.counter(function(value)
-		amount.Text = withCommas(value)
-	end, frame)
-	return { frame = frame, set = counter.set }
+	return { frame = frame, pill = pill, row = row }
 end
 
+-- A number in an info pill's row: Theme.fontNumbers at `size`, as wide as it reads.
+function Widgets.pillNumber(row: Frame, name: string, size: number, order: number): TextLabel
+	return Theme.text({
+		Name = name,
+		FontFace = Theme.fontNumbers,
+		TextSize = size,
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, size + 4),
+		LayoutOrder = order,
+		Parent = row,
+	})
+end
+
+-- The coin counter: the gold coin on the info pill and the amount centred after it; the pill grows and shrinks with the
+-- amount, and an amount longer than Config/Ui.infoPill.maxChars gets smaller instead. `animate` counts up or down to a
+-- new value and pops the pill.
+function Widgets.coins(): CoinCounter
+	local L = Theme.config.infoPill
+	local pill = Widgets.infoPill("Coins", Theme.icons.coin)
+	local amount = Widgets.pillNumber(pill.row, "Amount", L.text, 1)
+	-- as wide as the number reads, at least coinsMinRow (a small amount sits centred in it): sized from TextBounds, as
+	-- a UISizeConstraint on an automatically sized row kept the pill from ever getting shorter again
+	amount.AutomaticSize = Enum.AutomaticSize.None
+	amount.TextXAlignment = Enum.TextXAlignment.Center
+	local function fit()
+		amount.Size = UDim2.fromOffset(math.max(amount.TextBounds.X + 2, L.coinsMinRow), L.text + 4)
+	end
+	amount:GetPropertyChangedSignal("TextBounds"):Connect(fit)
+	amount.Text = "0"
+	fit()
+	local counter = Widgets.counter(function(value)
+		local text = withCommas(value)
+		amount.Text = text
+		amount.TextSize = math.floor(L.text * math.min(1, L.maxChars / math.max(#text, 1)))
+	end, pill.frame)
+	return { frame = pill.frame, set = counter.set }
+end
 export type ProgressBar = { frame: Frame, set: (share: number, text: string?) -> () }
 
 -- A rounded track with a candy fill from the left and a text over it.

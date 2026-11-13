@@ -32,6 +32,8 @@ export type Config = {
 	reference: { width: number, height: number },
 	margin: number,
 	gap: number,
+	columnGap: number,
+	touchColumnGap: number,
 	thumb: number,
 	iconButton: number,
 	wideButton: { width: number, height: number },
@@ -125,10 +127,16 @@ local function rect(x: number, y: number, w: number, h: number): Rect
 	return { x = x, y = y, w = w, h = h }
 end
 
+-- The space between two icon buttons, design pixels: smaller on touch screens, where each button's tap area is already
+-- bigger than its picture (touchFace), so the pictures sit close and leave more of the picture free.
+function UiLayout.columnGap(touch: boolean, config: Config): number
+	return if touch then config.touchColumnGap else config.columnGap
+end
+
 -- The size of the icon buttons' block in `columns` columns, screen pixels.
-function UiLayout.columnSize(columns: number, scale: number, config: Config): (number, number)
+function UiLayout.columnSize(columns: number, scale: number, config: Config, touch: boolean?): (number, number)
 	local rows = math.ceil(COLUMN_BUTTONS / columns)
-	local button, gap = config.iconButton * scale, config.gap * scale
+	local button, gap = config.iconButton * scale, UiLayout.columnGap(touch == true, config) * scale
 	return columns * button + (columns - 1) * gap, rows * button + (rows - 1) * gap
 end
 
@@ -231,7 +239,7 @@ function UiLayout.plan(width: number, height: number, device: Device, config: Co
 	local columns, columnW, columnH = 1, 0, 0
 	for count = 1, COLUMN_BUTTONS do
 		columns = count
-		columnW, columnH = UiLayout.columnSize(count, scale * columnScale, config)
+		columnW, columnH = UiLayout.columnSize(count, scale * columnScale, config, touch)
 		if columnH <= spaceBottom - spaceTop then
 			break
 		end

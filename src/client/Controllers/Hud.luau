@@ -3,50 +3,32 @@
 -- buttons) the dash bar and, only in combat mode, the ice-ball ammo on it (three big balls, the one loading filling up,
 -- the reload countdown), with the balance gauge over them (ArenaHud: lean, how close to tipping, the steady stance's
 -- energy) - the gauge and the dash bar in the arena only, the gauge in the ice balls' place without combat mode; at the
--- bottom centre the tower pill (scoops of the cone's capacity, worth, steady bonus) with at most one hint above it;
--- toasts for SERVE!/SAVED!/TOPPLED!;
--- and a marker on the player's own cart. Everything stays out of the middle of the screen, where the character and
+-- bottom centre the tower pill (scoops of the cone's capacity, worth, steady bonus). Short messages go through
+-- UiKit.Toast, the way to the own plot through PlotGuide. Everything stays out of the middle of the screen, where the character and
 -- the tower are, and out of Roblox's touch controls. Catching and serving happen automatically.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
-local Remotes = require(Shared:WaitForChild("Remotes"))
 local Combat = require(Shared:WaitForChild("Combat"))
 local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 local Tuning = require(Config:WaitForChild("Tower"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
 local MapConfig = require(Config:WaitForChild("Map"))
-local Palette = require(Config:WaitForChild("Palette"))
 local UiConfig = require(Config:WaitForChild("Ui"))
 
 local client = script.Parent.Parent
 local UiKit = require(client:WaitForChild("UiKit"))
 local ArenaHud = require(client:WaitForChild("ArenaHud"))
-local Theme, Screen, Widgets = UiKit.Theme, UiKit.Screen, UiKit.Widgets
+local Theme, Screen, Widgets, Toast = UiKit.Theme, UiKit.Screen, UiKit.Widgets, UiKit.Toast
 
 local Hud = {}
 
 local BALL = UiConfig.ammo.ball
 local FADE = 0.15 -- seconds the ice balls, the gauge and the dash bar take to fade in or out
-local HINT_TEXT, HINT_TEXT_MIN = 19, 13
-local PILL = 52
-
--- "catch" and "cart" show until the first serve; "steady" whenever the tower leans dangerously and the stance is
--- ready, so the player learns when to react.
-local HINTS = {
-	catch = "Stand in a landing circle to catch scoops",
-	cart = "Carry your tower to your plot",
-	steady = {
-		touch = "It's tipping! Hold Steady",
-		keyboard = "It's tipping! Hold F to steady it",
-		gamepad = "It's tipping! Hold Steady",
-	},
-}
 
 local COLORS = {
 	outline = Theme.color("outline"),
@@ -57,14 +39,6 @@ local COLORS = {
 	text = Theme.color("text"),
 	textDark = Theme.color("textDark"),
 	track = Theme.darker(Theme.color("chocolate"), 0.25),
-}
-
--- toasts are asked for in the world's pastel colours (Config/Palette); on screen they take the kit's stronger ones
-local TOAST_COLORS = {
-	[Palette.mint] = UiConfig.colors.mint,
-	[Palette.lemon] = UiConfig.colors.yellow,
-	[Palette.awning] = UiConfig.colors.red,
-	[Palette.strawberry] = UiConfig.colors.red,
 }
 
 local player = Players.LocalPlayer
@@ -96,22 +70,9 @@ local steadyText: TextLabel
 local countCounter: any
 local worthCounter: any
 local towerCapacity = 0
-local hintHolder: Frame
-local hintCard: Frame
-local hintText: TextLabel
-local hintMax = 400 -- the widest the hint's text may be, design pixels (Screen.plan's hintWidth)
-local toastHolder: Frame
-local toastLabel: TextLabel
-local toastStroke: UIStroke
-local cartMarker: BillboardGui
-local toastTweens: { Tween } = {}
 
 local towerCount = 0
-local warning = false
-local stanceState = "ready"
-local hasServed = false
-local atCart = false
-local shownHint: string? = nil
+local warning = false -- the tower tips dangerously while Steady could save it (TIPPING!)
 local shownCoins: number? = nil
 
 local function frame(props: { [string]: any }): Frame
@@ -292,71 +253,48 @@ end
 local function buildBottom()
 	bottom = frame({ Name = "Bottom", Parent = gui })
 
-	-- the tower pill: the stacked cone, the count big, worth and steady bonus small under it
-	towerPill = frame({
-		Name = "Tower",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -UiConfig.shadow),
-		Size = UDim2.new(1, -16, 0, PILL),
-		Visible = false,
-		Parent = bottom,
-	})
-	-- the chocolate info pill with the cream glaze and the faint waffle, like the coins
-	Theme.skin(towerPill, "info", PILL)
-	Widgets.infoWaffle(towerPill, PILL)
-	Theme.icon(Theme.icons.scoops, {
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, -6, 1, 2),
-		Size = UDim2.fromOffset(PILL * 1.25, PILL * 1.25),
-		ZIndex = 3,
-		Parent = towerPill,
-	})
-	countText = Theme.text({
-		Name = "Count",
-		FontFace = Theme.fontNumbers,
-		AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.fromOffset(PILL + 2, 7), -- under the glaze's thickest part
-		Size = UDim2.new(1, -PILL - 12, 0, 26),
-		TextScaled = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 4,
-		Parent = towerPill,
-	})
-	local details = frame({
-		Name = "Details",
-		Position = UDim2.new(0, PILL + 2, 1, -21),
-		Size = UDim2.new(1, -PILL - 12, 0, 17),
-		ZIndex = 4,
-		Parent = towerPill,
-	})
-	local detailList = Instance.new("UIListLayout")
-	detailList.FillDirection = Enum.FillDirection.Horizontal
-	detailList.VerticalAlignment = Enum.VerticalAlignment.Center
-	detailList.Padding = UDim.new(0, 4)
-	detailList.SortOrder = Enum.SortOrder.LayoutOrder
-	detailList.Parent = details
-	Theme.icon(Theme.icons.coin, { Size = UDim2.fromOffset(17, 17), LayoutOrder = 1, ZIndex = 4, Parent = details })
-	worthText = Theme.text({
+	-- the tower pill (Widgets.infoPill, like the coins): the stacked cone, then in one row the count big, the coin with
+	-- the worth, and on bigger screens the steady bonus; the pill is as long as the row
+	local L = UiConfig.infoPill
+	local tower = Widgets.infoPill("Tower", Theme.icons.scoops)
+	towerPill = tower.frame
+	towerPill.AnchorPoint = Vector2.new(0.5, 1)
+	towerPill.Position = UDim2.new(0.5, 0, 1, -UiConfig.shadow)
+	towerPill.Visible = false
+	towerPill.Parent = bottom
+	countText = Widgets.pillNumber(tower.row, "Count", L.text, 1)
+	local worth = Theme.frame({
 		Name = "Worth",
-		FontFace = Theme.fontNumbers,
-		TextSize = 16,
-		TextColor3 = COLORS.yellow,
-		AutomaticSize = Enum.AutomaticSize.XY,
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, L.worthIcon),
 		LayoutOrder = 2,
-		ZIndex = 4,
-		Parent = details,
+		Parent = tower.row,
 	})
+	local worthList = Instance.new("UIListLayout")
+	worthList.FillDirection = Enum.FillDirection.Horizontal
+	worthList.VerticalAlignment = Enum.VerticalAlignment.Center
+	worthList.Padding = UDim.new(0, 4)
+	worthList.SortOrder = Enum.SortOrder.LayoutOrder
+	worthList.Parent = worth
+	Theme.icon(Theme.icons.coin, {
+		Size = UDim2.fromOffset(L.worthIcon, L.worthIcon),
+		LayoutOrder = 1,
+		ZIndex = 5,
+		Parent = worth,
+	})
+	worthText = Widgets.pillNumber(worth, "Amount", L.worthText, 2)
+	worthText.TextColor3 = COLORS.yellow
 	steadyText = Theme.text({
 		Name = "Steady",
 		FontFace = Theme.fontText,
-		TextSize = 16,
+		TextSize = L.steadyText,
 		TextColor3 = COLORS.mint,
-		AutomaticSize = Enum.AutomaticSize.XY,
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, L.steadyText + 4),
 		LayoutOrder = 3,
-		ZIndex = 4,
-		Parent = details,
-	})
-	-- the count pops the pill when it changes; a full cone says so in red (from the count it heads for)
+		Visible = false,
+		Parent = tower.row,
+	}) -- the count pops the pill when it changes; a full cone says so in red (from the count it heads for)
 	countCounter = Widgets.counter(function(count)
 		local full = towerCapacity > 0 and towerCount >= towerCapacity
 		countText.Text = if full
@@ -367,142 +305,6 @@ local function buildBottom()
 	worthCounter = Widgets.counter(function(worth)
 		worthText.Text = tostring(worth)
 	end)
-
-	-- the hint, over the cluster: a cream card, as wide as the space between the touch controls allows
-	hintHolder = frame({ Name = "HintHolder", AnchorPoint = Vector2.new(0.5, 1), Parent = gui })
-	hintCard = frame({
-		Name = "Hint",
-		BackgroundTransparency = 0,
-		BackgroundColor3 = COLORS.cream,
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.fromScale(0.5, 1),
-		Visible = false,
-		Parent = hintHolder,
-	})
-	Theme.corner(hintCard, UDim.new(0, 14))
-	Theme.outline(hintCard)
-	hintText = Instance.new("TextLabel")
-	hintText.Name = "Text"
-	hintText.BackgroundTransparency = 1
-	hintText.FontFace = Theme.fontText
-	hintText.TextColor3 = COLORS.textDark
-	hintText.TextWrapped = true
-	hintText.AnchorPoint = Vector2.new(0.5, 0.5)
-	hintText.Position = UDim2.fromScale(0.5, 0.5)
-	hintText.Parent = hintCard
-end
-
--- The hint's card sized to what it says, in design pixels (the cluster's UIScale scales it): one line as wide as the
--- words if that fits the room between the touch controls (hintMax), else two lines in the full room, else a smaller
--- size. Measured with room to spare (SLACK), so the words are never cut. No TextScaled: its size limits count in
--- screen pixels and stopped it from shrinking on small screens.
-local HINT_PAD_X, HINT_PAD_Y = 14, 7
-local SLACK = 1.12
-local function fitHint()
-	local text, font = hintText.Text, Theme.fontTextEnum
-	local size, width, height = HINT_TEXT_MIN, hintMax, 0
-	for candidate = HINT_TEXT, HINT_TEXT_MIN, -1 do
-		size = candidate
-		local natural = TextService:GetTextSize(text, candidate, font, Vector2.new(math.huge, math.huge))
-		if natural.X * SLACK + 4 <= hintMax then
-			width, height = natural.X * SLACK + 4, natural.Y
-			break
-		end
-		local wrapped = TextService:GetTextSize(text, candidate, font, Vector2.new(hintMax / SLACK, math.huge))
-		width, height = hintMax, wrapped.Y
-		if wrapped.Y <= candidate * 2.6 then
-			break
-		end
-	end
-	hintText.TextSize = size
-	height = height * 1.1 + 4
-	hintText.Size = UDim2.fromOffset(width, height)
-	hintCard.Size = UDim2.fromOffset(width + 2 * HINT_PAD_X, height + 2 * HINT_PAD_Y)
-end
-
-local function buildToast()
-	toastHolder = frame({ Name = "ToastHolder", AnchorPoint = Vector2.new(0.5, 0), Parent = gui })
-	toastLabel = Theme.text({
-		Name = "Toast",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0),
-		TextSize = 44,
-		AutomaticSize = Enum.AutomaticSize.XY,
-		TextTransparency = 1,
-		Parent = toastHolder,
-	})
-	toastStroke = toastLabel:FindFirstChildOfClass("UIStroke") :: UIStroke
-	toastStroke.Thickness = 3.5
-	toastStroke.Transparency = 1
-end
-
-local function buildCartMarker()
-	-- BillboardGuis do not render inside a ScreenGui, so this one lives directly in PlayerGui
-	cartMarker = Instance.new("BillboardGui")
-	cartMarker.Name = "CartMarker"
-	cartMarker.AlwaysOnTop = true
-	cartMarker.ResetOnSpawn = false
-	cartMarker.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	cartMarker.Size = UDim2.fromOffset(150, 46)
-	cartMarker.StudsOffset = Vector3.new(0, 4.5, 0)
-	cartMarker.Enabled = false
-	cartMarker.Parent = gui.Parent
-
-	local tag = Instance.new("TextLabel")
-	tag.Size = UDim2.new(1, 0, 0, 34)
-	tag.BackgroundColor3 = COLORS.yellow
-	tag.BorderSizePixel = 0
-	tag.FontFace = Theme.fontMain
-	tag.TextSize = 20
-	tag.TextColor3 = COLORS.textDark
-	tag.Text = "YOUR PLOT"
-	tag.ZIndex = 2
-	Theme.corner(tag, UDim.new(0, 12))
-	Theme.outline(tag, 2.5)
-	tag.Parent = cartMarker
-	-- a yellow arrow tip under the tag, pointing at the cart
-	local tip = Instance.new("Frame")
-	tip.AnchorPoint = Vector2.new(0.5, 0.5)
-	tip.Position = UDim2.fromOffset(75, 34)
-	tip.Size = UDim2.fromOffset(14, 14)
-	tip.Rotation = 45
-	tip.BackgroundColor3 = COLORS.yellow
-	tip.BorderSizePixel = 0
-	tip.ZIndex = 1
-	Theme.outline(tip, 2.5)
-	tip.Parent = cartMarker
-end
-
-local function hintFor(key: string): string
-	local hint = HINTS[key]
-	if type(hint) == "table" then
-		return hint[Screen.input()] or hint.keyboard
-	end
-	return hint
-end
-
-local function setHint(key: string?)
-	if key == shownHint then
-		return
-	end
-	shownHint = key
-	hintCard.Visible = key ~= nil
-	if key then
-		hintText.Text = hintFor(key)
-		fitHint()
-	end
-end
-
-local function refreshHint()
-	if towerCount == 0 then
-		setHint(if hasServed then nil else "catch")
-	elseif warning and stanceState == "ready" then
-		setHint("steady")
-	elseif not hasServed and not atCart then
-		setHint("cart")
-	else
-		setHint(nil)
-	end
 end
 
 -- Every cluster where the plan puts it, scaled for the screen.
@@ -513,58 +315,31 @@ local function layout(plan)
 	Screen.place(ammoGroup, plan.ammo, plan.groupScale)
 	Screen.place(dashBar.frame, plan.dash, plan.groupScale)
 	touchScreen = plan.touch
-	-- the worth bigger on phones, where the steady bonus beside it is left out
-	worthText.TextSize = if plan.touch then 21 else 16
+	-- on phones the steady bonus is left out of the tower pill
 	if plan.touch then
 		steadyText.Visible = false
 	end
 	currentPlan = plan
 	placeGauge(false)
-	-- the hint sits on the bottom cluster, the toast under the big buttons
-
-	Screen.place(
-		hintHolder,
-		{ x = plan.bottom.x + plan.bottom.w / 2 - plan.hintWidth / 2, y = 0, w = plan.hintWidth, h = 1 },
-		scale
-	)
-	hintHolder.AnchorPoint = Vector2.new(0, 1)
-	hintHolder.Position = UDim2.fromOffset(
-		math.round(plan.bottom.x + plan.bottom.w / 2 - plan.hintWidth / 2),
-		math.round(plan.bottom.y - plan.frame.h * 0.01)
-	)
-	hintMax = math.max(60, plan.hintWidth / scale - 28)
-	Screen.place(toastHolder, { x = plan.frame.x + plan.frame.w / 2, y = plan.toastY, w = 1, h = 1 }, scale)
-	toastHolder.AnchorPoint = Vector2.new(0.5, 0)
-	if shownHint then
-		hintText.Text = hintFor(shownHint)
-		fitHint()
-	end
 end
 
 function Hud.Init(reg)
 	registry = reg
 	gui = Screen.gui("Hud", 5)
 	coinsFrame = frame({ Name = "CoinsCluster", Parent = gui })
-	coins = Widgets.coins(UiConfig.coins.width, UiConfig.coins.height)
+	coins = Widgets.coins()
+	coins.frame.AnchorPoint = Vector2.new(0, 0.5) -- on the cluster's left edge, its middle; it grows to the right
+	coins.frame.Position = UDim2.fromScale(0, 0.5)
 	coins.frame.Parent = coinsFrame
 	buildAmmo()
 	buildBottom()
 	gauge = ArenaHud.gauge(gui)
 	gauge.set(0, false, false, 0, 0, 0, "ready")
 	dashBar = ArenaHud.dash(gui)
-	buildToast()
-	buildCartMarker()
 	Screen.onChanged(layout)
 end
 
 function Hud.Start()
-	Remotes.Served.OnClientEvent:Connect(function(who: Player)
-		if who == player then
-			hasServed = true
-			refreshHint()
-		end
-	end)
-
 	RunService.RenderStepped:Connect(function()
 		local count = player:GetAttribute("IceBalls")
 		local readyAt = player:GetAttribute("IceBallsReadyAt")
@@ -623,7 +398,6 @@ function Hud.setTower(count: number, capacity: number, value: number, steady: nu
 		steadyText.Visible = percent > 0 and not touchScreen -- too small to read on a phone
 		steadyText.Text = string.format("+%d%%", percent) -- the steady bonus, in mint
 	end
-	refreshHint()
 end
 
 -- tilt is the share of the tip angle; leanX/leanY the lean in screen space as a share of it (x right, y away
@@ -639,36 +413,14 @@ function Hud.setBalance(
 	stance: string
 )
 	-- visible: a tower is carried; the gauge itself shows in the arena either way, greyed out without one
-	warning = visible and tilt >= Tuning.warnFraction
-	stanceState = stance
+	-- the moment the tower starts tipping dangerously while Steady could save it: a short warning (the tutorial teaches
+	-- what to do; the gauge shows it all along)
+	local tipping = visible and tilt >= Tuning.warnFraction and stance == "ready"
+	if tipping and not warning then
+		Toast.show("TIPPING!", "warn", "scoops")
+	end
+	warning = tipping
 	gauge.set(tilt, groaning, visible, leanX, leanY, energy, stance)
-end
-
-function Hud.toast(text: string, colorHex: string?)
-	for _, tween in toastTweens do
-		tween:Cancel()
-	end
-	toastLabel.Text = text
-	local hex = if colorHex then TOAST_COLORS[colorHex] or colorHex else nil
-	toastLabel.TextColor3 = if hex then Color3.fromHex(hex) else COLORS.text
-	toastLabel.TextTransparency = 0
-	toastStroke.Transparency = 0
-	UiKit.Anim.pop(toastLabel)
-	local fade = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.9)
-	toastTweens = {
-		TweenService:Create(toastLabel, fade, { TextTransparency = 1 }),
-		TweenService:Create(toastStroke, fade, { Transparency = 1 }),
-	}
-	for _, tween in toastTweens do
-		tween:Play()
-	end
-end
-
--- atCart: the player stands at the serve point, so the "carry it to your cart" hint is not needed.
-function Hud.setCartTarget(part: BasePart?, isAtCart: boolean)
-	cartMarker.Adornee = part
-	cartMarker.Enabled = part ~= nil
-	atCart = isAtCart
 end
 
 return Hud

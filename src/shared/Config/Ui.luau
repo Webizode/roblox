@@ -114,6 +114,25 @@ return {
 			},
 		},
 	},
+	-- The info pills of coins and tower (Widgets.infoPill), one look for both: `height` design pixels, the icon
+	-- (`icon` across) overhanging the left end, then one row of parts `gap` apart, below the cream glaze (`glaze`: the
+	-- share of the height on top kept free), `padRight` before the right end. The pill is as long as its row, so it never
+	-- shows much empty room; the coins' row is at least `coinsMinRow` long (the number centred in it) and a number longer
+	-- than `maxChars` characters gets smaller instead of the pill growing on. Numbers in Theme.fontNumbers at `text`.
+	infoPill = {
+		height = 44,
+		icon = 56,
+		gap = 10,
+		padRight = 18,
+		glaze = 0.24,
+		text = 30,
+		worthText = 24,
+		worthIcon = 24,
+		steadyText = 18,
+		coinsMinRow = 64,
+		maxChars = 9,
+	},
+
 	-- the window's pink glaze: where its middle is, in source pixels from the top, and where the drips end
 	windowGlaze = { middle = 52, band = 88, drips = 155 },
 	-- The waffle pattern of "Glänzendes Eiswaffel-UI-Set" as a seamless tile (dark grooves, light ridges), repeated never
@@ -181,6 +200,10 @@ return {
 	shadow = 4, -- the dark edge under a button
 	margin = 14, -- to the screen's (safe) edge
 	gap = 10,
+	-- between the left icon buttons (UiLayout.columnGap); on touch screens none, as their tap areas are bigger than
+	-- their pictures anyway
+	columnGap = 10,
+	touchColumnGap = 0,
 	thumb = 44, -- the smallest touch target, in screen pixels
 	badge = 26, -- a key badge's height (its width follows the key cap)
 
@@ -220,6 +243,60 @@ return {
 	touchZones = {
 		stick = { x = 0, y = 0.55, w = 0.4, h = 0.45 },
 		buttons = { x = 0.62, y = 0.42, w = 0.38, h = 0.58 },
+	},
+
+	-- The short messages (UiKit/Toast): no box, the main font with a thick dark outline and a small icon, free in the
+	-- picture `above` design pixels over the bottom cluster (the tower pill). They pop in from `popFrom`, stand `hold`
+	-- seconds (`touchHold` on touch screens, where they are also `touchScale` as big) and fade out in `fade`. The same
+	-- text again within `repeatAfter` seconds only pops the one standing. Each kind's colour is a token of `colors`.
+	toast = {
+		textSize = 36,
+		icon = 42,
+		stroke = 4,
+		above = 16,
+		popFrom = 0.8,
+		pop = 0.18,
+		hold = 2,
+		touchHold = 1.5,
+		touchScale = 0.8,
+		fade = 0.45,
+		repeatAfter = 3,
+		kinds = { normal = "text", warn = "yellow", bad = "red", good = "mint" },
+	},
+
+	-- The way to the own plot (Controllers/PlotGuide, GuideRules): once the cone is `showShare` full, a light stands over
+	-- the own serve point (`height` studs, a core `width` wide in a soft halo `glowWidth` wide, fading upwards; a low
+	-- `lightEmission` keeps its yellow from washing out against the bright sky) and, while the serve point is outside
+	-- the picture, an arrow at the screen's edge (`arrow` design pixels, `arrowMargin` from the edge) points to it.
+	-- Coming within `arriveRadius` studs of it with scoops lights up a ring on the ground there for `glowTime` seconds.
+	guide = {
+		showShare = 0.75,
+		color = "#FFC61E",
+		height = 70,
+		width = 6,
+		glowWidth = 16,
+		lightEmission = 0.35,
+		transparency = 0.35,
+		arriveRadius = 20,
+		glowTime = 1.8,
+		glowSize = 18,
+		arrow = 46,
+		arrowMargin = 70,
+		-- after spawning and after a teleport into the arena the arrow shows this many seconds, to get one's bearings
+		arrowFlash = 2,
+		-- the pin over the own plot (always there, only for the own player): the arrow's bubble and tip with YOU under
+		-- it, `pin` design pixels across, `pinHeight` studs over the serve point, the same size on screen at any
+		-- distance. Faint (`pinTransparency`), solid and `pinStrongScale` as big from showShare, fainter and smaller in
+		-- combat mode; fading out from `pinFade` studs and gone within `pinHide` (on the plot itself). GuideRules.pinLook
+		pin = 46,
+		pinHeight = 16,
+		pinTransparency = 0.4,
+		pinStrongTransparency = 0,
+		pinStrongScale = 1.15,
+		pinCombatTransparency = 0.7,
+		pinCombatScale = 0.75,
+		pinFade = 40,
+		pinHide = 22,
 	},
 
 	-- seconds: a button sinks in (press), eases back (release), a window pops up (pop), a number counts to its new value

@@ -1,7 +1,7 @@
 -- What the local player sees of their own hits (Config/Combat feedback): a red X on the crosshair when their ball hits
 -- somebody (AimHud.mark), the number of scoops a victim lost rising over the victim, and a line in the feed at the
 -- bottom of the screen: "YOU KNOCKED DOWN Name" when their hit knocks somebody down, "YOU TOPPLED Name (+X)" when a
--- tower falls soon after their hit (the server credits it, CombatService.toppled).
+-- tower falls soon after their hit (the server credits it, CombatService.toppled); other news too (HitFeedback.say).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -98,6 +98,13 @@ local function onFeedback(kind: string, victim: Player, lost: number)
 	elseif kind == "toppled" and type(lost) == "number" and lost > 0 then
 		say(`YOU TOPPLED {victim.DisplayName} (+{lost})`)
 		number(victim, lost)
+	end
+end
+
+-- A line in the feed from elsewhere (another player's big serve, TowerController).
+function HitFeedback.say(text: string)
+	if feed then
+		say(text)
 	end
 end
 

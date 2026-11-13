@@ -24,6 +24,7 @@ local Config = Shared:WaitForChild("Config")
 local MapConfig = require(Config:WaitForChild("Map"))
 local Features = require(Config:WaitForChild("Features"))
 local UiConfig = require(Config:WaitForChild("Ui"))
+local UiLayout = require(Shared:WaitForChild("UiLayout"))
 local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local client = script.Parent.Parent
@@ -54,9 +55,9 @@ local BIG = {
 
 -- why the server said no (TeleportDenied), as the player reads it
 local DENIED = {
-	down = "Can't teleport while knocked down",
-	hit = "You just got hit! Walk away first",
-	tower = "Carry your tower out of the arena first",
+	down = "KNOCKED DOWN, CAN'T TELEPORT",
+	hit = "JUST HIT, WALK AWAY FIRST",
+	tower = "CARRY YOUR TOWER OUT FIRST",
 }
 
 local registry
@@ -166,6 +167,8 @@ local function layout(plan)
 	Screen.place(quick, plan.quick, plan.scale)
 	Screen.place(column, plan.column, plan.scale * plan.columnScale)
 	local rows = math.ceil(#COLUMN / plan.columns)
+	local columnGap = UiLayout.columnGap(plan.touch, UiConfig)
+	grid.CellPadding = UDim2.fromOffset(columnGap, columnGap)
 	grid.FillDirectionMaxCells = rows
 	link(rows)
 	for order, entry in COLUMN do
@@ -360,7 +363,7 @@ function Navigation.Start()
 	Remotes.TeleportDenied.OnClientEvent:Connect(function(reason: string)
 		local text = DENIED[reason]
 		if text then
-			registry.Hud.toast(text, UiConfig.colors.red)
+			UiKit.Toast.show(text, "bad", "plot")
 		end
 	end)
 	if Features.debugArenaZone then

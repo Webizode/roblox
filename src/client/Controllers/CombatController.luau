@@ -266,7 +266,7 @@ local function onResolved(
 	if shielded then
 		-- the victim stands in their cart's safe zone: the ball lands, nothing else happens
 		if thrower == player or victim == player then
-			registry.Hud.toast("SAFE!", Palette.mint)
+			UiKit.Toast.show("SAFE!", "normal", "safe")
 		end
 		return
 	end
@@ -286,9 +286,9 @@ local function onResolved(
 		if headshot then
 			-- its own sound and word; a knockdown still says so in the feed (HitFeedback)
 			Sfx.play("headshot")
-			registry.Hud.toast("HEADSHOT!", Palette.lemon)
+			UiKit.Toast.show("HEADSHOT!", "good", "ammo")
 		else
-			registry.Hud.toast(if knockdown then "KNOCKDOWN!" else "HIT!", Palette.lemon)
+			UiKit.Toast.show(if knockdown then "KNOCKDOWN!" else "HIT!", if knockdown then "good" else "normal", "ammo")
 		end
 	end
 	if victim ~= player or not character then
@@ -305,7 +305,7 @@ local function onResolved(
 	CombatCamera.hit() -- the aim camera lets go at once; the charge itself goes on
 	if knockdown then
 		knockDown()
-		registry.Hud.toast("KNOCKED DOWN!", Palette.awning)
+		UiKit.Toast.show("KNOCKED DOWN!", "bad", "ammoEmpty")
 	end
 end
 
@@ -493,7 +493,7 @@ local function onMouseStep()
 	if MouseRules.mustLeaveCombat(combatMode, here) then
 		-- out of the arena: combat mode ends, and exitCombatMode frees the mouse for the teleport buttons
 		forceExit()
-		registry.Hud.toast("Combat mode off: safe zone", Palette.mint)
+		UiKit.Toast.show("COMBAT OFF", "normal", "safe")
 		return
 	end
 	if mode ~= "locked" then
@@ -608,7 +608,7 @@ local function setCombatMode(on: boolean)
 			return
 		end
 		if not MouseRules.canEnterCombat(inArena()) then
-			registry.Hud.toast("Combat mode only in the arena", Palette.mint)
+			UiKit.Toast.show("ARENA ONLY", "warn", "arena")
 			return
 		end
 		enterCombatMode()

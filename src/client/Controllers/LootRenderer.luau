@@ -23,6 +23,7 @@ local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local ScoopModel = require(client:WaitForChild("ScoopModel"))
 local ScoopSign = require(client:WaitForChild("ScoopSign"))
 local Settings = require(client:WaitForChild("Settings"))
+local UiKit = require(client:WaitForChild("UiKit"))
 
 local LootRenderer = {}
 
@@ -363,7 +364,7 @@ local function noteFull(scoop: Drawn, now: number, root: BasePart, humanoid: Hum
 		return
 	end
 	lastFullNote = os.clock()
-	registry.Hud.toast("CONE FULL! Serve at your plot", Palette.awning)
+	UiKit.Toast.show("CONE FULL!", "warn", "scoops") -- the way to the plot shows itself (PlotGuide)
 end
 
 -- The safe zone around the own plot's ServePoint: a faint disc, fainter while a throw from it has lifted the
@@ -460,7 +461,7 @@ end
 local function onUnshielded()
 	local unshieldedUntil = player:GetAttribute("UnshieldedUntil")
 	if type(unshieldedUntil) == "number" and unshieldedUntil > workspace:GetServerTimeNow() then
-		registry.Hud.toast(string.format("NOT SAFE FOR %d s", LootConfig.unshieldSeconds), Palette.awning)
+		UiKit.Toast.show(string.format("NOT SAFE FOR %d s", LootConfig.unshieldSeconds), "warn", "safe")
 	end
 end
 
