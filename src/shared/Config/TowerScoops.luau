@@ -6,7 +6,8 @@
 
 return {
 	folder = "TowerScoops",
-	outline = "#5A2E1A", -- one Highlight per tower, the Big Swirl's outline colour; red (Palette.awning) while it groans
+	-- one Highlight per tower: no outline (the dark #5A2E1A outline went in the kill test of 13.11.2026), red
+	-- (Palette.awning) only while it groans
 	-- the client draws LOD1 from farDistance studs on (from the camera) and LOD0 again below farDistance - hysteresis
 	farDistance = 40,
 	hysteresis = 4,

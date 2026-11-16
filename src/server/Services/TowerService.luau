@@ -11,6 +11,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local Stance = require(Shared:WaitForChild("Stance"))
 local DashCharges = require(Shared:WaitForChild("DashCharges"))
+local Combat = require(Shared:WaitForChild("Combat"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 local SaveData = require(Shared:WaitForChild("SaveData"))
 local Flavors = require(Config:WaitForChild("Flavors"))
@@ -43,6 +44,8 @@ type TowerState = {
 	lastTiltAt: number,
 	lastServeAt: number,
 	lastToppleAt: number,
+	knockSpillUntil: number, -- a knockdown spilled the tower: topple reports until then are refused (no second spill)
+	slowUntil: number, -- a hit slows the player until then (Combat.hitSlow, Config/Combat hitSlow)
 	joinedAt: number,
 	leaderstats: { coins: IntValue, best: IntValue },
 }
@@ -88,9 +91,20 @@ local function applyWalkSpeed(player: Player, state: TowerState)
 	local humanoid = humanoidOf(player)
 	if humanoid then
 		local stance = state.stance.active
-		local speed =
-			Economy.walkSpeed(#state.scoops, state.sneakersLevel, EconomyConfig, state.sprinting and not stance)
-		humanoid.WalkSpeed = if stance then speed * TowerTuning.stance.walkMultiplier else speed
+		local speed = Economy.walkSpeed(
+			#state.scoops,
+			Economy.capacity(state.coneLevel, EconomyConfig),
+			state.sneakersLevel,
+			EconomyConfig,
+			state.sprinting and not stance
+		)
+		if stance then
+			speed *= TowerTuning.stance.walkMultiplier
+		end
+		if now() < state.slowUntil then
+			speed *= CombatConfig.hitSlow.factor -- hit a moment ago
+		end
+		humanoid.WalkSpeed = speed
 	end
 end
 
@@ -158,6 +172,8 @@ local function createState(player: Player): TowerState
 		lastTiltAt = 0,
 		lastServeAt = 0,
 		lastToppleAt = 0,
+		knockSpillUntil = 0,
+		slowUntil = 0,
 		joinedAt = now(),
 		leaderstats = { coins = coins, best = best },
 	}
@@ -181,8 +197,13 @@ local function onToppled(player: Player)
 		publish(player, state, "spawn")
 		return
 	end
+	-- a knockdown has just spilled this tower: what is left does not fall a second time from the same hit
+	if now() < state.knockSpillUntil then
+		publish(player, state, "spawn")
+		return
+	end
 
-	-- small towers keep everything; from the rest the bottom share stays and the others spill as free scoops
+	-- up to spillAllUpTo scoops everything falls, above that the bottom share stays (Economy.keepOnTopple)
 	local keep = Economy.keepOnTopple(count, EconomyConfig)
 	registry.LootService.spill(player, table.clone(state.scoops), keep, state.tiltX, state.tiltZ)
 	for index = count, keep + 1, -1 do
@@ -193,6 +214,9 @@ local function onToppled(player: Player)
 
 	registry.KillTestLog.topple(player, state.controls, count, "self")
 	publish(player, state, "topple")
+	if count > keep then
+		registry.WantedService.clear(player, "toppled") -- the loot lies on the ground again
+	end
 	registry.CombatService.toppled(player, count - keep) -- the thrower whose hit did it hears about it
 end
 
@@ -212,6 +236,11 @@ local function onServe(player: Player, steadyClaim: any)
 		return -- no serving before the save is loaded: the coins would have nowhere to go
 	end
 	if (root.Position - servePoint).Magnitude > EconomyConfig.serveRadius + 4 then
+		return
+	end
+	-- stolen scoops are not sold (Config/Wanted)
+	if registry.WantedService.isWanted(player) then
+		registry.WantedService.notice(player, "serve")
 		return
 	end
 	state.lastServeAt = time
@@ -241,7 +270,14 @@ local function onServe(player: Player, steadyClaim: any)
 
 	registry.KillTestLog.serve(player, state.controls, count, value, carrySeconds, time - state.joinedAt)
 	publish(player, state, "serve")
-	Remotes.Served:FireAllClients(player, count, math.floor(value), steady)
+	-- the serve is the player's own business (kill test 13.11.2026): only they get the count and the coins (message,
+	-- coin fountain, confetti); everybody else only hears that they served, for the glint at their plot pin
+	Remotes.Served:FireClient(player, player, count, math.floor(value), steady)
+	for _, other in Players:GetPlayers() do
+		if other ~= player then
+			Remotes.Served:FireClient(other, player)
+		end
+	end
 end
 
 local function onTilt(player: Player, x: any, z: any)
@@ -304,7 +340,13 @@ local function onDash(player: Player, dirX: any, dirZ: any)
 			)
 		)
 	end
-	local duration = if kind == "quick" then TowerTuning.dash.quick.duration else TowerTuning.dash.duration
+	local duration = (if kind == "quick" then TowerTuning.dash.quick.duration else TowerTuning.dash.duration)
+		* Economy.dashScale(
+			#state.scoops,
+			Economy.capacity(state.coneLevel, EconomyConfig),
+			state.sneakersLevel,
+			EconomyConfig
+		)
 	-- a little short of the burst, so network jitter never blocks the next dash the client already allows
 	state.dashUntil = time + duration * 0.8
 	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length, kind)
@@ -426,7 +468,9 @@ function TowerService.Start()
 
 	-- Studio only: ServerStorage.StudioTowerTest lets a playtest (Studio MCP, command bar) set a player's tower to
 	-- given flavors ("set", player, { ids }) or spill it all as free scoops ("spill", player), to look at towers and
-	-- loot without catching. ServerStorage is never seen by clients; outside Studio it does not exist.
+	-- loot without catching. "steal" spills it like "spill" but as somebody else's scoops (a made-up owner), so picking
+	-- them up again makes the player wanted (Config/Wanted); "wanted" answers whether the server holds them wanted.
+	-- ServerStorage is never seen by clients; outside Studio it does not exist.
 	if RunService:IsStudio() then
 		local test = Instance.new("BindableFunction")
 		test.Name = "StudioTowerTest"
@@ -446,6 +490,12 @@ function TowerService.Start()
 				registry.LootService.spill(player, table.clone(state.scoops), 0, 0.3, 0)
 				table.clear(state.scoops)
 				publish(player, state, "topple")
+			elseif action == "steal" then
+				registry.LootService.spill(player, table.clone(state.scoops), 0, 0.3, 0, -1)
+				table.clear(state.scoops)
+				publish(player, state, "topple")
+			elseif action == "wanted" then
+				return registry.WantedService.isWanted(player)
 			end
 			return #state.scoops
 		end
@@ -473,6 +523,57 @@ function TowerService.hitStance(player: Player, power: number)
 	if state and Stance.drain(state.stance, power * CombatConfig.stanceDrain) then
 		setStance(player, state, false)
 	end
+end
+
+-- A knockdown spills the tower by the same rule as a topple (Economy.keepOnTopple), falling along the ball's flight
+-- (dirX, dirZ), and the rest stands up straight again. For knockSpillGuard seconds after it a topple report is
+-- refused, so the same hit never spills twice. Returns how many scoops fell.
+function TowerService.knockdownSpill(player: Player, dirX: number, dirZ: number): number
+	local state = states[player]
+	local count = state and #state.scoops or 0
+	if not state or count == 0 then
+		return 0
+	end
+	local keep = Economy.keepOnTopple(count, EconomyConfig)
+	local flat = math.sqrt(dirX * dirX + dirZ * dirZ)
+	local tiltX, tiltZ = 0, 0
+	if flat > 1e-3 then
+		tiltX, tiltZ = dirX / flat, dirZ / flat -- LootService scales it to the tipping angle
+	end
+	registry.LootService.spill(player, table.clone(state.scoops), keep, tiltX, tiltZ)
+	for index = count, keep + 1, -1 do
+		state.scoops[index] = nil
+	end
+	state.tiltX, state.tiltZ = 0, 0
+	state.carryStartedAt = if keep > 0 then now() else nil
+	state.lastToppleAt = now()
+	state.knockSpillUntil = now() + EconomyConfig.knockSpillGuard
+	registry.KillTestLog.topple(player, state.controls, count, "knockdown")
+	publish(player, state, "knockdown")
+	if count > keep then
+		registry.WantedService.clear(player, "knocked down") -- the loot lies on the ground again
+	end
+	return count - keep
+end
+
+-- A hit slows the player for a moment (Combat.hitSlow: never stacking, never longer); the walking speed is set again
+-- when it ends. Does nothing while a slow-down runs or right after one.
+function TowerService.hitSlow(player: Player)
+	local state = states[player]
+	if not state then
+		return
+	end
+	local untilAt = Combat.hitSlow(state.slowUntil, now(), CombatConfig)
+	if not untilAt then
+		return
+	end
+	state.slowUntil = untilAt
+	applyWalkSpeed(player, state)
+	task.delay(CombatConfig.hitSlow.seconds + 0.03, function() -- a little after its end, never a frame before
+		if states[player] == state then
+			applyWalkSpeed(player, state)
+		end
+	end)
 end
 
 -- Ends the player's stance, for a knockdown.

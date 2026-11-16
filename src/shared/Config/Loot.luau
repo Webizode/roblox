@@ -1,13 +1,13 @@
 --!strict
--- Spilled scoops: what a toppled tower drops, who may pick it up, for how long, and the safe zone at the own cart.
+-- Spilled scoops: what a toppled or knocked-down tower drops, who may pick it up, for how long, and the safe zone at the own cart.
 -- The server owns all of it (LootService); clients draw the scoops with the same numbers (Loot.position).
 
 return {
-	-- who may pick up: nobody at once, so shooting a tower down is worth it. The owner may from ownerLock seconds
-	-- after the landing on, everybody else from ownerSeconds on, counted from the moment the owner can act again
-	-- (landing, or the end of a knockdown that is still running); until then only the owner.
-	ownerLock = 2,
-	ownerSeconds = 3,
+	-- who may pick up, in seconds after the landing: the owner from ownerLock on (0: at once, as soon as they are up
+	-- again), everybody else from othersLock on. Test of 14.11.2026: with no wait at all the others took a knocked-down
+	-- player's scoops before they could even get up; 13.11.2026 both were 0, before that owner 2 s, others 3 s.
+	ownerLock = 0,
+	othersLock = 0.5,
 	lifetime = 10, -- seconds from the topple until an uncollected scoop disappears with a puff
 	blinkSeconds = 1, -- it blinks for this long before it disappears
 	-- a client that has not heard of the removal this long after the end removes the scoop itself (it can no longer be

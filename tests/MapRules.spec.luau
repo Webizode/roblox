@@ -34,6 +34,14 @@ describe("Map: throws", function()
 end)
 
 describe("Map: cover box", function()
+	it("knows the collision parts of a cover: the one box, or the shapes of a piece built from several", function()
+		expect(MapRules.isCoverCollision("Collision", Config)).toBe(true)
+		expect(MapRules.isCoverCollision("Collision_Ramp", Config)).toBe(true)
+		expect(MapRules.isCoverCollision("Collision_Step3", Config)).toBe(true)
+		expect(MapRules.isCoverCollision("CollisionBox", Config)).toBe(false)
+		expect(MapRules.isCoverCollision("WaffleCrates_Gold", Config)).toBe(false)
+	end)
+
 	local half = { 6, 2.5, 1.95 }
 
 	it("leaves a box alone that covers the meshes, also when they are a hair larger", function()

@@ -222,12 +222,15 @@ local function coverPieces(container: Instance, into: { Model })
 	end
 end
 
--- Every cover piece in the cover folder (Config/Map.coverFolder, also inside groups there) collides through exactly
--- one invisible box: its part named coverCollision, made from the model's bounding box when missing (a fresh import
--- dragged in). All its other parts are anchored and neither collide, nor take queries or touches, so only the box
--- stops players, thrown balls and the landing rays (the folder name keeps scoops from landing on it). Loose parts in
--- the folder (the old graybox walls with their *_Kolizja boxes) are left as they are. Returns how many models it
--- prepared and how many boxes it had to make.
+-- Every cover piece in the cover folder (Config/Map.coverFolder, also inside groups there) collides only through its
+-- invisible collision parts (MapRules.isCoverCollision): one box named coverCollision, made from the model's bounding
+-- box when missing (a fresh import dragged in) and grown when the meshes stick out of it; or, for the arena kit 2
+-- models (assets/ArenaKit2), several shapes (coverCollision plus coverCollision_<Name>: boxes, cylinders, ramp
+-- wedges), which fit the model as built and are never grown, so no invisible wall forms over a shaped piece. All
+-- other parts are anchored and neither collide, nor take queries or touches, so only the collision parts stop players,
+-- thrown balls and the landing rays (the folder name keeps scoops from landing on it). Loose parts in the folder (the
+-- old graybox walls with their *_Kolizja boxes) are left as they are. Returns how many models it prepared and how many
+-- boxes it had to make.
 function MapService.prepareCover(root: Instance): (number, number)
 	local folder = root:FindFirstChild(MapConfig.coverFolder)
 	if not folder then
@@ -237,8 +240,13 @@ function MapService.prepareCover(root: Instance): (number, number)
 	local pieces = {}
 	coverPieces(folder, pieces)
 	for _, model in pieces do
-		local box = model:FindFirstChild(MapConfig.coverCollision)
-		if not (box and box:IsA("BasePart")) then
+		local shapes: { BasePart } = {}
+		for _, child in model:GetChildren() do
+			if child:IsA("BasePart") and MapRules.isCoverCollision(child.Name, MapConfig) then
+				table.insert(shapes, child)
+			end
+		end
+		if #shapes == 0 then
 			local cframe, size = model:GetBoundingBox()
 			local part = Instance.new("Part")
 			part.Name = MapConfig.coverCollision
@@ -247,18 +255,21 @@ function MapService.prepareCover(root: Instance): (number, number)
 			part.Transparency = 1
 			part.CastShadow = false
 			part.Parent = model
-			box = part
+			table.insert(shapes, part)
 			made += 1
 			warn(`[Map] {model:GetFullName()} had no {MapConfig.coverCollision} box; made one from its bounding box`)
 		end
-		assert(box and box:IsA("BasePart"), "cover box ensured above")
-		fitCoverBox(model, box)
-		box.Anchored = true
-		box.CanCollide = true
-		box.CanQuery = true
-		box.CanTouch = false
+		if #shapes == 1 then
+			fitCoverBox(model, shapes[1]) -- a single box follows meshes resized in Studio; shaped pieces stay as built
+		end
+		for _, shape in shapes do
+			shape.Anchored = true
+			shape.CanCollide = true
+			shape.CanQuery = true
+			shape.CanTouch = false
+		end
 		for _, part in model:GetDescendants() do
-			if part:IsA("BasePart") and part ~= box then
+			if part:IsA("BasePart") and not table.find(shapes, part) then
 				part.Anchored = true
 				part.CanCollide = false
 				part.CanQuery = false

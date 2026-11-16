@@ -33,3 +33,5 @@ assets/DecoKit/previews/
 # shop kit FBX: made by assets/ShopKit/run_shopkit.py, previews go straight to the vault (Shop Kit Vorschau)
 assets/ShopKit/fbx/
 assets/ShopKit/previews/
+# arena kit 2 FBX: made by assets/ArenaKit2/run_arenakit2.py, previews go straight to the vault (Arena Kit 2 Vorschau)
+assets/ArenaKit2/fbx/

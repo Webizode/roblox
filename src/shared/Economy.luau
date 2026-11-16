@@ -22,11 +22,10 @@ export type ServeOptions = {
 
 export type Config = {
 	heightFactor: number,
-	keepOnToppleFraction: number,
-	keepOnToppleMin: number,
-	keepAllBelow: number,
+	spillShare: number,
+	spillAllUpTo: number,
 	baseWalkSpeed: number,
-	walkSpeedPenaltyPerScoop: number,
+	towerSlow: { walk: number, dash: number, curve: number },
 	minWalkSpeed: number,
 	sprintMultiplier: number,
 	upgrades: {
@@ -87,23 +86,46 @@ function Economy.serveValue(
 	return base * Economy.heightMultiplier(count, config) * (1 + steady) * serveMultiplier * towerFactor
 end
 
--- How many scoops stay on the cone when a tower topples: all of a small tower, else the bottom share. The rest spill
+-- How many scoops stay on the cone when a tower topples or its carrier is knocked down: none of a small tower (up to
+-- spillAllUpTo), else what is left after spillShare fell from the top (rounded to the nearest scoop). The rest spill
 -- (Loot).
 function Economy.keepOnTopple(count: number, config: Config): number
-	if count < config.keepAllBelow then
-		return count
+	if count <= config.spillAllUpTo then
+		return 0
 	end
-	local keep = math.max(config.keepOnToppleMin, math.floor(count * config.keepOnToppleFraction))
-	return math.min(count, keep)
+	local spilled = math.floor(count * config.spillShare + 0.5)
+	return math.clamp(count - spilled, 0, count)
 end
 
--- Walking speed for a tower of `count` scoops; sprinting multiplies it by sprintMultiplier.
-function Economy.walkSpeed(count: number, sneakersLevel: number, config: Config, sprinting: boolean?): number
+-- How much the tower weighs on its carrier, 0..1: (scoops / capacity) ^ towerSlow.curve, a soft curve that stays small
+-- while the waffle is far from full.
+function Economy.towerLoad(count: number, capacity: number, config: Config): number
+	if capacity <= 0 then
+		return 0
+	end
+	return math.clamp(count / capacity, 0, 1) ^ config.towerSlow.curve
+end
+
+-- Walking speed with `count` scoops in a waffle of `capacity`: the tower's load costs up to towerSlow.walk of it (less
+-- with sneakers, their penaltyScale), never below minWalkSpeed; sprinting multiplies it by sprintMultiplier.
+function Economy.walkSpeed(
+	count: number,
+	capacity: number,
+	sneakersLevel: number,
+	config: Config,
+	sprinting: boolean?
+): number
 	local sneakers = config.upgrades.sneakers
 	local speed = config.baseWalkSpeed * level(sneakers.speed, sneakersLevel)
-	local penalty = config.walkSpeedPenaltyPerScoop * level(sneakers.penaltyScale, sneakersLevel)
-	local walk = math.max(config.minWalkSpeed, speed / (1 + penalty * count))
+	local slow = config.towerSlow.walk * level(sneakers.penaltyScale, sneakersLevel)
+	local walk = math.max(config.minWalkSpeed, speed * (1 - slow * Economy.towerLoad(count, capacity, config)))
 	return if sprinting then walk * config.sprintMultiplier else walk
+end
+
+-- The share of the dash's distance (its duration) left with that tower: 1 - towerSlow.dash x load (less with sneakers).
+function Economy.dashScale(count: number, capacity: number, sneakersLevel: number, config: Config): number
+	local slow = config.towerSlow.dash * level(config.upgrades.sneakers.penaltyScale, sneakersLevel)
+	return 1 - slow * Economy.towerLoad(count, capacity, config)
 end
 
 function Economy.capacity(coneLevel: number, config: Config): number

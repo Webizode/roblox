@@ -118,6 +118,10 @@ return {
 		-- the camera is kept this far out of solid parts (a swept sphere), so roofs, palms and decorations do not
 		-- slice through the near plane
 		wallRadius = 0.6, -- studs
+		-- in the arena Roblox's own camera cannot zoom in closer than this (no first person, the character and the
+		-- tower stay in view; kill test 13.11.2026: first person and then R left the character invisible behind its
+		-- own tower). Outside the arena the player's own limit applies again.
+		arenaMinZoom = 8, -- studs
 	},
 
 	-- the ball in the hand (HeldBalls), drawn for every player in combat mode; purely visual
@@ -212,6 +216,12 @@ return {
 	-- `perStud` wider per stud, at most `max` (100 studs away). Hit power is measured against the grown reach, so the
 	-- edge of a wide far reach is a graze like the edge of a close one.
 	hitGrowth = { from = 20, perStud = 0.025, max = 4.2 },
+	-- Only what can be seen is hit (kill test 13.11.2026: some players could be hit round a corner): a ball that comes
+	-- within the reach but not within coverFree of the body's axis only hits when nothing that stops a ball lies between
+	-- it and the axis (CombatService), so the wide reach never sticks out through cover. Within coverFree the ball
+	-- touches the body itself (half a body's width plus the ball). Walls and cover stop the ball by its radius
+	-- (ballRadius, a sphere cast), the same radius the reach adds round the players.
+	coverFree = 1.6, -- studs from the body's axis
 
 	-- Aim assist on the ball itself (BallFlight, since the kill test of 13.11.2026), on top of the camera's (aimAssist),
 	-- off with the "Aim Assist" setting. At the throw the server picks the rival closest to the crosshair: within
@@ -241,6 +251,10 @@ return {
 	knockbackSpeed = 26, -- studs/s away from the thrower, times the hit power (so a charged throw pushes harder)
 	knockbackUp = 9, -- studs/s
 	knockbackTime = 0.15, -- seconds
+	-- A hit slows the one hit (test of 14.11.2026: nimble players far away were hardly hit, more aim help was not
+	-- wanted): to `factor` of their speed for `seconds`. It never stacks: a hit while slowed, or within `immune` seconds
+	-- after it, slows nothing more and lasts no longer (Combat.hitSlow), so nobody is held in place. Not on a knockdown.
+	hitSlow = { factor = 0.7, seconds = 0.6, immune = 0.4 },
 
 	-- tower reaction (TowerModel.hitKick): pushed along the ball's flight, corrections weaker for a moment
 	-- Hits shake the tower: their powers add up and drain by towerShakeDecay per second, and each hit kicks harder
@@ -272,17 +286,21 @@ return {
 		points = { normal = 2, graze = 1, perfect = 3, headshot = 3, headshotPerfect = 6 },
 		grazeBelow = 0.4,
 		knockdownAt = 6,
-		resetAfter = 4, -- seconds
+		-- 6 since the multi-player test of 16.11.2026 (4 before): points came back too fast
+		resetAfter = 6, -- seconds
 		multiWindow = 0.25, -- seconds
 		protection = 2, -- seconds after getting up
 	},
-	-- Headshot (Combat.isHeadshot): only the head counts, its zone is the Head part's radius times headZoneScale.
-	-- The server follows the ball's arc through the body; reaching the tower column on the back first (a throw from
-	-- behind) makes it a normal hit. The column runs upright (the server does not know the lean) through the scoop
+	-- Headshot (Combat.isHeadshot): only the head counts, its zone is headRadius times headZoneScale round the Head
+	-- part's centre. headRadius is the same for every avatar (the standard R15 head, 1.2 across), so big or small heads
+	-- and hats change nothing (kill test 13.11.2026: hitboxes differed between avatars). The server follows the ball's
+	-- arc through the body in fine steps; the zone it enters first decides: the tower column first (a throw from behind
+	-- where the tower really is in front of the head) makes it a normal hit. The column runs upright (the server does not know the lean) through the scoop
 	-- centres: from the bottom scoop, towerBack studs behind and towerUp above the HumanoidRootPart, scoopSpacing
 	-- (Config/Tower) up per further scoop, towerRadius round. Measured on the R15 rig in the 2-player test on
 	-- 31.10.2026 (Backpacks.seat): bottom scoop centre 2.24 behind, 0.68 above, scoop radius 1.05.
 	headZoneScale = 1.3,
+	headRadius = 0.6, -- studs
 	towerBack = 2.24,
 	towerUp = 0.68,
 	towerRadius = 1.05,

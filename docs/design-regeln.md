@@ -28,7 +28,7 @@ Kugeln fangen → Turm wächst → du wirst zum Ziel → sicher servieren **oder
 1. **Der Turm ist dein Einsatz.** Was du trägst, ist ungesichert. Gesichert wird nur durch Servieren am eigenen Wagen.
 2. **Wer hoch stapelt, wird gejagt.** Große Türme leuchten (Golden Glow), sind von weitem sichtbar und bringen beim Abschießen am meisten. Der Führende wird automatisch zum Ziel.
 3. **Treffen fühlt sich stark an, getroffen werden fühlt sich fair an.** Klarer Treffer-Sound und Effekt, Server entscheidet, kein Dauer-Stun. Wer kippt, muss denken: „Hätte ich ausweichen oder retten können.“
-4. **Verlieren tut weh, aber nie komplett.** 30 % (mindestens 2 Kugeln) bleiben. 3 Sekunden Vorrang auf die eigenen verschütteten Kugeln. Türme unter 5 Kugeln und der Bereich am Wagen sind geschützt.
+4. **Verlieren tut weh, aber nie komplett.** Geändert am 13.11.2026 (Entscheidung des Nutzers nach dem Test mit Nik): Kugeln fallen beim Kippen und bei jedem Knockdown. Türme bis 5 Kugeln verlieren alles, größere 60 % von oben, der Rest bleibt. Der Besitzer sammelt sofort auf, alle anderen nach 0,5 s (seit 14.11.2026). Der Bereich am Wagen bleibt geschützt. Vorher: 30 % (mindestens 2) blieben, 3 s Vorrang auf die eigenen Kugeln, Türme unter 5 Kugeln geschützt.
 5. **Sorten sind anders, nicht stärker.** Jede Sorte hat eine Fähigkeit als Sidegrade. Kein Pay-to-Win, auch nicht später.
 6. **Smooth vor Features.** Eingabe reagiert sofort, Wurf und Bewegung werden auf dem Client vorhergesagt, der Server prüft. Lieber wenige Mechaniken, die sich perfekt anfühlen.
 7. **Die Scoops leben.** Jede Kugel hat Gesicht, Persönlichkeit und reagiert auf das, was dir passiert (Abschnitt 5).

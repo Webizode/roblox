@@ -228,6 +228,47 @@ function Combat.closestToCapsule(
 	return math.sqrt(dx * dx + dy * dy + dz * dz), s
 end
 
+-- A rival the crosshair ray may pass over: their HumanoidRootPart (x, y, z) and, if known, their head zone.
+export type AimBody = { x: number, y: number, z: number, head: Head? }
+
+-- How far along the crosshair ray (from o along the unit direction d, at most `length` studs) the nearest rival lies
+-- that the ray passes over: within hitRadius of their body's axis (the capsule without its growth) or inside their
+-- head zone (the head's radius times headZoneScale). nil when it passes none. The throw aims at the ray's point at
+-- that distance instead of at the map behind: a character's head, limbs and hair do not collide, so the map ray flew
+-- through them, the aim point lay far behind the rival, and the ball from the right hand ran almost parallel to the
+-- crosshair ray, passing the rival on the left by about the hand's distance from the camera (kill test 13.11.2026).
+function Combat.aimDepth(
+	ox: number,
+	oy: number,
+	oz: number,
+	dx: number,
+	dy: number,
+	dz: number,
+	length: number,
+	bodies: { AimBody },
+	config: Config
+): number?
+	local best: number? = nil
+	local bx, by, bz = ox + dx * length, oy + dy * length, oz + dz * length
+	for _, body in bodies do
+		local distance, s =
+			Combat.closestToCapsule(ox, oy, oz, bx, by, bz, body.x, body.y, body.z, config.hitHalfHeight)
+		local along: number? = if distance <= config.hitRadius then s * length else nil
+		local head = body.head
+		if head then
+			local t = math.clamp((head.x - ox) * dx + (head.y - oy) * dy + (head.z - oz) * dz, 0, length)
+			local hx, hy, hz = ox + dx * t - head.x, oy + dy * t - head.y, oz + dz * t - head.z
+			if math.sqrt(hx * hx + hy * hy + hz * hz) <= head.radius * config.headZoneScale then
+				along = if along then math.min(along, t) else t
+			end
+		end
+		if along and along > 0 and (best == nil or along < best) then
+			best = along
+		end
+	end
+	return best
+end
+
 -- How centred a hit is: the closest the ball's path comes to the axis of the capsule centred at (cx, cy, cz), from
 -- `fromT` (the moment it touched the capsule) on through the capsule. The frame step that finds a hit only sees the
 -- short piece of path where the ball entered, always near the edge of the reach, so its distance there would make every
@@ -261,37 +302,19 @@ function Combat.passDistance(
 	return best
 end
 
--- Closest distance from the point c to the segment a->b, and where along a->b (0..1) it is.
-local function pointToSegment(
-	ax: number,
-	ay: number,
-	az: number,
-	bx: number,
-	by: number,
-	bz: number,
-	cx: number,
-	cy: number,
-	cz: number
-): (number, number)
-	local dx, dy, dz = bx - ax, by - ay, bz - az
-	local length2 = dx * dx + dy * dy + dz * dz
-	local s = if length2 > 1e-9
-		then math.clamp(((cx - ax) * dx + (cy - ay) * dy + (cz - az) * dz) / length2, 0, 1)
-		else 0
-	local px, py, pz = ax + dx * s - cx, ay + dy * s - cy, az + dz * s - cz
-	return math.sqrt(px * px + py * py + pz * pz), s
-end
-
 export type Head = { x: number, y: number, z: number, radius: number }
 -- the scoops on the back as a capsule: from the centre of the bottom scoop (x, y, z) `height` studs up to the centre of
 -- the top one, `radius` the scoops' radius (height 0: a single scoop)
 export type TowerColumn = { x: number, y: number, z: number, height: number, radius: number }
 
--- Whether a ball that touched the body capsule at `fromT` is a headshot: following its arc on through the body (as
--- passDistance does), it reaches the head zone (the head's radius times headZoneScale, plus the ball) with its centre
--- at head height (above the bottom of the head itself) before it reaches the tower column on the back. Only the head
--- counts: a ball at the chest that grazes the chin is a body hit, and a tower in the way (a throw from behind) makes
--- it a normal hit. `tower` is nil without scoops. The server decides this from the flight alone.
+-- Whether a ball that touched the body capsule at `fromT` is a headshot: following its arc on through the body in fine
+-- steps (about 0.06 studs), the first of the two zones its centre enters decides: the head zone (headRadius times
+-- headZoneScale, plus the ball, with the ball's centre at head height, above the bottom of the head itself) makes it a
+-- headshot, the tower column on the back (the scoops' radius plus the ball) a normal hit. Entering both at the same
+-- step, the one it is deeper in wins. So from the front and the side a ball that visibly meets the head is a headshot,
+-- and from behind the tower only protects where it really stands in front of the head. Only the head counts: a ball at
+-- the chest that grazes the chin is a body hit. `tower` is nil without scoops. The server decides this from the flight
+-- alone.
 function Combat.isHeadshot(
 	ox: number,
 	oy: number,
@@ -305,35 +328,31 @@ function Combat.isHeadshot(
 	config: Config
 ): boolean
 	local headReach = head.radius * config.headZoneScale + config.ballRadius
+	local towerReach = if tower then tower.radius + config.ballRadius else 0
 	local reach = config.hitRadius + config.ballRadius
 	local speed = math.max(math.sqrt(vx * vx + (vy - config.gravity * fromT) ^ 2 + vz * vz), 1)
 	local span = 2 * reach / speed -- long enough to cross the whole capsule
-	local steps = 32
-	local px, py, pz = Combat.position(ox, oy, oz, vx, vy, vz, config.gravity, fromT)
-	for step = 1, steps do
-		local t = fromT + span * step / steps
-		local qx, qy, qz = Combat.position(ox, oy, oz, vx, vy, vz, config.gravity, t)
-		local headDistance, headS = pointToSegment(px, py, pz, qx, qy, qz, head.x, head.y, head.z)
-		local towerS = math.huge
+	local steps = 96
+	for step = 0, steps do
+		local px, py, pz = Combat.position(ox, oy, oz, vx, vy, vz, config.gravity, fromT + span * step / steps)
+		local hx, hy, hz = px - head.x, py - head.y, pz - head.z
+		local headDistance = math.sqrt(hx * hx + hy * hy + hz * hz)
+		local inHead = headDistance <= headReach and py >= head.y - head.radius
+		local towerDistance = math.huge
 		if tower then
-			local half = tower.height / 2
-			local distance, s
-			if half > 1e-6 then
-				distance, s = Combat.closestToCapsule(px, py, pz, qx, qy, qz, tower.x, tower.y + half, tower.z, half)
-			else
-				distance, s = pointToSegment(px, py, pz, qx, qy, qz, tower.x, tower.y, tower.z) -- a single scoop
-			end
-			if distance <= tower.radius + config.ballRadius then
-				towerS = s
-			end
+			-- from the ball's centre to the column's axis, the segment through the scoop centres
+			local y = math.clamp(py, tower.y, tower.y + math.max(tower.height, 0))
+			local tx, ty, tz = px - tower.x, py - y, pz - tower.z
+			towerDistance = math.sqrt(tx * tx + ty * ty + tz * tz)
 		end
-		if headDistance <= headReach and py + (qy - py) * headS >= head.y - head.radius then
-			return headS < towerS
-		end
-		if towerS < math.huge then
+		local inTower = tower ~= nil and towerDistance <= towerReach
+		if inHead and inTower then
+			return headDistance / headReach < towerDistance / towerReach
+		elseif inHead then
+			return true
+		elseif inTower then
 			return false
 		end
-		px, py, pz = qx, qy, qz
 	end
 	return false
 end
@@ -395,6 +414,20 @@ function Combat.ammoDisplay(count: number, reloadUntil: number, now: number, con
 		return loaded, 0
 	end
 	return loaded, math.clamp(1 - (reloadUntil - now) / config.reloadPerBall, 0, 1)
+end
+
+-- A hit's slow-down (Config/Combat hitSlow) for one who was hit at `now`, given until when their last one ran
+-- (`slowUntil`, 0: none yet): the new end of the slow-down, or nil when this hit slows nothing because one still runs
+-- or ended less than `immune` seconds ago. It never stacks or grows longer, so nobody is held in place.
+function Combat.hitSlow(
+	slowUntil: number,
+	now: number,
+	config: { hitSlow: { seconds: number, immune: number } }
+): number?
+	if now < slowUntil + config.hitSlow.immune then
+		return nil
+	end
+	return now + config.hitSlow.seconds
 end
 
 return Combat

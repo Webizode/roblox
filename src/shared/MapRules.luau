@@ -18,6 +18,7 @@ export type Config = {
 	throwPassFolders: { string },
 	throwPassNames: { string },
 	coverFitTolerance: number,
+	coverCollision: string,
 	playersOnlyFolders: { string },
 	coverKitNames: { string },
 }
@@ -194,6 +195,12 @@ function MapRules.isCoverKit(name: string, config: Config): boolean
 end
 
 export type Bounds = { min: { number }, max: { number } } -- {x, y, z} each, in the cover box's own frame
+
+-- Whether a part of a cover model is one of its collision parts: the box named coverCollision, or one of the shapes
+-- coverCollision_<Name> of a model built from several (assets/ArenaKit2).
+function MapRules.isCoverCollision(name: string, config: Config): boolean
+	return name == config.coverCollision or name:sub(1, #config.coverCollision + 1) == config.coverCollision .. "_"
+end
 
 -- The box a cover model must collide with when its visible parts stick out of its Collision box by more than
 -- config.coverFitTolerance on any side (only the meshes resized in Studio, not the whole model): the union of the box

@@ -11,6 +11,7 @@ local ORDER = {
 	"HitFeedback",
 	"VfxController",
 	"KnockMeter",
+	"WantedHud",
 	"Backpacks",
 	"HeldBalls",
 	"ThrowAnimator",
@@ -24,6 +25,7 @@ local ORDER = {
 	"UiKitGallery",
 	"FountainWater",
 	"Ocean",
+	"HitZoneDebug",
 }
 
 local registry = {}

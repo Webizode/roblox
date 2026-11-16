@@ -228,7 +228,10 @@ local function onPoseStep(dt: number)
 			continue
 		end
 		local throwing = entry.throwAt ~= nil and clock - entry.throwAt < ThrowPose.throwLength(CombatConfig)
+		local downUntil = player:GetAttribute("DownUntil")
+		local down = type(downUntil) == "number" and workspace:GetServerTimeNow() < downUntil
 		local active = humanoid.Health > 0
+			and not down -- knocked down: the knockdown animation has the body, combat mode stays on meanwhile
 			and (player:GetAttribute("CombatMode") == true or throwing)
 			and not (not rig.r6 and playsThrow(humanoid))
 		entry.weight = math.clamp(entry.weight + (if active then blend else -blend), 0, 1)

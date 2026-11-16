@@ -15,6 +15,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Loot = require(Shared:WaitForChild("Loot"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local CatchRules = require(Shared:WaitForChild("CatchRules"))
+local Wanted = require(Shared:WaitForChild("Wanted"))
 local LootConfig = require(Config:WaitForChild("Loot"))
 local TowerTuning = require(Config:WaitForChild("Tower"))
 local Features = require(Config:WaitForChild("Features"))
@@ -181,6 +182,9 @@ local function onClaim(player: Player, id: any)
 	if not scoop.landed then
 		registry.KillTestLog.pickup(player, scoop.owner) -- the kill test counts spilled scoops taken back or stolen
 	end
+	if Wanted.isStolen(scoop.landed, scoop.owner, player.UserId) then
+		registry.WantedService.stole(player) -- somebody else's spilled scoop: wanted (again) for the full time
+	end
 	remove(id, player, "caught")
 end
 
@@ -256,7 +260,15 @@ end
 
 -- A tower toppled: the scoops above `keep` fall off. flavorIds is the tower before the topple (bottom to top),
 -- tiltX/tiltZ its last known lean. Nothing happens when nothing falls (small towers keep everything).
-function LootService.spill(player: Player, flavorIds: { string }, keep: number, tiltX: number, tiltZ: number)
+-- `asOwner` (Studio tests only, StudioTowerTest "steal") hands the scoops to another, made-up owner.
+function LootService.spill(
+	player: Player,
+	flavorIds: { string },
+	keep: number,
+	tiltX: number,
+	tiltZ: number,
+	asOwner: number?
+)
 	local base = registry.TowerService.towerBase(player)
 	if not base or keep >= #flavorIds then
 		return
@@ -272,7 +284,7 @@ function LootService.spill(player: Player, flavorIds: { string }, keep: number, 
 
 	local time = now()
 	local landedAt = time + LootConfig.fallTime
-	local ownerUntil = Loot.ownerUntil(landedAt, registry.CombatService.downUntil(player), LootConfig)
+	local ownerUntil = Loot.ownerUntil(landedAt, LootConfig)
 	local list = {}
 	for index = 1, kept do
 		local path = paths[index]
@@ -304,8 +316,8 @@ function LootService.spill(player: Player, flavorIds: { string }, keep: number, 
 		nextId += 1
 		local scoop: Free = {
 			id = nextId,
-			ownerPlayer = player,
-			owner = player.UserId,
+			ownerPlayer = if asOwner then nil else player,
+			owner = asOwner or player.UserId,
 			path = path,
 			baseX = base.X,
 			baseY = base.Y,
@@ -370,22 +382,6 @@ function LootService.landed(flavorId: string, position: Vector3, landedAt: numbe
 	table.insert(order, scoop.id)
 	Remotes.LootSpawned:FireAllClients({ wire(scoop) })
 	return true
-end
-
--- The player was knocked down until `downUntil`: their head start on their own spilled scoops only begins after it.
-function LootService.ownerDown(player: Player, downUntil: number)
-	local ids = {}
-	local time = now()
-	local ownerUntil = downUntil + LootConfig.ownerSeconds
-	for _, scoop in free do
-		if scoop.ownerPlayer == player and scoop.ownerUntil > time and scoop.ownerUntil < ownerUntil then
-			scoop.ownerUntil = ownerUntil
-			table.insert(ids, scoop.id)
-		end
-	end
-	if #ids > 0 then
-		Remotes.LootUpdated:FireAllClients(ids, ownerUntil)
-	end
 end
 
 return LootService

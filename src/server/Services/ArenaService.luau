@@ -95,6 +95,7 @@ local function onTeleport(player: Player, where: any)
 		alive = character ~= nil and humanoid ~= nil and humanoid.Health > 0,
 		inArena = ArenaService.inArena(player),
 		carrying = registry.TowerService.count(player) > 0, -- carrying the tower out of the arena is the game
+		wanted = registry.WantedService.isWanted(player), -- stolen scoops: no way out (Config/Wanted)
 		down = registry.CombatService.isDown(player),
 		sinceHit = registry.CombatService.sinceHit(player),
 		sinceRequest = time - (lastRequest[player] or -math.huge),
@@ -103,7 +104,7 @@ local function onTeleport(player: Player, where: any)
 		lastRequest[player] = time
 	end
 	if refusal then
-		if refusal == "down" or refusal == "hit" or refusal == "tower" then
+		if refusal == "wanted" or refusal == "down" or refusal == "hit" or refusal == "tower" then
 			Remotes.TeleportDenied:FireClient(player, refusal)
 		end
 		return

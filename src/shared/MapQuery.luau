@@ -100,4 +100,31 @@ function MapQuery.throwRaycast(origin: Vector3, direction: Vector3, ignore: { In
 	return nil
 end
 
+-- throwRaycast for a ball of `radius`: a sphere cast with the same rule, so a wall stops the ball where its edge touches
+-- it, not only its centre. Parts the sphere already overlaps at `origin` are not found (Roblox's sphere cast).
+function MapQuery.throwSpherecast(
+	origin: Vector3,
+	radius: number,
+	direction: Vector3,
+	ignore: { Instance }
+): RaycastResult?
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local skipped = table.clone(ignore)
+	for _ = 1, MAX_SKIPS do
+		params.FilterDescendantsInstances = skipped
+		local result = workspace:Spherecast(origin, radius, direction, params)
+		if not result then
+			return nil
+		end
+		local instance = result.Instance
+		local canCollide = instance:IsA("Terrain") or (instance :: BasePart).CanCollide
+		if MapRules.blocksThrow(MapQuery.folderOf(instance), instance.Name, canCollide, MapConfig) then
+			return result
+		end
+		table.insert(skipped, instance)
+	end
+	return nil
+end
+
 return MapQuery

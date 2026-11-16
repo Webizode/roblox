@@ -5,7 +5,7 @@
 --   LootSpawned      a tower toppled: the puff where it stood (its scoops fly apart in LootRenderer)
 --   IceBallResolved  the hit (splash, sprinkles, flash; a headshot with golden stars), the knockdown (stars over the
 --                    head, dust) and the small camera jolt for the local player whose ball hit
---   Served           the coin fountain with confetti; the local player's coins fly to the coin counter
+--   Served           the own serve only: the coin fountain with confetti, the coins fly to the coin counter
 --   Teleported       the puff at the start and at the target
 -- In Studio the attribute VfxPreview on Workspace plays an effect in front of the local character, for looking at it
 -- and for screenshots: "hit", "headshot", "world", "perfect", "knockdown", "topple", "saved", "savedsmall",
@@ -120,11 +120,12 @@ local function onLootSpawned(list: any)
 	end
 end
 
--- Somebody served `count` scoops: the coin fountain at them (and the coins to the counter for the local player).
-local function onServed(who: Player, count: number)
-	local character = typeof(who) == "Instance" and who:IsA("Player") and who.Character
+-- The local player served `count` scoops: the coin fountain at them and the coins to the counter. Only for the own
+-- serve since the kill test of 13.11.2026; another player's serve comes without a count (PlotPins glints for it).
+local function onServed(who: Player, count: number?)
+	local character = who == player and player.Character
 	if character and type(count) == "number" and count > 0 then
-		Serve.play(character, count, who == player)
+		Serve.play(character, count, true)
 	end
 end
 

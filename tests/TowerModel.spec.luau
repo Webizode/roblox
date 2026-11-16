@@ -69,11 +69,23 @@ local function padPlayer(kp: number, kd: number)
 	end
 end
 
+-- The smallest waffle that holds `count` scoops (the cone a player carrying them has at least), for the game's walking
+-- speed (Economy.walkSpeed goes by how full the waffle is)
+local function capacityFor(count: number): number
+	for coneLevel = 0, #EconomyConfig.upgrades.cone.capacity - 1 do
+		local capacity = Economy.capacity(coneLevel, EconomyConfig)
+		if capacity >= count then
+			return capacity
+		end
+	end
+	return Economy.capacity(#EconomyConfig.upgrades.cone.capacity - 1, EconomyConfig)
+end
+
 -- Running at full speed and flipping the stick to the opposite direction, through the real input path.
 local function reversalPeak(count: number, variant): (boolean, number)
 	local state = TowerModel.newState(1)
 	local params = paramsFor(stack("vanilla", count))
-	local speed = Economy.walkSpeed(count, 0, EconomyConfig)
+	local speed = Economy.walkSpeed(count, capacityFor(count), 0, EconomyConfig)
 	local smoothing = variant.accelSmoothing or Tuning.accelSmoothing
 	local vx, vz = speed, 0
 	local peak = 0
@@ -620,7 +632,7 @@ local function freeRun(count: number, seed: number, seconds: number, straight: b
 	local state = TowerModel.newState(seed)
 	local params = paramsFor(stack("vanilla", count))
 	local meter = Stance.new()
-	local speed = Economy.walkSpeed(count, 0, EconomyConfig)
+	local speed = Economy.walkSpeed(count, capacityFor(count), 0, EconomyConfig)
 	local vx, vz = 0, 0
 	TowerModel.landingKick(state, Tuning, count)
 	for step = 1, seconds / DT do

@@ -4,8 +4,8 @@
 --
 -- A request is granted for a living character that is not knocked down and has not taken a harmful hit for
 -- Config/Map.teleportHitLock seconds; in the arena only with no scoops on the back (carrying the tower out of the arena
--- is the game, a button must not skip it). Requests closer together than teleportMinInterval are floods and dropped.
--- The same rules for every target.
+-- is the game, a button must not skip it), and never while wanted for stolen scoops (Config/Wanted). Requests closer
+-- together than teleportMinInterval are floods and dropped. The same rules for every target.
 
 export type Config = {
 	teleportMinInterval: number,
@@ -14,13 +14,14 @@ export type Config = {
 }
 
 -- why a request is turned down; nil means granted
-export type Refusal = "unknown" | "flood" | "dead" | "down" | "hit" | "tower"
+export type Refusal = "unknown" | "flood" | "dead" | "wanted" | "down" | "hit" | "tower"
 
 export type Request = {
 	where: any, -- what the client sent
 	alive: boolean,
 	inArena: boolean,
 	carrying: boolean, -- scoops on the back
+	wanted: boolean?, -- wanted for stolen scoops (WantedService)
 	down: boolean, -- knocked down right now
 	sinceHit: number, -- seconds since the last harmful hit (math.huge without one)
 	sinceRequest: number, -- seconds since the player's last request (math.huge without one)
@@ -41,6 +42,8 @@ function TeleportRules.refusal(request: Request, config: Config): Refusal?
 		return "flood"
 	elseif not request.alive then
 		return "dead"
+	elseif request.wanted then
+		return "wanted"
 	elseif request.down then
 		return "down"
 	elseif request.sinceHit < config.teleportHitLock then

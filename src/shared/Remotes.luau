@@ -17,7 +17,7 @@ local DEFINITIONS = {
 	TowerToppled = "RemoteEvent", -- client -> server
 	TowerTilt = "UnreliableRemoteEvent", -- client -> server: x, z (10 Hz); server -> other players: player, x, z
 	ServeRequest = "RemoteEvent", -- client -> server: steadyBonus
-	Served = "RemoteEvent", -- server -> all: player, count, value
+	Served = "RemoteEvent", -- server -> the one who served: player, count, value, steady; -> everybody else: player only
 	-- client -> server: dirX, dirZ (request); server -> all: player, dirX, dirZ, kind (granted: "dash" or "quick")
 	Dash = "RemoteEvent",
 	SetSprint = "RemoteEvent", -- client -> server: sprinting (boolean)
@@ -42,7 +42,10 @@ local DEFINITIONS = {
 	-- client -> server: "plot", "arena" or a shop ("upgrades", "quests", "cosmetics", Config/Map.teleportTargets);
 	-- ArenaService checks it (TeleportRules)
 	TeleportRequest = "RemoteEvent",
-	TeleportDenied = "RemoteEvent", -- server -> asker: why a teleport was refused ("down", "hit"; TeleportRules)
+	TeleportDenied = "RemoteEvent", -- server -> asker: why a teleport was refused ("wanted", "down", "hit"; TeleportRules)
+	-- server -> a wanted player (WantedService): what was refused because of it ("edge": pushed back from leaving the
+	-- arena, "serve")
+	WantedNotice = "RemoteEvent",
 	-- server -> all: player, from, to (a teleport went through: the puff at both ends, Vfx.Effects.Teleport)
 	Teleported = "RemoteEvent",
 }

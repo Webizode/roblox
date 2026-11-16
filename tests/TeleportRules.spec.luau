@@ -70,6 +70,16 @@ describe("Teleport requests", function()
 		expect(TeleportRules.refusal(request({ alive = false }), MapConfig)).toBe("dead")
 		expect(TeleportRules.refusal(request({ where = "moon" }), MapConfig)).toBe("unknown")
 	end)
+
+	it("are refused while wanted, for every target, in the arena and out, and say so", function()
+		for _, where in { "plot", "arena", "upgrades", "quests", "cosmetics" } do
+			for _, inArena in { false, true } do
+				local wanted = request({ where = where, inArena = inArena, carrying = true, wanted = true })
+				expect(TeleportRules.refusal(wanted, MapConfig)).toBe("wanted")
+			end
+		end
+		expect(TeleportRules.refusal(request({ wanted = false }), MapConfig)).toBe(nil)
+	end)
 end)
 
 describe("Teleport spots", function()

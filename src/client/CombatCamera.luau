@@ -40,6 +40,7 @@ local active = false
 local touchDelta = Vector2.zero -- pixels fingers dragged over the screen since the last frame (not on buttons)
 local yaw, pitch = 0, 0
 local turned: Humanoid? = nil -- the humanoid whose AutoRotate combat mode switched off
+local facingPausedUntil = 0 -- os.clock() until the camera does not turn the character (knocked down)
 -- the aim camera: the hold of the throw being charged (nil: none), the eased blend of the shoulder move (0..1) and
 -- field of view change (degrees), and the last throw's push
 local chargeHeld: number? = nil
@@ -205,6 +206,19 @@ local function turnTo(from: number, to: number): number
 	return (to - from + math.pi) % (2 * math.pi) - math.pi
 end
 
+-- Roblox's first person makes the own character invisible for this client (LocalTransparencyModifier on every part);
+-- that stays when the combat camera takes over from a first-person view, and the character was gone behind its own
+-- tower. The combat camera is never in first person, so it shows the character every frame.
+local function showCharacter(character: Model)
+	for _, part in character:GetDescendants() do
+		if part:IsA("BasePart") or part:IsA("Decal") then
+			if part.LocalTransparencyModifier ~= 0 then
+				part.LocalTransparencyModifier = 0
+			end
+		end
+	end
+end
+
 local function ownStep(dt: number)
 	local camera = workspace.CurrentCamera
 	local character = player.Character
@@ -239,7 +253,35 @@ local function ownStep(dt: number)
 	local offset = rotation:VectorToWorldSpace(stepAim(dt))
 	camera.CFrame = CFrame.new(pivot + unblocked(pivot, offset, character :: Model)) * rotation
 	camera.Focus = CFrame.new(pivot)
-	face(character :: Model, rotation.LookVector)
+	if os.clock() >= facingPausedUntil then
+		face(character :: Model, rotation.LookVector)
+	end
+	showCharacter(character :: Model)
+end
+
+local savedMinZoom: number? = nil -- the player's own CameraMinZoomDistance while the arena limit replaces it
+
+-- In the arena Roblox's camera cannot zoom into first person (Config/Combat camera.arenaMinZoom); outside it the
+-- player's own limit is back. Call every frame with whether the local character stands in the arena.
+function CombatCamera.limitZoom(inArena: boolean)
+	if inArena then
+		if savedMinZoom == nil then
+			savedMinZoom = player.CameraMinZoomDistance
+		end
+		local limit = math.max(savedMinZoom :: number, Look.arenaMinZoom)
+		if player.CameraMinZoomDistance ~= limit then
+			player.CameraMinZoomDistance = limit
+		end
+	elseif savedMinZoom ~= nil then
+		player.CameraMinZoomDistance = savedMinZoom
+		savedMinZoom = nil
+	end
+end
+
+-- While knocked down the camera still turns, but the body lying on the ground does not turn with it, until `untilClock`
+-- (os.clock()). Combat mode stays on through a knockdown (kill test 13.11.2026).
+function CombatCamera.pauseFacing(untilClock: number)
+	facingPausedUntil = untilClock
 end
 
 function CombatCamera.start()

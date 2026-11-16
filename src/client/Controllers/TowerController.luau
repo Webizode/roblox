@@ -361,12 +361,20 @@ local function debugDash(message: string)
 	end
 end
 
--- How fast and how long each kind of dash goes: the dash, and in combat mode the quick dash.
+-- How fast and how long each kind of dash goes: the dash, and in combat mode the quick dash. A fuller waffle makes it
+-- shorter (Economy.dashScale, the same on the server).
 local function dashMotion(kind: string): (number, number)
+	local sneakers = player:GetAttribute("SneakersLevel")
+	local scale = Economy.dashScale(
+		#scoops,
+		Economy.capacity(coneLevel(), EconomyConfig),
+		if type(sneakers) == "number" then sneakers else 0,
+		EconomyConfig
+	)
 	if kind == "quick" then
-		return Tuning.dash.quick.speed, Tuning.dash.quick.duration
+		return Tuning.dash.quick.speed, Tuning.dash.quick.duration * scale
 	end
-	return Tuning.dash.speed, Tuning.dash.duration
+	return Tuning.dash.speed, Tuning.dash.duration * scale
 end
 
 local function dashBurst(
@@ -624,13 +632,12 @@ end
 
 function TowerController.Start()
 	Remotes.TowerChanged.OnClientEvent:Connect(onTowerChanged)
-	Remotes.Served.OnClientEvent:Connect(function(who: Player, count: number, value: number)
-		if who == player then
+	Remotes.Served.OnClientEvent:Connect(function(who: Player, _count: number?, value: number?)
+		-- only the own serve shows (kill test 13.11.2026: no feed line for others any more; the server only tells
+		-- the others that someone served, PlotPins glints at their pin)
+		if who == player and type(value) == "number" then
 			Sfx.play("serve")
 			UiKit.Toast.show(string.format("SERVE! +%d", value), "good", "coin")
-		elseif count >= 15 then
-			-- somebody else's big serve is news, not feedback: a line in the feed, not a message mid-screen
-			registry.HitFeedback.say(string.format("%s SERVED %d SCOOPS!", who.DisplayName, count))
 		end
 	end)
 	Remotes.Dash.OnClientEvent:Connect(onDash)

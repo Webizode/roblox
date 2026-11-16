@@ -55,6 +55,7 @@ local BIG = {
 
 -- why the server said no (TeleportDenied), as the player reads it
 local DENIED = {
+	wanted = "WANTED! NO TELEPORT WITH STOLEN SCOOPS",
 	down = "KNOCKED DOWN, CAN'T TELEPORT",
 	hit = "JUST HIT, WALK AWAY FIRST",
 	tower = "CARRY YOUR TOWER OUT FIRST",

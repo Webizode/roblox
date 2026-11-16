@@ -63,6 +63,7 @@ type Ball = {
 	path: BallFlight.Ball, -- where it flies: the server's flight, homing in on `target` like there
 	target: Player?,
 	assist: any?, -- the homing strength (Config/Combat homing.devices), nil: none
+	perfect: boolean, -- a perfect throw: the thrower hears the perfect sound only when it hits
 	t0: number,
 }
 
@@ -82,6 +83,7 @@ local combatMode = false
 local modeChangedAt = -math.huge
 local releaseUntil = 0 -- os.clock() until which the release guard keeps the mouse free
 local forceExit: () -> () -- defined with the combat mode functions below; the knockdown needs it earlier
+local cancelCharge: (releaseButton: boolean) -> () -- defined with the charge functions below; the knockdown needs it earlier
 
 local function effectPart(name: string, size: number, color: Color3, position: Vector3): Part
 	local part = Instance.new("Part")
@@ -104,6 +106,30 @@ local function debugLog(message: string)
 	if Features.debugThrow then
 		print("[Throw] " .. message)
 	end
+end
+
+-- With Features.debugThrow: a small magenta dot where the throw aims (the point under the crosshair it was sent to),
+-- for 3 s, so a test can see where the ball should cross the crosshair.
+local function debugAimDot(position: Vector3)
+	if not Features.debugThrow then
+		return
+	end
+	local dot = Instance.new("Part")
+	dot.Name = "AimDebugDot"
+	dot.Shape = Enum.PartType.Ball
+	dot.Size = Vector3.new(0.4, 0.4, 0.4)
+	dot.Material = Enum.Material.Neon
+	dot.Color = Color3.fromRGB(255, 0, 255)
+	dot.Anchored = true
+	dot.CanCollide = false
+	dot.CanQuery = false
+	dot.CanTouch = false
+	dot.CastShadow = false
+	dot.Position = position
+	dot.Parent = workspace:FindFirstChild("LocalVisuals") or workspace
+	task.delay(3, function()
+		dot:Destroy()
+	end)
 end
 
 -- The ball ends (hit, missed or lost): its streak and twinkles stay where it was and fade out, the ball goes.
@@ -155,6 +181,7 @@ local function onThrown(
 		path = BallFlight.new(origin.X, origin.Y, origin.Z, velocity.X, velocity.Y, velocity.Z),
 		target = if typeof(target) == "Instance" and target:IsA("Player") then target else nil,
 		assist = if type(device) == "string" then CombatConfig.homing.devices[device] else nil,
+		perfect = perfect == true,
 		t0 = t0,
 	}
 	registry.ThrowAnimator.thrown(thrower, t0)
@@ -199,7 +226,10 @@ end
 -- root stays upright, so the tower, catching and serving keep working from the same spot.
 local function knockDown()
 	downUntil = os.clock() + CombatConfig.knockdownTime
-	forceExit() -- the server ends combat mode with the knockdown too
+	-- combat mode stays on (kill test 13.11.2026: getting up out of it felt like a second punishment); the charge
+	-- drops, a held button charges again after getting up (canThrow waits for downUntil), the body lies still
+	cancelCharge(false)
+	CombatCamera.pauseFacing(downUntil)
 	local playerModule = player:WaitForChild("PlayerScripts"):FindFirstChild("PlayerModule")
 	local ok, controls = pcall(function()
 		return (require(playerModule :: ModuleScript) :: any):GetControls()
@@ -228,6 +258,7 @@ local function onResolved(
 	headshot: boolean?
 )
 	local ball = balls[id]
+	local perfect = ball ~= nil and ball.perfect
 	if ball then
 		balls[id] = nil
 		destroyBall(ball)
@@ -238,7 +269,7 @@ local function onResolved(
 					id,
 					tostring(position),
 					workspace:GetServerTimeNow() - ball.t0,
-					(position - ball.origin).Magnitude,
+					(position - Vector3.new(ball.path.ox, ball.path.oy, ball.path.oz)).Magnitude,
 					if victim then "hit " .. victim.Name else "world or out of range"
 				)
 			)
@@ -267,11 +298,19 @@ local function onResolved(
 		end
 	end
 	if thrower == player and victim ~= player then
+		-- the thrower's hit sounds (Config/Sounds): a squish for every hit, the sparkle on top of it for a perfect throw
+		-- (since the kill test of 13.11.2026 only when it hits, no longer at the release), the bell for a headshot
 		if headshot then
 			-- its own sound and word; a knockdown still says so in the feed (HitFeedback)
 			Sfx.play("headshot")
 			UiKit.Toast.show("HEADSHOT!", "good", "ammo")
 		else
+			Sfx.play("hitConfirm")
+		end
+		if perfect then
+			Sfx.play("perfectHit")
+		end
+		if not headshot then
 			UiKit.Toast.show(if knockdown then "KNOCKDOWN!" else "HIT!", if knockdown then "good" else "normal", "ammo")
 		end
 	end
@@ -285,7 +324,11 @@ local function onResolved(
 	if root then
 		knockback(root, dirX, dirZ, strength)
 	end
-	registry.TowerController.hit(dirX, dirZ, strength)
+	if not knockdown then
+		-- a knockdown does not shake the tower: the server spills it itself (TowerService.knockdownSpill) and the rest
+		-- stands up straight again
+		registry.TowerController.hit(dirX, dirZ, strength)
+	end
 	CombatCamera.hit() -- the aim camera lets go at once; the charge itself goes on
 	if knockdown then
 		knockDown()
@@ -353,7 +396,7 @@ local function canThrow(): boolean
 end
 
 -- Drops a running charge without throwing; with the button still down it starts again once a throw is possible.
-local function cancelCharge(releaseButton: boolean)
+function cancelCharge(releaseButton: boolean)
 	if charging then
 		registry.ThrowAnimator.charge(false)
 	end
@@ -381,7 +424,8 @@ end
 -- ignores the own character, the own tower and every drawn scoop and ball (LocalVisuals), everything the ball would
 -- fly through anyway (parts without collision and the thin
 -- decoration of Config/Map, MapQuery.throwRaycast), and
--- everything between the camera and the character, so only what lies ahead of the player can be the target.
+-- everything between the camera and the character, so only what lies ahead of the player can be the target. A rival
+-- the ray passes over (body or head, Combat.aimDepth) is the target before the map behind them.
 local function aimPoint(screen: Vector2): Vector3
 	local camera = workspace.CurrentCamera
 	local ray = camera:ViewportPointToRay(screen.X, screen.Y)
@@ -398,6 +442,36 @@ local function aimPoint(screen: Vector2): Vector3
 	end
 	local direction = unit * CombatConfig.aimDistance
 	local result = MapQuery.throwRaycast(origin, direction, ignore)
+	local length = if result then (result.Position - origin).Magnitude else CombatConfig.aimDistance
+	-- a rival under the crosshair: the map ray flies through their head, limbs and hair (they do not collide), so the
+	-- aim goes to the crosshair's point at their depth, where the ball from the hand then crosses the crosshair ray
+	local bodies: { Combat.AimBody } = {}
+	for _, other in Players:GetPlayers() do
+		local body = other ~= player and other.Character
+		local otherRoot = body and body:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local humanoid = body and body:FindFirstChildOfClass("Humanoid")
+		if otherRoot and humanoid and humanoid.Health > 0 then
+			local head = (body :: Model):FindFirstChild("Head") :: BasePart?
+			local p = otherRoot.Position
+			table.insert(bodies, {
+				x = p.X,
+				y = p.Y,
+				z = p.Z,
+				head = if head
+					then {
+						x = head.Position.X,
+						y = head.Position.Y,
+						z = head.Position.Z,
+						radius = CombatConfig.headRadius, -- the server's head zone, the same for every avatar
+					}
+					else nil,
+			})
+		end
+	end
+	local depth = Combat.aimDepth(origin.X, origin.Y, origin.Z, unit.X, unit.Y, unit.Z, length, bodies, CombatConfig)
+	if depth then
+		return origin + unit * depth
+	end
 	return if result then result.Position else origin + direction
 end
 
@@ -414,14 +488,14 @@ local function requestThrow(_: string, inputState: Enum.UserInputState): Enum.Co
 			local perfect = Combat.isPerfect(held, CombatConfig)
 			local camera = workspace.CurrentCamera
 			local aim = aimPoint(camera.ViewportSize / 2) -- always through the middle of the screen
+			debugAimDot(aim)
 			lastRequestAt = os.clock()
 			lastThrowAt = os.clock()
 			-- the input in use picks the strength of the ball's homing (the server checks it and the setting)
 			Remotes.ThrowIceBall:FireServer(aim.X, aim.Y, aim.Z, strength, perfect, Settings.inputKind())
 			CombatCamera.thrown(perfect) -- the aim (above) is taken before the camera moves
-			if perfect then
-				Sfx.play("perfectThrow", 1.4) -- the thrower hears it at once; everybody sees its green glitter (Vfx)
-			end
+			-- no perfect sound here: it plays when a perfect throw hits (onResolved); the release only has the plain
+			-- throw sound, everybody sees the perfect throw's green glitter (Vfx)
 			registry.TowerController.interruptStance() -- after the request, so the server locks its stance too
 			registry.ThrowAnimator.release() -- the throw animation starts with the button-up, like the server's clock
 			local character = player.Character
@@ -654,6 +728,10 @@ function CombatController.Start()
 	UiKit.Buttons.touchTitle(MODE_ACTION)
 	RunService.RenderStepped:Connect(onRenderStep)
 	RunService.RenderStepped:Connect(onAimStep)
+	-- no first person in the arena (Config/Combat camera.arenaMinZoom), in and out of combat mode
+	RunService.RenderStepped:Connect(function()
+		CombatCamera.limitZoom(inArena())
+	end)
 
 	-- combat mode and its mouse never outlive the character: death, respawn, or the server ending it (knockdown)
 	local function watchCharacter(character: Model)

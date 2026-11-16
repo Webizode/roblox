@@ -1,0 +1,2289 @@
+{
+ "CakePlatform": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.7
+    ],
+    "height": 3.4,
+    "kind": "cylinder",
+    "name": "Low",
+    "radius": 8.0
+   },
+   {
+    "center": [
+     0,
+     0,
+     4.7
+    ],
+    "height": 2.6,
+    "kind": "cylinder",
+    "name": "High",
+    "radius": 5.75
+   },
+   {
+    "center": [
+     0,
+     -12.325,
+     0.375
+    ],
+    "kind": "box",
+    "name": "Step0",
+    "size": [
+     6.0,
+     0.95,
+     0.75
+    ]
+   },
+   {
+    "center": [
+     0,
+     -11.375,
+     0.75
+    ],
+    "kind": "box",
+    "name": "Step1",
+    "size": [
+     6.0,
+     0.95,
+     1.5
+    ]
+   },
+   {
+    "center": [
+     0,
+     -10.425,
+     1.125
+    ],
+    "kind": "box",
+    "name": "Step2",
+    "size": [
+     6.0,
+     0.95,
+     2.25
+    ]
+   },
+   {
+    "center": [
+     0,
+     -9.475,
+     1.5
+    ],
+    "kind": "box",
+    "name": "Step3",
+    "size": [
+     6.0,
+     0.95,
+     3.0
+    ]
+   },
+   {
+    "center": [
+     0,
+     -8.525,
+     1.875
+    ],
+    "kind": "box",
+    "name": "Step4",
+    "size": [
+     6.0,
+     0.95,
+     3.75
+    ]
+   },
+   {
+    "center": [
+     0,
+     -7.575,
+     2.25
+    ],
+    "kind": "box",
+    "name": "Step5",
+    "size": [
+     6.0,
+     0.95,
+     4.5
+    ]
+   },
+   {
+    "center": [
+     0,
+     -6.625,
+     2.625
+    ],
+    "kind": "box",
+    "name": "Step6",
+    "size": [
+     6.0,
+     0.95,
+     5.25
+    ]
+   },
+   {
+    "center": [
+     0,
+     -5.675,
+     3.0
+    ],
+    "kind": "box",
+    "name": "Step7",
+    "size": [
+     6.0,
+     0.95,
+     6.0
+    ]
+   }
+  ],
+  "exported_triangles": 5528,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_CakePlatform.fbx",
+  "max": [
+   8.38,
+   8.39,
+   6.0
+  ],
+  "meshes": [
+   "CakePlatform_Cherry",
+   "CakePlatform_Cream",
+   "CakePlatform_Leaf",
+   "CakePlatform_LeafDark",
+   "CakePlatform_Sponge"
+  ],
+  "min": [
+   -8.39,
+   -12.8,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\CakePlatform.png",
+  "size": [
+   16.77,
+   21.19,
+   6.0
+  ],
+  "triangles": 5528
+ },
+ "CandyBox": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     2.675
+    ],
+    "kind": "box",
+    "name": "Body",
+    "size": [
+     6.6,
+     6.6,
+     5.35
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     5.625
+    ],
+    "kind": "box",
+    "name": "Glaze",
+    "size": [
+     6.9,
+     6.9,
+     0.55
+    ]
+   }
+  ],
+  "exported_triangles": 1668,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_CandyBox.fbx",
+  "max": [
+   3.45,
+   3.75,
+   6.09
+  ],
+  "meshes": [
+   "CandyBox_Cream",
+   "CandyBox_Gold",
+   "CandyBox_Mint",
+   "CandyBox_Pink",
+   "CandyBox_SkyBlue",
+   "CandyBox_Stripes_Pink"
+  ],
+  "min": [
+   -3.45,
+   -3.75,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\CandyBox.png",
+  "size": [
+   6.9,
+   7.5,
+   6.09
+  ],
+  "triangles": 1668,
+  "variants": {
+   "Blue": {
+    "Stripes": "SkyBlue"
+   },
+   "Mint": {
+    "Stripes": "Mint"
+   }
+  }
+ },
+ "ChocoBar": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     2.675
+    ],
+    "kind": "box",
+    "name": "Body",
+    "size": [
+     9.0,
+     4.8,
+     5.35
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     5.625
+    ],
+    "kind": "box",
+    "name": "Glaze",
+    "size": [
+     9.3,
+     4.7,
+     0.55
+    ]
+   }
+  ],
+  "exported_triangles": 2200,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_ChocoBar.fbx",
+  "max": [
+   4.65,
+   2.65,
+   6.09
+  ],
+  "meshes": [
+   "ChocoBar_Choco",
+   "ChocoBar_ChocoDark",
+   "ChocoBar_Cream",
+   "ChocoBar_Gold",
+   "ChocoBar_Mint",
+   "ChocoBar_Pink",
+   "ChocoBar_SkyBlue"
+  ],
+  "min": [
+   -4.65,
+   -2.65,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\ChocoBar.png",
+  "size": [
+   9.3,
+   5.3,
+   6.09
+  ],
+  "triangles": 2200
+ },
+ "ChocoWall": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     5.65
+    ],
+    "kind": "box",
+    "name": "Body",
+    "size": [
+     12.0,
+     3.6,
+     11.3
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     11.575
+    ],
+    "kind": "box",
+    "name": "Glaze",
+    "size": [
+     12.3,
+     3.5,
+     0.55
+    ]
+   }
+  ],
+  "exported_triangles": 3132,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_ChocoWall.fbx",
+  "max": [
+   6.15,
+   2.05,
+   12.04
+  ],
+  "meshes": [
+   "ChocoWall_Choco",
+   "ChocoWall_ChocoDark",
+   "ChocoWall_Cream",
+   "ChocoWall_Gold",
+   "ChocoWall_Mint",
+   "ChocoWall_Pink",
+   "ChocoWall_SkyBlue"
+  ],
+  "min": [
+   -6.15,
+   -2.05,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\ChocoWall.png",
+  "size": [
+   12.3,
+   4.1,
+   12.04
+  ],
+  "triangles": 3132
+ },
+ "CookieStack": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.738
+    ],
+    "height": 1.475,
+    "kind": "cylinder",
+    "name": "Cookie0",
+    "radius": 3.05
+   },
+   {
+    "center": [
+     0.35,
+     -0.2,
+     2.213
+    ],
+    "height": 1.475,
+    "kind": "cylinder",
+    "name": "Cookie1",
+    "radius": 3.05
+   },
+   {
+    "center": [
+     -0.25,
+     0.25,
+     3.688
+    ],
+    "height": 1.475,
+    "kind": "cylinder",
+    "name": "Cookie2",
+    "radius": 3.05
+   },
+   {
+    "center": [
+     0.2,
+     0.15,
+     5.163
+    ],
+    "height": 1.475,
+    "kind": "cylinder",
+    "name": "Cookie3",
+    "radius": 3.05
+   }
+  ],
+  "exported_triangles": 2768,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_CookieStack.fbx",
+  "max": [
+   3.64,
+   3.48,
+   6.05
+  ],
+  "meshes": [
+   "CookieStack_ChocoDark",
+   "CookieStack_Cookie"
+  ],
+  "min": [
+   -3.42,
+   -3.5,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\CookieStack.png",
+  "size": [
+   7.06,
+   6.98,
+   6.05
+  ],
+  "triangles": 2768
+ },
+ "CookieTower": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.3
+    ],
+    "height": 0.6,
+    "kind": "cylinder",
+    "name": "Base",
+    "radius": 3.9
+   },
+   {
+    "center": [
+     0.074,
+     0.145,
+     1.26
+    ],
+    "height": 1.32,
+    "kind": "cylinder",
+    "name": "Cookie0",
+    "radius": 3.15
+   },
+   {
+    "center": [
+     0.177,
+     0.265,
+     2.58
+    ],
+    "height": 1.32,
+    "kind": "cylinder",
+    "name": "Cookie1",
+    "radius": 3.15
+   },
+   {
+    "center": [
+     0.144,
+     0.253,
+     3.9
+    ],
+    "height": 1.32,
+    "kind": "cylinder",
+    "name": "Cookie2",
+    "radius": 3.15
+   },
+   {
+    "center": [
+     -0.283,
+     -0.021,
+     5.22
+    ],
+    "height": 1.32,
+    "kind": "cylinder",
+    "name": "Cookie3",
+    "radius": 3.15
+   },
+   {
+    "center": [
+     0.266,
+     0.089,
+     6.54
+    ],
+    "height": 1.32,
+    "kind": "cylinder",
+    "name": "Cookie4",
+    "radius": 3.15
+   },
+   {
+    "center": [
+     0.241,
+     -0.232,
+     7.86
+    ],
+    "height": 1.32,
+    "kind": "cylinder",
+    "name": "Cookie5",
+    "radius": 3.15
+   },
+   {
+    "center": [
+     -0.019,
+     -0.152,
+     9.18
+    ],
+    "height": 1.32,
+    "kind": "cylinder",
+    "name": "Cookie6",
+    "radius": 3.15
+   },
+   {
+    "center": [
+     0.026,
+     0.044,
+     10.5
+    ],
+    "height": 1.32,
+    "kind": "cylinder",
+    "name": "Cookie7",
+    "radius": 3.15
+   },
+   {
+    "center": [
+     0,
+     0,
+     11.36
+    ],
+    "height": 0.5,
+    "kind": "cylinder",
+    "name": "Glaze",
+    "radius": 3.3
+   }
+  ],
+  "exported_triangles": 5000,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_CookieTower.fbx",
+  "max": [
+   3.9,
+   3.9,
+   11.8
+  ],
+  "meshes": [
+   "CookieTower_ChocoDark",
+   "CookieTower_Cookie",
+   "CookieTower_Cream",
+   "CookieTower_Gold",
+   "CookieTower_Mint",
+   "CookieTower_Pink",
+   "CookieTower_SkyBlue"
+  ],
+  "min": [
+   -3.9,
+   -3.9,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\CookieTower.png",
+  "size": [
+   7.8,
+   7.8,
+   11.8
+  ],
+  "triangles": 5000
+ },
+ "CreamDispenser": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.3
+    ],
+    "height": 0.6,
+    "kind": "cylinder",
+    "name": "Board",
+    "radius": 2.7
+   },
+   {
+    "center": [
+     0,
+     0,
+     3.175
+    ],
+    "height": 5.15,
+    "kind": "cylinder",
+    "name": "Can",
+    "radius": 1.65
+   }
+  ],
+  "exported_triangles": 1744,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_CreamDispenser.fbx",
+  "max": [
+   2.7,
+   2.7,
+   7.26
+  ],
+  "meshes": [
+   "CreamDispenser_Choco",
+   "CreamDispenser_ChocoDark",
+   "CreamDispenser_Cookie",
+   "CreamDispenser_Cream",
+   "CreamDispenser_Stripes_Pink"
+  ],
+  "min": [
+   -2.7,
+   -2.7,
+   0.0
+  ],
+  "pair": "CreamDispenserSpill",
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\CreamDispenser.png",
+  "size": [
+   5.4,
+   5.4,
+   7.26
+  ],
+  "state": "normal",
+  "triangles": 1744,
+  "variants": {
+   "Blue": {
+    "Stripes": "SkyBlue"
+   },
+   "Mint": {
+    "Stripes": "Mint"
+   }
+  }
+ },
+ "CreamDispenserSpill": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.3
+    ],
+    "height": 0.6,
+    "kind": "cylinder",
+    "name": "Board",
+    "radius": 2.7
+   },
+   {
+    "center": [
+     0,
+     0,
+     3.175
+    ],
+    "height": 5.15,
+    "kind": "cylinder",
+    "name": "Can",
+    "radius": 1.65
+   }
+  ],
+  "exported_triangles": 1882,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_CreamDispenserSpill.fbx",
+  "max": [
+   4.57,
+   2.7,
+   7.26
+  ],
+  "meshes": [
+   "CreamDispenserSpill_Choco",
+   "CreamDispenserSpill_ChocoDark",
+   "CreamDispenserSpill_Cookie",
+   "CreamDispenserSpill_Cream",
+   "CreamDispenserSpill_Stripes_Pink"
+  ],
+  "min": [
+   -3.28,
+   -8.54,
+   0.0
+  ],
+  "pair": "CreamDispenser",
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\CreamDispenserSpill.png",
+  "puddle": {
+   "center": [
+    0.4,
+    -5.2
+   ],
+   "radius": 3.6
+  },
+  "size": [
+   7.85,
+   11.24,
+   7.26
+  ],
+  "state": "spill",
+  "triangles": 1882,
+  "variants": {
+   "Blue": {
+    "Stripes": "SkyBlue"
+   },
+   "Mint": {
+    "Stripes": "Mint"
+   }
+  }
+ },
+ "CreamMountain": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.5
+    ],
+    "height": 3.0,
+    "kind": "cylinder",
+    "name": "Base",
+    "radius": 12.5
+   },
+   {
+    "center": [
+     0,
+     0,
+     5.0
+    ],
+    "height": 4.0,
+    "kind": "cylinder",
+    "name": "Peak0",
+    "radius": 10.5
+   },
+   {
+    "center": [
+     0,
+     0,
+     9.0
+    ],
+    "height": 4.0,
+    "kind": "cylinder",
+    "name": "Peak1",
+    "radius": 7.6
+   },
+   {
+    "center": [
+     0,
+     0,
+     13.25
+    ],
+    "height": 4.5,
+    "kind": "cylinder",
+    "name": "Peak2",
+    "radius": 4.6
+   },
+   {
+    "center": [
+     0,
+     0,
+     17.25
+    ],
+    "height": 3.5,
+    "kind": "cylinder",
+    "name": "Peak3",
+    "radius": 2.0
+   }
+  ],
+  "exported_triangles": 5324,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_CreamMountain.fbx",
+  "max": [
+   12.84,
+   12.85,
+   23.72
+  ],
+  "meshes": [
+   "CreamMountain_Cherry",
+   "CreamMountain_Cream",
+   "CreamMountain_Gold",
+   "CreamMountain_SkyBlue",
+   "CreamMountain_Sponge"
+  ],
+  "min": [
+   -12.85,
+   -12.85,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\CreamMountain.png",
+  "size": [
+   25.69,
+   25.7,
+   23.72
+  ],
+  "triangles": 5324
+ },
+ "FallenCone": {
+  "collision": [
+   {
+    "center": [
+     -2.775,
+     0,
+     1.094
+    ],
+    "kind": "box",
+    "name": "Cone0",
+    "size": [
+     2.25,
+     1.445,
+     2.188
+    ]
+   },
+   {
+    "center": [
+     -0.525,
+     0,
+     1.623
+    ],
+    "kind": "box",
+    "name": "Cone1",
+    "size": [
+     2.25,
+     2.368,
+     3.247
+    ]
+   },
+   {
+    "center": [
+     1.725,
+     0,
+     2.153
+    ],
+    "kind": "box",
+    "name": "Cone2",
+    "size": [
+     2.25,
+     3.29,
+     4.305
+    ]
+   },
+   {
+    "center": [
+     3.975,
+     0,
+     2.682
+    ],
+    "kind": "box",
+    "name": "Cone3",
+    "size": [
+     2.25,
+     4.213,
+     5.364
+    ]
+   },
+   {
+    "center": [
+     6.4,
+     0.3,
+     1.6
+    ],
+    "height": 3.2,
+    "kind": "cylinder",
+    "name": "Scoop",
+    "radius": 2.3
+   }
+  ],
+  "exported_triangles": 2352,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_FallenCone.fbx",
+  "max": [
+   10.4,
+   3.95,
+   5.97
+  ],
+  "meshes": [
+   "FallenCone_Cherry",
+   "FallenCone_Cream",
+   "FallenCone_Gold",
+   "FallenCone_Scoop_Pink",
+   "FallenCone_SkyBlue",
+   "FallenCone_Waffle"
+  ],
+  "min": [
+   -4.16,
+   -2.89,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\FallenCone.png",
+  "size": [
+   14.56,
+   6.84,
+   5.97
+  ],
+  "triangles": 2352,
+  "variants": {
+   "Lemon": {
+    "Scoop": "Lemon"
+   },
+   "Mint": {
+    "Scoop": "Mint"
+   }
+  }
+ },
+ "GiantCupcake": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     2.3
+    ],
+    "height": 4.6,
+    "kind": "cylinder",
+    "name": "Liner",
+    "radius": 3.9
+   },
+   {
+    "center": [
+     0,
+     0,
+     5.75
+    ],
+    "height": 2.9,
+    "kind": "cylinder",
+    "name": "Frosting0",
+    "radius": 4.6
+   },
+   {
+    "center": [
+     0,
+     0,
+     8.2
+    ],
+    "height": 2.0,
+    "kind": "cylinder",
+    "name": "Frosting1",
+    "radius": 3.4
+   },
+   {
+    "center": [
+     0,
+     0,
+     11.653
+    ],
+    "height": 4.907,
+    "kind": "cylinder",
+    "name": "Frosting2",
+    "radius": 2.4
+   }
+  ],
+  "exported_triangles": 1560,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_GiantCupcake.fbx",
+  "max": [
+   4.47,
+   4.58,
+   15.22
+  ],
+  "meshes": [
+   "GiantCupcake_Cherry",
+   "GiantCupcake_Choco",
+   "GiantCupcake_Cream",
+   "GiantCupcake_Frosting_Cream",
+   "GiantCupcake_Gold",
+   "GiantCupcake_SkyBlue"
+  ],
+  "min": [
+   -4.47,
+   -4.58,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\GiantCupcake.png",
+  "size": [
+   8.93,
+   9.16,
+   15.22
+  ],
+  "top": 15.11,
+  "triangles": 1560,
+  "variants": {
+   "Mint": {
+    "Frosting": "Mint"
+   },
+   "Pink": {
+    "Frosting": "Pink"
+   }
+  }
+ },
+ "GrandSundae": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.892
+    ],
+    "height": 1.785,
+    "kind": "cylinder",
+    "name": "Foot",
+    "radius": 5.46
+   },
+   {
+    "center": [
+     0,
+     0,
+     4.305
+    ],
+    "height": 5.46,
+    "kind": "cylinder",
+    "name": "Stem",
+    "radius": 1.785
+   },
+   {
+    "center": [
+     0,
+     0,
+     8.61
+    ],
+    "height": 3.36,
+    "kind": "cylinder",
+    "name": "BowlLow",
+    "radius": 6.09
+   },
+   {
+    "center": [
+     0,
+     0,
+     13.125
+    ],
+    "height": 5.67,
+    "kind": "cylinder",
+    "name": "Bowl",
+    "radius": 9.03
+   },
+   {
+    "center": [
+     0,
+     0,
+     19.53
+    ],
+    "height": 7.14,
+    "kind": "cylinder",
+    "name": "Scoops",
+    "radius": 8.19
+   }
+  ],
+  "exported_triangles": 5224,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_GrandSundae.fbx",
+  "max": [
+   10.17,
+   10.19,
+   31.67
+  ],
+  "meshes": [
+   "GrandSundae_Cherry",
+   "GrandSundae_Choco",
+   "GrandSundae_Cream",
+   "GrandSundae_Gold",
+   "GrandSundae_Ice",
+   "GrandSundae_Scoop0_Pink",
+   "GrandSundae_Scoop1_Lemon",
+   "GrandSundae_Scoop2_Choco",
+   "GrandSundae_SkyBlue"
+  ],
+  "min": [
+   -10.19,
+   -10.19,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\GrandSundae.png",
+  "size": [
+   20.36,
+   20.38,
+   31.67
+  ],
+  "top": 29.54,
+  "triangles": 5224
+ },
+ "GummyBouncer": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.225
+    ],
+    "height": 0.45,
+    "kind": "cylinder",
+    "name": "Board",
+    "radius": 2.9
+   },
+   {
+    "center": [
+     0,
+     0,
+     0.875
+    ],
+    "height": 0.85,
+    "kind": "cylinder",
+    "name": "Cushion",
+    "radius": 2.3
+   }
+  ],
+  "exported_triangles": 908,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_GummyBouncer.fbx",
+  "max": [
+   2.9,
+   2.9,
+   1.47
+  ],
+  "meshes": [
+   "GummyBouncer_Bear_Gummy",
+   "GummyBouncer_ChocoDark"
+  ],
+  "min": [
+   -2.9,
+   -2.9,
+   0.0
+  ],
+  "pair": "GummyBouncerPressed",
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\GummyBouncer.png",
+  "size": [
+   5.8,
+   5.8,
+   1.47
+  ],
+  "state": "normal",
+  "triangles": 908,
+  "variants": {
+   "Lemon": {
+    "Bear": "Lemon"
+   },
+   "Mint": {
+    "Bear": "Mint"
+   }
+  }
+ },
+ "GummyBouncerPressed": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.225
+    ],
+    "height": 0.45,
+    "kind": "cylinder",
+    "name": "Board",
+    "radius": 2.9
+   },
+   {
+    "center": [
+     0,
+     0,
+     0.625
+    ],
+    "height": 0.35,
+    "kind": "cylinder",
+    "name": "Cushion",
+    "radius": 2.55
+   }
+  ],
+  "exported_triangles": 908,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_GummyBouncerPressed.fbx",
+  "max": [
+   2.9,
+   2.9,
+   1.08
+  ],
+  "meshes": [
+   "GummyBouncerPressed_Bear_Gummy",
+   "GummyBouncerPressed_ChocoDark"
+  ],
+  "min": [
+   -2.9,
+   -2.9,
+   0.0
+  ],
+  "pair": "GummyBouncer",
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\GummyBouncerPressed.png",
+  "size": [
+   5.8,
+   5.8,
+   1.08
+  ],
+  "state": "pressed",
+  "triangles": 908,
+  "variants": {
+   "Lemon": {
+    "Bear": "Lemon"
+   },
+   "Mint": {
+    "Bear": "Mint"
+   }
+  }
+ },
+ "GummyPad": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.3
+    ],
+    "height": 0.6,
+    "kind": "cylinder",
+    "name": "Board",
+    "radius": 3.9
+   },
+   {
+    "center": [
+     0,
+     0,
+     0.875
+    ],
+    "height": 0.55,
+    "kind": "cylinder",
+    "name": "Pad",
+    "radius": 3.3
+   },
+   {
+    "center": [
+     0,
+     -0.2,
+     2.45
+    ],
+    "height": 2.6,
+    "kind": "cylinder",
+    "name": "Bear",
+    "radius": 1.6
+   },
+   {
+    "center": [
+     0,
+     -0.1,
+     4.75
+    ],
+    "height": 2.0,
+    "kind": "cylinder",
+    "name": "Head",
+    "radius": 1.2
+   }
+  ],
+  "exported_triangles": 1724,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_GummyPad.fbx",
+  "max": [
+   3.9,
+   3.9,
+   6.3
+  ],
+  "meshes": [
+   "GummyPad_Bear_Gummy",
+   "GummyPad_ChocoDark",
+   "GummyPad_Pink"
+  ],
+  "min": [
+   -3.9,
+   -3.9,
+   0.0
+  ],
+  "pair": "GummyPadPressed",
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\GummyPad.png",
+  "size": [
+   7.8,
+   7.8,
+   6.3
+  ],
+  "state": "normal",
+  "triangles": 1724,
+  "variants": {
+   "Lemon": {
+    "Bear": "Lemon"
+   },
+   "Mint": {
+    "Bear": "Mint"
+   }
+  }
+ },
+ "GummyPadPressed": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.3
+    ],
+    "height": 0.6,
+    "kind": "cylinder",
+    "name": "Board",
+    "radius": 3.9
+   },
+   {
+    "center": [
+     0,
+     0,
+     0.75
+    ],
+    "height": 0.3,
+    "kind": "cylinder",
+    "name": "Pad",
+    "radius": 3.45
+   },
+   {
+    "center": [
+     0,
+     -0.25,
+     1.6
+    ],
+    "height": 1.4,
+    "kind": "cylinder",
+    "name": "Bear",
+    "radius": 2.0
+   },
+   {
+    "center": [
+     0,
+     -0.1,
+     2.8
+    ],
+    "height": 1.0,
+    "kind": "cylinder",
+    "name": "Head",
+    "radius": 1.5
+   }
+  ],
+  "exported_triangles": 1724,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_GummyPadPressed.fbx",
+  "max": [
+   3.9,
+   3.9,
+   3.47
+  ],
+  "meshes": [
+   "GummyPadPressed_Bear_Gummy",
+   "GummyPadPressed_ChocoDark",
+   "GummyPadPressed_Pink"
+  ],
+  "min": [
+   -3.9,
+   -3.9,
+   0.0
+  ],
+  "pair": "GummyPad",
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\GummyPadPressed.png",
+  "size": [
+   7.8,
+   7.8,
+   3.47
+  ],
+  "state": "pressed",
+  "triangles": 1724,
+  "variants": {
+   "Lemon": {
+    "Bear": "Lemon"
+   },
+   "Mint": {
+    "Bear": "Mint"
+   }
+  }
+ },
+ "LollipopTree": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.65
+    ],
+    "height": 1.3,
+    "kind": "cylinder",
+    "name": "Mound",
+    "radius": 5.3
+   },
+   {
+    "center": [
+     0,
+     0,
+     7.0
+    ],
+    "height": 12.0,
+    "kind": "cylinder",
+    "name": "Trunk",
+    "radius": 1.6
+   },
+   {
+    "center": [
+     0,
+     0,
+     13.45
+    ],
+    "kind": "box",
+    "name": "Disc0",
+    "size": [
+     1.139,
+     1.8,
+     1.85
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     15.3
+    ],
+    "kind": "box",
+    "name": "Disc1",
+    "size": [
+     9.134,
+     1.8,
+     1.85
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     17.15
+    ],
+    "kind": "box",
+    "name": "Disc2",
+    "size": [
+     11.756,
+     1.8,
+     1.85
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     19.0
+    ],
+    "kind": "box",
+    "name": "Disc3",
+    "size": [
+     12.868,
+     1.8,
+     1.85
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     20.85
+    ],
+    "kind": "box",
+    "name": "Disc4",
+    "size": [
+     11.756,
+     1.8,
+     1.85
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     22.7
+    ],
+    "kind": "box",
+    "name": "Disc5",
+    "size": [
+     9.134,
+     1.8,
+     1.85
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     24.55
+    ],
+    "kind": "box",
+    "name": "Disc6",
+    "size": [
+     1.139,
+     1.8,
+     1.85
+    ]
+   }
+  ],
+  "exported_triangles": 4680,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_LollipopTree.fbx",
+  "max": [
+   6.5,
+   5.5,
+   25.5
+  ],
+  "meshes": [
+   "LollipopTree_Choco",
+   "LollipopTree_Cream",
+   "LollipopTree_Lemon",
+   "LollipopTree_Mint",
+   "LollipopTree_Pink",
+   "LollipopTree_SkyBlue",
+   "LollipopTree_Spiral_Pink",
+   "LollipopTree_Sponge"
+  ],
+  "min": [
+   -6.5,
+   -5.5,
+   -0.15
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\LollipopTree.png",
+  "size": [
+   13.0,
+   11.0,
+   25.65
+  ],
+  "triangles": 4680,
+  "variants": {
+   "Blue": {
+    "Spiral": "SkyBlue"
+   },
+   "Mint": {
+    "Spiral": "Mint"
+   }
+  }
+ },
+ "MacaronStack": {
+  "collision": [
+   {
+    "center": [
+     0.0,
+     0,
+     1.75
+    ],
+    "height": 3.5,
+    "kind": "cylinder",
+    "name": "Macaron0",
+    "radius": 3.45
+   },
+   {
+    "center": [
+     0.25,
+     0,
+     5.5
+    ],
+    "height": 3.5,
+    "kind": "cylinder",
+    "name": "Macaron1",
+    "radius": 3.45
+   },
+   {
+    "center": [
+     -0.15,
+     0,
+     9.25
+    ],
+    "height": 3.5,
+    "kind": "cylinder",
+    "name": "Macaron2",
+    "radius": 3.45
+   }
+  ],
+  "exported_triangles": 2292,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_MacaronStack.fbx",
+  "max": [
+   3.75,
+   3.5,
+   11.0
+  ],
+  "meshes": [
+   "MacaronStack_Cream",
+   "MacaronStack_Mac0_Lemon",
+   "MacaronStack_Mac1_SkyBlue",
+   "MacaronStack_Mac2_Pink"
+  ],
+  "min": [
+   -3.65,
+   -3.5,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\MacaronStack.png",
+  "size": [
+   7.4,
+   7.0,
+   11.0
+  ],
+  "triangles": 2292,
+  "variants": {
+   "Lavender": {
+    "Mac1": "Lavender"
+   },
+   "Mint": {
+    "Mac1": "Mint"
+   }
+  }
+ },
+ "SundaeCup": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     0.425
+    ],
+    "height": 0.85,
+    "kind": "cylinder",
+    "name": "Foot",
+    "radius": 2.6
+   },
+   {
+    "center": [
+     0,
+     0,
+     2.05
+    ],
+    "height": 2.6,
+    "kind": "cylinder",
+    "name": "Stem",
+    "radius": 0.85
+   },
+   {
+    "center": [
+     0,
+     0,
+     4.1
+    ],
+    "height": 1.6,
+    "kind": "cylinder",
+    "name": "BowlLow",
+    "radius": 2.9
+   },
+   {
+    "center": [
+     0,
+     0,
+     6.25
+    ],
+    "height": 2.7,
+    "kind": "cylinder",
+    "name": "Bowl",
+    "radius": 4.3
+   },
+   {
+    "center": [
+     0,
+     0,
+     9.3
+    ],
+    "height": 3.4,
+    "kind": "cylinder",
+    "name": "Scoops",
+    "radius": 3.9
+   }
+  ],
+  "exported_triangles": 5140,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_SundaeCup.fbx",
+  "max": [
+   4.84,
+   4.85,
+   14.1
+  ],
+  "meshes": [
+   "SundaeCup_Cherry",
+   "SundaeCup_Cream",
+   "SundaeCup_Gold",
+   "SundaeCup_Ice",
+   "SundaeCup_Scoop0_Pink",
+   "SundaeCup_Scoop1_Lemon",
+   "SundaeCup_Scoop2_Choco",
+   "SundaeCup_SkyBlue"
+  ],
+  "min": [
+   -4.85,
+   -4.85,
+   0.0
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\SundaeCup.png",
+  "size": [
+   9.69,
+   9.7,
+   14.1
+  ],
+  "top": 14.07,
+  "triangles": 5140
+ },
+ "WaffleArch": {
+  "collision": [
+   {
+    "center": [
+     -4.95,
+     0,
+     2.6
+    ],
+    "kind": "box",
+    "name": "PostL",
+    "size": [
+     4.1,
+     3.2,
+     5.2
+    ]
+   },
+   {
+    "center": [
+     4.95,
+     0,
+     2.6
+    ],
+    "kind": "box",
+    "name": "PostR",
+    "size": [
+     4.1,
+     3.2,
+     5.2
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     9.85
+    ],
+    "kind": "box",
+    "name": "Upper",
+    "size": [
+     14.0,
+     3.2,
+     3.5
+    ]
+   },
+   {
+    "center": [
+     -4.95,
+     0,
+     6.65
+    ],
+    "kind": "box",
+    "name": "ShoulderL",
+    "size": [
+     4.1,
+     3.2,
+     2.9
+    ]
+   },
+   {
+    "center": [
+     4.95,
+     0,
+     6.65
+    ],
+    "kind": "box",
+    "name": "ShoulderR",
+    "size": [
+     4.1,
+     3.2,
+     2.9
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     11.825
+    ],
+    "kind": "box",
+    "name": "Glaze",
+    "size": [
+     14.3,
+     3.5,
+     0.55
+    ]
+   },
+   {
+    "center": [
+     -1.45,
+     0,
+     8.017
+    ],
+    "kind": "box",
+    "name": "Arch-11",
+    "size": [
+     0.967,
+     3.2,
+     0.166
+    ]
+   },
+   {
+    "center": [
+     -2.417,
+     0,
+     7.731
+    ],
+    "kind": "box",
+    "name": "Arch-12",
+    "size": [
+     0.967,
+     3.2,
+     0.738
+    ]
+   },
+   {
+    "center": [
+     1.45,
+     0,
+     8.017
+    ],
+    "kind": "box",
+    "name": "Arch11",
+    "size": [
+     0.967,
+     3.2,
+     0.166
+    ]
+   },
+   {
+    "center": [
+     2.417,
+     0,
+     7.731
+    ],
+    "kind": "box",
+    "name": "Arch12",
+    "size": [
+     0.967,
+     3.2,
+     0.738
+    ]
+   }
+  ],
+  "exported_triangles": 3684,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_WaffleArch.fbx",
+  "max": [
+   7.2,
+   2.05,
+   12.29
+  ],
+  "meshes": [
+   "WaffleArch_Cream",
+   "WaffleArch_Gold",
+   "WaffleArch_Mint",
+   "WaffleArch_Pink",
+   "WaffleArch_SkyBlue",
+   "WaffleArch_Waffle"
+  ],
+  "min": [
+   -7.2,
+   -2.05,
+   -0.18
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\WaffleArch.png",
+  "size": [
+   14.4,
+   4.1,
+   12.46
+  ],
+  "triangles": 3684
+ },
+ "WaffleCrates": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.45
+    ],
+    "kind": "box",
+    "name": "Low",
+    "size": [
+     8.4,
+     6.0,
+     2.9
+    ]
+   },
+   {
+    "center": [
+     0.15,
+     0.1,
+     4.2
+    ],
+    "kind": "box",
+    "name": "High",
+    "size": [
+     7.6,
+     5.4,
+     2.6
+    ]
+   },
+   {
+    "center": [
+     0.15,
+     0.1,
+     5.625
+    ],
+    "kind": "box",
+    "name": "Glaze",
+    "size": [
+     7.9,
+     5.7,
+     0.55
+    ]
+   }
+  ],
+  "exported_triangles": 2388,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_WaffleCrates.fbx",
+  "max": [
+   4.4,
+   3.2,
+   6.09
+  ],
+  "meshes": [
+   "WaffleCrates_Cream",
+   "WaffleCrates_Gold",
+   "WaffleCrates_Mint",
+   "WaffleCrates_Pink",
+   "WaffleCrates_SkyBlue",
+   "WaffleCrates_Waffle"
+  ],
+  "min": [
+   -4.4,
+   -3.2,
+   -0.18
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\WaffleCrates.png",
+  "size": [
+   8.8,
+   6.4,
+   6.26
+  ],
+  "triangles": 2388
+ },
+ "WafflePlatform": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.4
+    ],
+    "kind": "box",
+    "name": "Low",
+    "size": [
+     16.0,
+     12.0,
+     2.8
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     4.125
+    ],
+    "kind": "box",
+    "name": "High",
+    "size": [
+     15.6,
+     11.6,
+     2.65
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     5.725
+    ],
+    "kind": "box",
+    "name": "Glaze",
+    "size": [
+     15.9,
+     11.9,
+     0.55
+    ]
+   },
+   {
+    "center": [
+     0,
+     -13.8,
+     3.0
+    ],
+    "kind": "wedge",
+    "size": [
+     7.0,
+     16.0,
+     6.0
+    ],
+    "yaw": 0.0
+   }
+  ],
+  "exported_triangles": 3108,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_WafflePlatform.fbx",
+  "max": [
+   8.2,
+   6.25,
+   6.45
+  ],
+  "meshes": [
+   "WafflePlatform_Caramel",
+   "WafflePlatform_Cream",
+   "WafflePlatform_Gold",
+   "WafflePlatform_Mint",
+   "WafflePlatform_Pink",
+   "WafflePlatform_SkyBlue",
+   "WafflePlatform_Waffle"
+  ],
+  "min": [
+   -8.2,
+   -21.88,
+   -0.18
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\WafflePlatform.png",
+  "size": [
+   16.4,
+   28.13,
+   6.63
+  ],
+  "triangles": 3108
+ },
+ "WaffleWall": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     5.8
+    ],
+    "kind": "box",
+    "name": "Body",
+    "size": [
+     14.0,
+     3.2,
+     11.6
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     11.825
+    ],
+    "kind": "box",
+    "name": "Glaze",
+    "size": [
+     14.3,
+     3.5,
+     0.55
+    ]
+   }
+  ],
+  "exported_triangles": 2460,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_WaffleWall.fbx",
+  "max": [
+   7.2,
+   2.05,
+   12.29
+  ],
+  "meshes": [
+   "WaffleWall_Cream",
+   "WaffleWall_Gold",
+   "WaffleWall_Mint",
+   "WaffleWall_Pink",
+   "WaffleWall_SkyBlue",
+   "WaffleWall_Waffle"
+  ],
+  "min": [
+   -7.2,
+   -2.05,
+   -0.18
+  ],
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\WaffleWall.png",
+  "size": [
+   14.4,
+   4.1,
+   12.46
+  ],
+  "triangles": 2460
+ },
+ "WobbleTower": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.1
+    ],
+    "kind": "box",
+    "name": "Block0",
+    "size": [
+     4.4,
+     4.4,
+     2.2
+    ]
+   },
+   {
+    "center": [
+     0.3,
+     -0.2,
+     3.3
+    ],
+    "kind": "box",
+    "name": "Block1",
+    "size": [
+     4.4,
+     4.4,
+     2.2
+    ]
+   },
+   {
+    "center": [
+     -0.25,
+     0.15,
+     5.5
+    ],
+    "kind": "box",
+    "name": "Block2",
+    "size": [
+     4.4,
+     4.4,
+     2.2
+    ]
+   },
+   {
+    "center": [
+     0.2,
+     0.25,
+     7.7
+    ],
+    "kind": "box",
+    "name": "Block3",
+    "size": [
+     4.4,
+     4.4,
+     2.2
+    ]
+   },
+   {
+    "center": [
+     -0.15,
+     -0.2,
+     9.9
+    ],
+    "kind": "box",
+    "name": "Block4",
+    "size": [
+     4.4,
+     4.4,
+     2.2
+    ]
+   },
+   {
+    "center": [
+     -0.15,
+     -0.2,
+     11.175
+    ],
+    "kind": "box",
+    "name": "Glaze",
+    "size": [
+     4.7,
+     4.7,
+     0.55
+    ]
+   }
+  ],
+  "exported_triangles": 2688,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_WobbleTower.fbx",
+  "max": [
+   2.7,
+   2.65,
+   11.64
+  ],
+  "meshes": [
+   "WobbleTower_Cream",
+   "WobbleTower_Gold",
+   "WobbleTower_Mint",
+   "WobbleTower_Pink",
+   "WobbleTower_SkyBlue",
+   "WobbleTower_Waffle"
+  ],
+  "min": [
+   -2.65,
+   -2.85,
+   -0.18
+  ],
+  "pair": "WobbleTowerFallen",
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\WobbleTower.png",
+  "size": [
+   5.35,
+   5.5,
+   11.81
+  ],
+  "state": "standing",
+  "triangles": 2688
+ },
+ "WobbleTowerFallen": {
+  "collision": [
+   {
+    "center": [
+     0,
+     0,
+     1.1
+    ],
+    "kind": "box",
+    "name": "Block0",
+    "size": [
+     4.4,
+     4.4,
+     2.2
+    ]
+   },
+   {
+    "center": [
+     -4.6,
+     0.6,
+     1.1
+    ],
+    "kind": "box",
+    "name": "Block1",
+    "size": [
+     3.242,
+     3.242,
+     2.2
+    ]
+   },
+   {
+    "center": [
+     4.4,
+     -0.8,
+     1.1
+    ],
+    "kind": "box",
+    "name": "Block2",
+    "size": [
+     3.431,
+     3.431,
+     2.2
+    ]
+   },
+   {
+    "center": [
+     -1.0,
+     4.6,
+     1.1
+    ],
+    "kind": "box",
+    "name": "Block3",
+    "size": [
+     3.399,
+     3.399,
+     2.2
+    ]
+   },
+   {
+    "center": [
+     1.8,
+     -4.4,
+     2.2
+    ],
+    "kind": "box",
+    "name": "Block4",
+    "size": [
+     2.2,
+     4.4,
+     4.4
+    ]
+   },
+   {
+    "center": [
+     0,
+     0,
+     2.375
+    ],
+    "kind": "box",
+    "name": "Glaze",
+    "size": [
+     4.7,
+     4.7,
+     0.55
+    ]
+   }
+  ],
+  "exported_triangles": 3084,
+  "fbx": "C:\\Users\\Wobble\\Desktop\\roblox\\assets\\ArenaKit2\\fbx\\ArenaKit2_WobbleTowerFallen.fbx",
+  "max": [
+   7.44,
+   7.67,
+   4.6
+  ],
+  "meshes": [
+   "WobbleTowerFallen_Cream",
+   "WobbleTowerFallen_Gold",
+   "WobbleTowerFallen_Mint",
+   "WobbleTowerFallen_Pink",
+   "WobbleTowerFallen_SkyBlue",
+   "WobbleTowerFallen_Waffle"
+  ],
+  "min": [
+   -7.8,
+   -6.8,
+   -0.2
+  ],
+  "pair": "WobbleTower",
+  "preview": "C:\\Users\\Wobble\\Desktop\\claude gehirn\\Wobble Scoops\\Arena Kit 2 Vorschau\\WobbleTowerFallen.png",
+  "size": [
+   15.24,
+   14.47,
+   4.8
+  ],
+  "state": "fallen",
+  "triangles": 3084
+ }
+}

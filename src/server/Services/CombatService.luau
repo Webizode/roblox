@@ -64,6 +64,8 @@ local RELEASE_UP = 1.5
 local RELEASE_FORWARD = 1
 -- one charge start per this many seconds is plenty for a human; faster ones are dropped
 local CHARGE_INTERVAL = 0.05
+-- a surface whose normal points up more than this is a floor or a top: the ball meets it by its centre (ballMeetsMap)
+local FLOOR_NORMAL = 0.7
 
 -- keyed by Player, not by character: a respawn keeps ammo, reload and knockdown points
 local states: { [Player]: PlayerState } = {}
@@ -94,6 +96,45 @@ end
 -- trigger volumes) and the thin decoration of Config/Map is skipped, the same rule the client's aim ray follows.
 local function solidRaycast(origin: Vector3, direction: Vector3, ignore: { Instance }): RaycastResult?
 	return MapQuery.throwRaycast(origin, direction, ignore)
+end
+
+-- Where the flying ball meets the map on the piece of flight from `from` to `to`: by its radius (a sphere cast), plus a
+-- plain ray for a wall the ball already touches at `from` (the sphere cast cannot see that one). The share of the piece
+-- flown (0..1) before it touches, and the hit; nil when it flies on.
+local function ballMeetsMap(from: Vector3, to: Vector3, ignore: { Instance }): (number?, RaycastResult?)
+	local step = to - from
+	local length = step.Magnitude
+	if length < 1e-6 then
+		return nil, nil
+	end
+	local sphere = MapQuery.throwSpherecast(from, Config.ballRadius, step, ignore)
+	if sphere and sphere.Normal.Y > FLOOR_NORMAL then
+		-- floors and tops by the centre: a flat throw at the ground would touch it a few studs before the crosshair's
+		-- point otherwise (19.9 studs aimed, 17.0 flown in the Studio test of 13.11.2026)
+		sphere = nil
+	end
+	local ray = solidRaycast(from, step, ignore)
+	local sphereS = if sphere then sphere.Distance / length else math.huge
+	local rayS = if ray then ray.Distance / length else math.huge
+	if sphere and sphereS <= rayS then
+		return sphereS, sphere
+	elseif ray then
+		return rayS, ray
+	end
+	return nil, nil
+end
+
+-- Whether a ball at `point`, within the reach of `root`'s body, really meets that body: within coverFree of the body's
+-- axis it touches the body itself; farther out (the wide reach of a far throw) only when nothing that stops a ball lies
+-- between it and the axis, so the reach never sticks out through cover round a corner.
+local function reachesBody(point: Vector3, root: BasePart, ignore: { Instance }): boolean
+	local p = root.Position
+	local axis = Vector3.new(p.X, math.clamp(point.Y, p.Y - Config.hitHalfHeight, p.Y + Config.hitHalfHeight), p.Z)
+	local toAxis = axis - point
+	if toAxis.Magnitude <= Config.coverFree then
+		return true
+	end
+	return solidRaycast(point, toAxis, ignore) == nil
 end
 
 local function rootOf(player: Player): BasePart?
@@ -419,8 +460,7 @@ local function headAndTower(player: Player, root: BasePart): (Combat.Head?, Comb
 		return nil, nil
 	end
 	local p = head.Position
-	local zone: Combat.Head =
-		{ x = p.X, y = p.Y, z = p.Z, radius = math.max(head.Size.X, head.Size.Y, head.Size.Z) / 2 }
+	local zone: Combat.Head = { x = p.X, y = p.Y, z = p.Z, radius = Config.headRadius } -- the same for every avatar, not the Head part's size
 	local scoops = registry.TowerService.count(player)
 	if scoops <= 0 then
 		return zone, nil
@@ -484,15 +524,25 @@ local function hitPlayer(
 		registry.TowerService.hitStance(victim, power)
 		lastHitBy[victim] = { thrower = ball.thrower, at = time }
 		state.lastHitAt = time
+		if not knockdown then
+			registry.TowerService.hitSlow(victim) -- a moment slower (Config/Combat hitSlow), not stacking
+		end
 		if knockdown then
 			Remotes.HitFeedback:FireClient(ball.thrower, "knockdown", victim, 0)
 			state.downUntil = time + Config.knockdownTime
-			-- a knockdown drops the charge, ends combat mode and the steady stance; the player switches them on again
-			-- after getting up
-			setCombatMode(victim, state, false)
+			-- server time the player is up again: every client leaves out the combat stance and the ball in the hand
+			-- meanwhile, since combat mode stays on through the knockdown
+			victim:SetAttribute("DownUntil", state.downUntil)
+			-- a knockdown drops the charge and ends the steady stance; combat mode stays on (since the kill test of
+			-- 13.11.2026), charges and throws wait for downUntil
+			setCharging(victim, state, nil)
 			registry.TowerService.endStance(victim)
-			-- the head start on the own spilled scoops only begins once the player is up again
-			registry.LootService.ownerDown(victim, state.downUntil)
+			-- a knockdown spills scoops by itself (since the kill test of 13.11.2026, Economy.keepOnTopple), falling
+			-- along the ball's flight; the thrower hears what fell like after a topple
+			local lost = registry.TowerService.knockdownSpill(victim, ball.flight.vx, ball.flight.vz)
+			if lost > 0 then
+				CombatService.toppled(victim, lost)
+			end
 		end
 	end
 	resolve(ball, victim, position, power, knockdown, false, headshot)
@@ -542,16 +592,19 @@ local function step()
 			if target and root and not (victimState and time < victimState.downUntil) then
 				local p = root.Position
 				local distance, s = Combat.closestToCapsule(ax, ay, az, bx, by, bz, p.X, p.Y, p.Z, Config.hitHalfHeight)
-				if distance <= hitRadius + Config.ballRadius and s < bestS then
+				if
+					distance <= hitRadius + Config.ballRadius
+					and s < bestS
+					and reachesBody(from:Lerp(to, s), root, characters) -- never through cover
+				then
 					bestS, bestVictim, bestDistance = s, player, distance
 				end
 			end
 		end
 
-		local worldHit = solidRaycast(from, to - from, characters)
-		local worldS = if worldHit
-			then (worldHit.Position - from).Magnitude / math.max((to - from).Magnitude, 1e-6)
-			else math.huge
+		-- walls and cover by the ball's radius, the same radius the reach adds round the players
+		local meetsS, worldHit = ballMeetsMap(from, to, characters)
+		local worldS = meetsS or math.huge
 
 		local resolved = true
 		if bestVictim and bestS <= worldS then

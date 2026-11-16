@@ -218,8 +218,9 @@ return {
 	ammo = { width = 236, height = 106, ball = 105, step = 70, rise = 8, shrink = 0.94 },
 	-- the dash bar under the ice balls, as wide as their row (the arena); `slice` is the share of the image's height the
 	-- slanted ends keep unstretched
-	-- gap: px between the bars of two dash charges; below 0 their slanted ends tuck into each other
-	dash = { height = 22, slice = 0.22, gap = -1 },
+	-- gap: px between the bars of two dash charges, two single bars with a small gap between them (kill test 13.11.2026;
+	-- it was -1, the slanted ends tucked into each other and it looked like one bar with a line in it)
+	dash = { height = 22, slice = 0.22, gap = 6 },
 	-- from the top of the screen to MY PLOT, ARENA and the gear, in the free part of Roblox's top bar: room for the half of
 	-- a key badge that stands over a button's top edge (Config/Ui badge / 2 - 4) and 1 px more
 	topEdge = 10,

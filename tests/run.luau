@@ -38,6 +38,7 @@ require("./TeleportRules.spec")
 require("./UiLayout.spec")
 require("./GuideRules.spec")
 require("./VfxRules.spec")
+require("./Wanted.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

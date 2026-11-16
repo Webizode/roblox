@@ -32,6 +32,11 @@ return {
 	-- to check where the safe zone starts. Client only, for testing.
 	debugArenaZone = false,
 
+	-- Draws the hit zones round every other player (HitZoneDebug): body capsule yellow, head zone red, tower column on
+	-- the back blue, the same geometry as the server's hit test. In Studio also switchable while playing with the
+	-- attribute HitZones on Workspace. Client only, for testing headshots.
+	debugHitZones = false,
+
 	-- The UI kit's test page with every building block (UiKitGallery, Studio only); also switchable while playing with
 	-- the attribute UiGallery on Workspace.
 	uiGallery = false,

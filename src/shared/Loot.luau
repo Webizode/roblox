@@ -9,7 +9,7 @@
 
 export type Config = {
 	ownerLock: number,
-	ownerSeconds: number,
+	othersLock: number,
 	lifetime: number,
 	blinkSeconds: number,
 	maxFree: number,
@@ -206,10 +206,11 @@ function Loot.settle(path: Path, lx: number, lz: number, groundY: number): (Path
 	return settled, { shares = { 0 }, heights = { groundY }, stopShare = 1, sinkAt = nil }
 end
 
--- Until when only the owner may pick up a scoop that landed at `landedAt`: ownerSeconds from the moment the owner can
--- act again, so a knockdown (ownerDownUntil) does not eat the head start.
-function Loot.ownerUntil(landedAt: number, ownerDownUntil: number, config: Config): number
-	return math.max(landedAt, ownerDownUntil) + config.ownerSeconds
+-- Until when only the owner may pick up a scoop that landed at `landedAt`: othersLock after the landing (0: nobody
+-- waits). A knockdown of the owner no longer moves it (kill test 13.11.2026: everybody picks up at once, and a
+-- knockdown spills scoops itself now).
+function Loot.ownerUntil(landedAt: number, config: Config): number
+	return landedAt + config.othersLock
 end
 
 -- From when the owner may pick up their own scoop that landed at `landedAt`: ownerLock later, so a toppled tower

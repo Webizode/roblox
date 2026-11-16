@@ -70,29 +70,61 @@ describe("Economy", function()
 		expect(Economy.serveValue(party, Flavors.byId, Config, { stacks = partyStacks }) / partyPlain).toBeCloseTo(2)
 	end)
 
-	it("keeps a small tower whole and the bottom 30 % (at least 2) of a taller one when it topples", function()
-		expect(Economy.keepOnTopple(0, Config)).toBe(0)
-		expect(Economy.keepOnTopple(1, Config)).toBe(1)
-		expect(Economy.keepOnTopple(4, Config)).toBe(4)
-		expect(Economy.keepOnTopple(5, Config)).toBe(2)
-		expect(Economy.keepOnTopple(10, Config)).toBe(3)
-		expect(Economy.keepOnTopple(37, Config)).toBe(11)
-	end)
+	it(
+		"spills all of a tower up to 5 scoops and 60 % (rounded) of a taller one when it topples or is knocked down",
+		function()
+			expect(Config.spillAllUpTo).toBe(5)
+			expect(Config.spillShare).toBe(0.6)
+			expect(Economy.keepOnTopple(0, Config)).toBe(0)
+			expect(Economy.keepOnTopple(1, Config)).toBe(0)
+			expect(Economy.keepOnTopple(5, Config)).toBe(0)
+			expect(Economy.keepOnTopple(6, Config)).toBe(2) -- 3.6 spill: 4
+			expect(Economy.keepOnTopple(7, Config)).toBe(3) -- 4.2 spill: 4
+			expect(Economy.keepOnTopple(10, Config)).toBe(4)
+			expect(Economy.keepOnTopple(37, Config)).toBe(15) -- 22.2 spill: 22
+			for count = 6, 80 do
+				local keep = Economy.keepOnTopple(count, Config)
+				expect(keep >= 1 and keep < count).toBe(true) -- above 5 something always stays and something always falls
+				expect(math.abs((count - keep) / count - Config.spillShare) <= 0.5 / count + 1e-9).toBe(true)
+			end
+		end
+	)
 
-	it("slows players down with height, never below the minimum", function()
-		local empty = Economy.walkSpeed(0, 0, Config)
+	it("slows players down by how full the waffle is: a soft curve, 25 % at full, less with sneakers", function()
+		local cap = Economy.capacity(0, Config)
+		local empty = Economy.walkSpeed(0, cap, 0, Config)
 		expect(empty).toBe(Config.baseWalkSpeed)
-		expect(Economy.walkSpeed(20, 0, Config)).toBeLessThan(empty)
-		expect(Economy.walkSpeed(500, 0, Config)).toBe(Config.minWalkSpeed)
-		expect(Economy.walkSpeed(20, 5, Config)).toBeGreaterThan(Economy.walkSpeed(20, 0, Config))
+		local function slowAt(share: number): number
+			return 1 - Economy.walkSpeed(cap * share, cap, 0, Config) / empty
+		end
+		expect(slowAt(1)).toBeCloseTo(0.25, 1e-9)
+		expect(slowAt(0.5)).toBeCloseTo(0.25 * 0.5 ^ 1.5, 1e-9) -- about 9 %
+		expect(slowAt(0.25) < 0.04).toBe(true) -- a little tower stays nimble
+		-- the same at every cone size: full is full
+		local bigCap = Economy.capacity(5, Config)
+		expect(Economy.walkSpeed(bigCap, bigCap, 0, Config)).toBeCloseTo(Economy.walkSpeed(cap, cap, 0, Config), 1e-9)
+		-- more than fits counts as full, never below the minimum
+		expect(Economy.walkSpeed(500, cap, 0, Config)).toBeCloseTo(Economy.walkSpeed(cap, cap, 0, Config), 1e-9)
+		expect(Economy.walkSpeed(cap, cap, 0, Config) >= Config.minWalkSpeed).toBe(true)
+		-- sneakers: faster and a smaller slow-down
+		expect(Economy.walkSpeed(cap, cap, 5, Config)).toBeGreaterThan(Economy.walkSpeed(cap, cap, 0, Config))
 	end)
 
 	it("speeds sprinting players up by the sprint multiplier, at every height", function()
+		local cap = Economy.capacity(0, Config)
 		for _, count in { 0, 10, 500 } do
-			local walk = Economy.walkSpeed(count, 0, Config)
-			expect(Economy.walkSpeed(count, 0, Config, true)).toBeCloseTo(walk * Config.sprintMultiplier)
-			expect(Economy.walkSpeed(count, 0, Config, false)).toBe(walk)
+			local walk = Economy.walkSpeed(count, cap, 0, Config)
+			expect(Economy.walkSpeed(count, cap, 0, Config, true)).toBeCloseTo(walk * Config.sprintMultiplier)
+			expect(Economy.walkSpeed(count, cap, 0, Config, false)).toBe(walk)
 		end
+	end)
+
+	it("shortens the dash with the tower: up to 20 % of its distance at a full waffle", function()
+		local cap = Economy.capacity(0, Config)
+		expect(Economy.dashScale(0, cap, 0, Config)).toBe(1)
+		expect(Economy.dashScale(cap, cap, 0, Config)).toBeCloseTo(0.8, 1e-9)
+		expect(Economy.dashScale(cap / 2, cap, 0, Config) > 0.9).toBe(true)
+		expect(Economy.dashScale(cap, cap, 5, Config)).toBeGreaterThan(0.8)
 	end)
 
 	it("has strictly rising upgrade costs and effects", function()

@@ -23,7 +23,6 @@ TowerVisual.__index = TowerVisual
 local SCOOP_SIZE = ScoopModel.SIZE
 TowerVisual.SCOOP_SIZE = SCOOP_SIZE
 local CONE_ROTATION = CFrame.Angles(0, 0, math.rad(90)) -- cylinders run along X
-local OUTLINE = Color3.fromHex(Look.outline)
 local GROAN = Color3.fromHex(Palette.awning)
 -- a tower growing by more than this at once was loaded or replaced, not caught onto: no plop
 local PLOP_MAX_NEW = 2
@@ -77,7 +76,10 @@ function TowerVisual.new(name: string)
 	local highlight = Instance.new("Highlight")
 	highlight.Adornee = model
 	highlight.FillTransparency = 1
-	highlight.OutlineColor = OUTLINE
+	highlight.OutlineColor = GROAN
+	-- no outline while all is well (kill test 13.11.2026: the dark outline round every scoop looked like a black border);
+	-- only a groaning tower shows it, red, as the tipping warning (setGroan)
+	highlight.OutlineTransparency = 1
 	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
 	highlight.Parent = model
 
@@ -174,7 +176,7 @@ function TowerVisual:setScoopFade(index: number, fade: number)
 end
 
 function TowerVisual:setGroan(on: boolean)
-	self.highlight.OutlineColor = if on then GROAN else OUTLINE
+	self.highlight.OutlineTransparency = if on then 0 else 1
 end
 
 -- seconds a spilled scoop stays where it was when no free scoop from the server takes its place

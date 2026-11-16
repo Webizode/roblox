@@ -252,7 +252,9 @@ local function onRenderStep()
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local hand = character and handOf(character)
+		local downUntil = player:GetAttribute("DownUntil")
 		local visible = player:GetAttribute("CombatMode") == true
+			and not (type(downUntil) == "number" and serverNow < downUntil) -- knocked down: no ball in the hand
 			and hand ~= nil
 			and humanoid ~= nil
 			and humanoid.Health > 0

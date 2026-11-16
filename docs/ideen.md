@@ -28,6 +28,7 @@ Grundregeln für alles hier: Sorten und Gegenstände sind anders, nicht stärker
 
 ## Idee
 
+- **Turm wackelt beim Landen aus größerer Höhe** (vom Nutzer am 14.11.2026 vorgemerkt, nicht bauen): Springt man mit Turm von einer Deckung oder Plattform, bekommt der Turm beim Aufkommen einen kleinen Stoß, je höher der Fall, desto mehr. Heute rechnet die Turmsimulation nur mit Laufrichtung mal Tempo (`TowerController.simulate`), Sprünge und Landungen wirken gar nicht. Ansatz: Fallhöhe oder Aufprall-Tempo messen und daraus einen Stoß wie `TowerModel.landingKick` geben, erst ab einer Mindesthöhe, gedeckelt, damit ein Sprung von einer mittleren Deckung (6,3) nie allein umwirft (Design-Regel 9).
 - **Crafting:**
   - Turm-Kugeln lassen sich in Materialien umwandeln, statt sie zu servieren.
   - Aus Materialien craftet man Attack-Scoops mit Fähigkeiten, in Stufen bis **Godly** (z. B. ein Craft aus 5 Godly Scoops plus Coins).

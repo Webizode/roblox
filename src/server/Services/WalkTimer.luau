@@ -225,8 +225,11 @@ end
 
 local function measure()
 	local speeds = {
-		{ label = "no tower", speed = Economy.walkSpeed(0, 0, EconomyConfig) },
-		{ label = `{TOWER} scoops`, speed = Economy.walkSpeed(TOWER, 0, EconomyConfig) },
+		{ label = "no tower", speed = Economy.walkSpeed(0, Economy.capacity(0, EconomyConfig), 0, EconomyConfig) },
+		{
+			label = `{TOWER} scoops`,
+			speed = Economy.walkSpeed(TOWER, Economy.capacity(0, EconomyConfig), 0, EconomyConfig),
+		},
 	}
 	-- the start spots, the same for both paces: landing spots near each set point, and some drawn like random shots
 	local rng = Random.new(7)
@@ -289,7 +292,7 @@ local function measure()
 	for _, pace in speeds do
 		table.insert(rounds, { label = pace.label, speed = pace.speed, counted = true, starts = starts })
 	end
-	local sprint = Economy.walkSpeed(0, 0, EconomyConfig, true)
+	local sprint = Economy.walkSpeed(0, Economy.capacity(0, EconomyConfig), 0, EconomyConfig, true)
 	table.insert(rounds, { label = "sprint, no tower", speed = sprint, counted = true, starts = outbound })
 	local results = {}
 	for _, round in rounds do

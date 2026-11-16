@@ -207,7 +207,7 @@ local function wanderSpot(dummy: Dummy): Vector3
 end
 
 local function step(dummy: Dummy, dt: number, now: number)
-	local speed = Economy.walkSpeed(dummy.carrying, 0, EconomyConfig)
+	local speed = Economy.walkSpeed(dummy.carrying, Economy.capacity(0, EconomyConfig), 0, EconomyConfig)
 	local goal: Vector3
 
 	if not dummy.goingHome and dummy.carrying >= dummy.serveAt then

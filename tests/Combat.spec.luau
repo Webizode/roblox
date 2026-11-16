@@ -70,6 +70,43 @@ describe("Ice-ball flight and hits", function()
 		expect(over).toBeGreaterThan(reach)
 	end)
 
+	it("aims at the rival under the crosshair, not at the map behind them", function()
+		-- over-the-shoulder camera 3.3 studs right of the thrower looking along +z, the right hand left of and below it;
+		-- a rival 40 studs ahead with the crosshair right on their head, a wall 200 studs away behind them
+		local cam = { x = 3.3, y = 6, z = 0 }
+		local hand = { x = 1.5, y = 4.5, z = 1 }
+		local rival = { x = 3.3, y = 4, z = 40, head = { x = 3.3, y = 6, z = 40, radius = 0.6 } }
+		local depth = Combat.aimDepth(cam.x, cam.y, cam.z, 0, 0, 1, 200, { rival }, Config)
+		expect(depth).toBeCloseTo(40, 1e-6)
+
+		-- where the ball from the hand crosses the rival's depth, with the old aim (the wall) and the new one
+		local function besideHead(aimZ: number): number
+			local speed = Combat.throwSpeed(1, false, Config)
+			local _, vx, vy, vz = Combat.aimVelocity(hand.x, hand.y, hand.z, cam.x, cam.y, aimZ, speed, Config)
+			local t = (40 - hand.z) / vz
+			local x, y = Combat.position(hand.x, hand.y, hand.z, vx, vy, vz, Config.gravity, t)
+			return math.sqrt((x - 3.3) ^ 2 + (y - 6) ^ 2)
+		end
+		local headZone = 0.6 * Config.headZoneScale + Config.ballRadius
+		expect(besideHead(200)).toBeGreaterThan(headZone) -- the bug: about 1.5 studs to the left, past the head
+		expect(besideHead(depth :: number)).toBeCloseTo(0, 1e-3)
+	end)
+
+	it("takes the nearest rival on the crosshair ray and none beside, above or behind the end of it", function()
+		local near = { x = 0, y = 0, z = 30 }
+		local far = { x = 0, y = 0, z = 60 }
+		expect(Combat.aimDepth(0, 2, 0, 0, 0, 1, 200, { far, near }, Config)).toBeCloseTo(30, 1e-6)
+		local beside = { x = Config.hitRadius + 0.5, y = 0, z = 30 }
+		expect(Combat.aimDepth(0, 2, 0, 0, 0, 1, 200, { beside }, Config)).toBe(nil)
+		local below = { x = 0, y = -10, z = 30 }
+		expect(Combat.aimDepth(0, 2, 0, 0, 0, 1, 200, { below }, Config)).toBe(nil)
+		-- a rival behind the wall the ray stops at is no target
+		expect(Combat.aimDepth(0, 2, 0, 0, 0, 1, 25, { near }, Config)).toBe(nil)
+		-- a head alone (the body axis out of reach) still counts
+		local headOnly = { x = 0, y = -20, z = 30, head = { x = 0, y = 2, z = 30, radius = 0.6 } }
+		expect(Combat.aimDepth(0, 2, 0, 0, 0, 1, 200, { headOnly }, Config)).toBeCloseTo(30, 1e-6)
+	end)
+
 	it("says where along the segment the closest point is", function()
 		local _, s = Combat.closestToCapsule(0, 0, 0, 0, 0, 20, 0, 0, 5, Config.hitHalfHeight)
 		expect(s).toBeCloseTo(0.25, 1e-6)
@@ -651,6 +688,16 @@ describe("Headshots", function()
 		expect(throwAt(-15, 6.5, 15, HEAD.x, HEAD.y, HEAD.z, towerOf(5))).toBe(true)
 	end)
 
+	it("from the side the back of the head is still the head: the tower only counts where it is in front", function()
+		-- the back half of the head, towards the tower, with a big tower standing right behind it
+		local back = HEAD.z + HEAD.radius * 0.8
+		expect(throwAt(-15, HEAD.y, back, HEAD.x, HEAD.y, back, towerOf(8))).toBe(true)
+		expect(throwAt(15, HEAD.y, back, HEAD.x, HEAD.y, back, towerOf(8))).toBe(true)
+		-- level with the tower's axis it is the tower: a normal hit
+		local column = ROOT.z + Config.towerBack
+		expect(throwAt(-15, HEAD.y, column, HEAD.x, HEAD.y, column, towerOf(8))).toBe(false)
+	end)
+
 	it("aim help draws to the chest, never the head: a throw at its point is no headshot", function()
 		local point = ROOT.y + Config.aimAssist.aimHeight
 		expect(point < HEAD.y - HEAD.radius * Config.headZoneScale).toBe(true)
@@ -684,5 +731,34 @@ describe("Charge glow", function()
 			expect(level).toBe(0)
 			expect(perfect).toBe(false)
 		end
+	end)
+end)
+
+describe("Hit slow-down", function()
+	it("slows for hitSlow.seconds, never stacks or grows longer, and spares one right after it", function()
+		local s = Config.hitSlow
+		expect(s.factor).toBe(0.7)
+		expect(s.seconds).toBe(0.6)
+		local untilFirst = Combat.hitSlow(0, 100, Config)
+		expect(untilFirst).toBe(100 + s.seconds)
+		-- a second hit while slowed: nothing more, the end stays
+		expect(Combat.hitSlow(untilFirst :: number, 100.3, Config)).toBe(nil)
+		-- right after it ended, within the immune time: nothing either
+		expect(Combat.hitSlow(untilFirst :: number, 100 + s.seconds + s.immune - 0.01, Config)).toBe(nil)
+		-- after that a hit slows again
+		local again = Combat.hitSlow(untilFirst :: number, 100 + s.seconds + s.immune + 0.001, Config)
+		expect(again).toBeCloseTo(100.001 + 2 * s.seconds + s.immune, 1e-9)
+		-- hits every 0.25 s for 5 s: slowed at most 60 % of the time (0.6 of each 1 s), never held for good
+		local slowUntil, slowed = 0, 0
+		for step = 0, 199 do
+			local now = 200 + step * 0.025
+			if step % 10 == 0 then
+				slowUntil = Combat.hitSlow(slowUntil, now, Config) or slowUntil
+			end
+			if now < slowUntil then
+				slowed += 1
+			end
+		end
+		expect(slowed / 200 <= s.seconds / (s.seconds + s.immune) + 0.05).toBe(true)
 	end)
 end)

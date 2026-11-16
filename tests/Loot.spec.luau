@@ -17,29 +17,29 @@ local function spill(count: number, tiltX: number, tiltZ: number, seed: number?)
 	return Loot.spill(tower(count), keep, tiltX, tiltZ, seed or 1, Config, Tuning, TowerShape), keep
 end
 
-local function scoop(owner: number, landedAt: number, ownerDownUntil: number?): Loot.Scoop
+local function scoop(owner: number, landedAt: number): Loot.Scoop
 	return {
 		owner = owner,
 		landedAt = landedAt,
 		ownerFrom = Loot.ownerFrom(landedAt, Config),
-		ownerUntil = Loot.ownerUntil(landedAt, ownerDownUntil or 0, Config),
+		ownerUntil = Loot.ownerUntil(landedAt, Config),
 		expiresAt = landedAt - Config.fallTime + Config.lifetime,
 	}
 end
 
 describe("Spilled scoops: what falls", function()
-	it("towers under 5 scoops lose nothing, taller ones keep 30 % (at least 2)", function()
-		for count = 1, 4 do
+	it("towers up to 5 scoops lose everything, taller ones 60 % from the top", function()
+		for count = 1, 5 do
 			local paths, keep = spill(count, Tuning.tipAngle, 0)
-			expect(keep).toBe(count)
-			expect(#paths).toBe(0)
+			expect(keep).toBe(0)
+			expect(#paths).toBe(count)
 		end
-		local paths, keep = spill(5, Tuning.tipAngle, 0)
+		local paths, keep = spill(6, Tuning.tipAngle, 0)
 		expect(keep).toBe(2)
-		expect(#paths).toBe(3)
+		expect(#paths).toBe(4)
 		paths, keep = spill(20, Tuning.tipAngle, 0)
-		expect(keep).toBe(6)
-		expect(#paths).toBe(14)
+		expect(keep).toBe(8)
+		expect(#paths).toBe(12)
 	end)
 
 	it("drops the scoops above the kept ones, with their flavors, the top one first", function()
@@ -189,31 +189,21 @@ describe("Spilled scoops: real ground along the roll", function()
 end)
 
 describe("Spilled scoops: who may pick up", function()
-	it("nobody picks it up at once: the owner after 2 s, everybody else after 3 s, set in the config", function()
-		expect(Config.ownerLock).toBe(2)
-		expect(Config.ownerSeconds).toBe(3)
+	it("the owner picks a spilled scoop up at once, everybody else othersLock (0.5 s) after it landed", function()
+		expect(Config.ownerLock).toBe(0)
+		expect(Config.othersLock).toBe(0.5)
 		local s = scoop(1, 100)
-		-- the owner, right where the tower fell, has to wait too: shooting a tower down is worth something
-		local ok, reason = Loot.canCollect(s, 1, 100)
+		expect((Loot.canCollect(s, 1, 100))).toBe(true)
+		local ok, reason = Loot.canCollect(s, 2, 100 + Config.othersLock - 0.01)
 		expect(ok).toBe(false)
-		expect(reason).toBe("not yet for the owner")
-		expect((Loot.canCollect(s, 1, 100 + Config.ownerLock - 0.01))).toBe(false)
-		expect((Loot.canCollect(s, 1, 100 + Config.ownerLock))).toBe(true)
-		-- everybody else a second later
-		expect((Loot.canCollect(s, 2, 100 + Config.ownerLock))).toBe(false)
-		expect((Loot.canCollect(s, 2, 100 + Config.ownerSeconds - 0.01))).toBe(false)
-		expect((Loot.canCollect(s, 2, 100 + Config.ownerSeconds))).toBe(true)
-		expect((Loot.canCollect(s, 1, 100 + Config.ownerSeconds))).toBe(true)
+		expect(reason).toBe("the owner's turn")
+		expect((Loot.canCollect(s, 2, 100 + Config.othersLock))).toBe(true)
 	end)
 
-	it("lights up for each player the moment they may pick it up", function()
+	it("lights up for the owner when it lands and for everybody else after othersLock", function()
 		local s = scoop(1, 100)
-		expect(Loot.collectableFrom(s, 1)).toBe(100 + Config.ownerLock)
-		expect(Loot.collectableFrom(s, 2)).toBe(100 + Config.ownerSeconds)
-		-- a knocked-down owner moves the others' moment, not the owner's own
-		local down = scoop(1, 100, 101.5)
-		expect(Loot.collectableFrom(down, 2)).toBe(101.5 + Config.ownerSeconds)
-		expect(Loot.collectableFrom(down, 1)).toBe(100 + Config.ownerLock)
+		expect(Loot.collectableFrom(s, 1)).toBe(100)
+		expect(Loot.collectableFrom(s, 2)).toBe(100 + Config.othersLock)
 	end)
 
 	it("spreads the scoops out round the tower, not all at the owner's feet", function()
@@ -225,15 +215,6 @@ describe("Spilled scoops: who may pick up", function()
 				expect(roll >= Config.rollMin - 1e-6 and roll <= Config.rollMax + 1e-6).toBe(true)
 			end
 		end
-	end)
-
-	it("starts the head start only once a knocked-down owner is up again", function()
-		local s = scoop(1, 100, 101.5)
-		expect(s.ownerUntil).toBe(101.5 + Config.ownerSeconds)
-		expect(Loot.canCollect(s, 2, 100 + Config.ownerSeconds + 0.5)).toBe(false)
-		expect(Loot.canCollect(s, 2, 101.5 + Config.ownerSeconds)).toBe(true)
-		-- a knockdown that is already over changes nothing
-		expect(scoop(1, 100, 50).ownerUntil).toBe(100 + Config.ownerSeconds)
 	end)
 
 	it("nobody picks up a scoop still falling or one that is gone after its lifetime", function()
@@ -251,8 +232,8 @@ describe("Spilled scoops: who may pick up", function()
 	it("a spilled scoop lies 10 s, blinks in the last second and is gone for good after it", function()
 		expect(Config.lifetime).toBe(10)
 		expect(Config.blinkSeconds).toBe(1)
-		-- the head starts (owner 2 s, everybody else 3 s) fit well inside it
-		expect(Config.fallTime + Config.ownerSeconds < Config.lifetime - Config.blinkSeconds).toBe(true)
+		-- the others' wait fits well inside it
+		expect(Config.fallTime + Config.othersLock < Config.lifetime - Config.blinkSeconds).toBe(true)
 		local t0 = 100
 		local endAt = t0 + Config.lifetime
 		expect(Loot.blinks(endAt, endAt - 1.1, false, false, Config)).toBe(false)
