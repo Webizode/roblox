@@ -26,6 +26,7 @@ local ORDER = {
 	"UiKitGallery",
 	"FountainWater",
 	"Ocean",
+	"LookController",
 	"HitZoneDebug",
 }
 

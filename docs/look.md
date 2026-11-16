@@ -63,3 +63,11 @@ for _, part in workspace["Ice Cream Map"]:GetDescendants() do
 	end
 end
 ```
+
+# Licht-Pakete „Soft“ und „Vivid“ (16.11.2026)
+
+Zum Vergleichen, ohne den Place umzubauen. `src/shared/Config/Look.luau` hält beide Pakete, `preset` wählt das aktive (`"Soft"` oder `"Vivid"`). Jeder Client wendet es beim Start an (`LookController`, `LookApply`), auch auf Rasen, der später gestreamt wird. Der Place selbst behält „Soft“. In Studio schaltet das Workspace-Attribut `LookPreset` während eines Playtests live um.
+
+- **Soft:** genau die Werte des Place seit dem Map Check vom 11.11.2026.
+- **Vivid** (Richtung Referenzbild vom 16.11.: satt, hell, klar, kein Dunst, starker Kontrast): Farbkorrektur Sättigung 0,32, Kontrast 0,22, Helligkeit 0,02, Tönung weiß. Brightness 3, Exposure +0,1, Ambient (140, 140, 140), OutdoorAmbient (165, 165, 170), ShadowSoftness 0,08. Atmosphere Dichte 0,06 ohne Haze und Glare (ein Rest bleibt, damit der Meeresrand am Horizont verschwindet). Bloom 0,15 mit Schwelle 2,4, SunRays aus. Gras #4CC22A statt #6FA046, Terrain-Wasser #0080E8 (Transparenz 0,25), Client-Meer #1A8CF0.
+- Geändert werden nur Licht, Farbkorrektur, Atmosphere, Bloom, SunRays, Terrain-Gras und -Wasser, der Hub-Rasen (`Dekoracje.Hub.Sektor_*.Rasen`), die Plot-Böden (`Plots.Plot_*.Powierzchnia`) und das Client-Meer. Kein Modell wird umgefärbt.
