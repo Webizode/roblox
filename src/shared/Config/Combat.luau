@@ -79,9 +79,6 @@ return {
 		numberRise = 3, -- studs it rises
 		feedTime = 2.5, -- seconds a feed line stays
 		feedLines = 3, -- at most this many at once, the newest at the bottom
-		-- the own knockdown meter (KnockMeter) below the crosshair: one segment per point up to knock.knockdownAt,
-		-- shown while there are points or the get-up protection lasts
-		meter = { segment = 18, gap = 3, height = 6, below = 46 }, -- pixels
 	},
 
 	-- aiming: the ball leaves the right hand and flies on an arc through the point under the crosshair
@@ -290,6 +287,45 @@ return {
 		resetAfter = 6, -- seconds
 		multiWindow = 0.25, -- seconds
 		protection = 2, -- seconds after getting up
+	},
+	-- The life bar (HealthPips, since 16.11.2026): the knockdown points shown the other way round, as lives left. One
+	-- segment per normal hit up to the knockdown (knockdownAt / points.normal = 3); a hit empties as many segments as
+	-- its points are worth (a graze half, a perfect throw or a headshot one and a half). Green while more than yellowAt
+	-- of it is left, yellow down to redAt, red below. When the count drops back to 0 (resetAfter) the segments fill up
+	-- again over `refill` seconds; a hit empties them at once, flashes white for `flash` seconds and shakes by `shake`
+	-- pixels. Grey and faded while knocked down, blue while the get-up protection lasts. The same bar over every rival
+	-- (EnemyHealthBars) and as the own meter below the crosshair (KnockMeter); both only read the server's attributes.
+	healthBar = {
+		yellowAt = 0.5, -- share of the bar left, at or below: yellow
+		redAt = 1 / 3, -- and red
+		colors = { full = "#5CD64A", mid = "#FFC61E", low = "#F2445A", down = "#A9A3A0", protected = "#2EA6F2" },
+		refill = 0.4, -- seconds from empty to full
+		flash = 0.15, -- seconds
+		shake = 3, -- pixels
+		fade = 0.2, -- seconds to fade in or out
+		-- over rivals: only in the arena, never over the own character. Shown for rivals within `near` studs, within
+		-- `aimAngle` degrees of the crosshair (up to `aimRange` studs) and for `afterHit` seconds after a hit, but never
+		-- through cover (a ray from the camera to their head, the throw rule MapQuery.throwRaycast), at most `max` at
+		-- once (the latest hit first, then the nearest). Sight is checked `checksPerSecond` times a second per rival.
+		near = 60, -- studs
+		aimAngle = 6, -- degrees
+		aimRange = 160, -- studs
+		afterHit = 3, -- seconds
+		max = 4,
+		checksPerSecond = 6,
+		-- size and place over the head: `studs` wide and tall plus `pixels` on top, so it is still readable far away
+		-- and on a phone without growing big up close; `above` studs over the head's centre, above the name and below
+		-- the WANTED badge (Config/Wanted.badge.height)
+		billboard = {
+			studsWide = 2.4,
+			studsHigh = 0.42,
+			pixelsWide = 46,
+			pixelsHigh = 9,
+			above = 2.35,
+			maxDistance = 200,
+		},
+		-- the own bar below the crosshair, in pixels at 720 px high
+		own = { width = 132, height = 18, below = 46 },
 	},
 	-- Headshot (Combat.isHeadshot): only the head counts, its zone is headRadius times headZoneScale round the Head
 	-- part's centre. headRadius is the same for every avatar (the standard R15 head, 1.2 across), so big or small heads

@@ -11,6 +11,7 @@ local ORDER = {
 	"HitFeedback",
 	"VfxController",
 	"KnockMeter",
+	"EnemyHealthBars",
 	"WantedHud",
 	"Backpacks",
 	"HeldBalls",

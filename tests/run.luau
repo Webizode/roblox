@@ -39,6 +39,7 @@ require("./UiLayout.spec")
 require("./GuideRules.spec")
 require("./VfxRules.spec")
 require("./Wanted.spec")
+require("./HealthPips.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

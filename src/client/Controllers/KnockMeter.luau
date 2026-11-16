@@ -1,9 +1,10 @@
--- The local player's own knockdown meter (Config/Combat knock, feedback.meter): a row of segments below the
--- crosshair, one per point up to the knockdown, filled red as hits add up and empty again once the count drops back
--- to 0 after resetAfter seconds without a hit. While the get-up protection lasts the row turns mint with
--- "PROTECTED" under it. It reads the KnockPoints, KnockResetAt and KnockProtectedUntil attributes the server sets
--- (HitPoints.display), so it only ever shows what the server counted. Shown in the arena, while there is something
--- to show.
+-- The local player's own life bar (Config/Combat knock and healthBar, HealthPips) below the crosshair: the same bar
+-- every rival has over their head (EnemyHealthBars, HealthBarView), so both read as one system. One segment per normal
+-- hit up to the knockdown, emptied as hits add points, flashing white with a little shake on each hit, filling up again
+-- once the count drops back to 0 after resetAfter seconds without a hit. Grey while knocked down, blue with
+-- "PROTECTED" under it while the get-up protection lasts. It reads the KnockPoints, KnockResetAt, KnockProtectedUntil
+-- and DownUntil attributes the server sets, so it only ever shows what the server counted. Shown in the arena while
+-- there is something to show; it fades in and out.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,23 +12,25 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HitPoints = require(Shared:WaitForChild("HitPoints"))
+local HealthPips = require(Shared:WaitForChild("HealthPips"))
 local CombatConfig = require(Shared:WaitForChild("Config"):WaitForChild("Combat"))
 
 local client = script.Parent.Parent
 local Ui = require(client:WaitForChild("Ui"))
+local HealthBarView = require(client:WaitForChild("HealthBarView"))
 
 local KnockMeter = {}
 
 local Knock = CombatConfig.knock
-local Look = CombatConfig.feedback.meter
-local FULL = Ui.color("red")
-local SAFE = Ui.kitColor("mint")
-local EMPTY = Ui.color("chocolate")
+local Bar = CombatConfig.healthBar
+local Look = Bar.own
 
 local player = Players.LocalPlayer
-local row: Frame
+local view: HealthBarView.View
 local label: TextLabel
-local segments: { Frame } = {}
+local shown = 1 -- share of the bar drawn (it refills over Bar.refill)
+local alpha = 0
+local lastResetAt: number? = nil
 
 function KnockMeter.Init()
 	local gui = Instance.new("ScreenGui")
@@ -36,34 +39,28 @@ function KnockMeter.Init()
 	gui.IgnoreGuiInset = true -- centred on the viewport like the crosshair
 	gui.Parent = player:WaitForChild("PlayerGui")
 
-	local count = Knock.knockdownAt
-	row = Instance.new("Frame")
-	row.Name = "Row"
-	row.AnchorPoint = Vector2.new(0.5, 0)
-	row.Position = UDim2.new(0.5, 0, 0.5, Look.below)
-	row.Size = UDim2.fromOffset(count * Look.segment + (count - 1) * Look.gap, Look.height)
-	row.BackgroundTransparency = 1
-	row.Visible = false
-	Ui.list(row, Enum.FillDirection.Horizontal, Look.gap)
-	for index = 1, count do
-		local segment = Instance.new("Frame")
-		segment.Name = "Point" .. index
-		segment.LayoutOrder = index
-		segment.Size = UDim2.fromOffset(Look.segment, Look.height)
-		segment.BorderSizePixel = 0
-		Ui.corner(segment, UDim.new(0.5, 0))
-		Ui.stroke(segment, "outline", 1.5, 0.1)
-		segment.Parent = row
-		segments[index] = segment
-	end
-	row.Parent = gui
+	-- the holder scales with the screen round the crosshair's middle, so the bar keeps its place under it
+	local holder = Instance.new("Frame")
+	holder.Name = "Holder"
+	holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	holder.Position = UDim2.fromScale(0.5, 0.5)
+	holder.Size = UDim2.fromOffset(0, 0)
+	holder.BackgroundTransparency = 1
+	Ui.autoScale(holder)
+	holder.Parent = gui
+
+	view = HealthBarView.new(2.5)
+	view.root.AnchorPoint = Vector2.new(0.5, 0)
+	view.root.Position = UDim2.fromOffset(0, Look.below)
+	view.root.Size = UDim2.fromOffset(Look.width, Look.height)
+	view.root.Parent = holder
 
 	label = Ui.text({ Text = "PROTECTED", TextSize = 14, AnchorPoint = Vector2.new(0.5, 0) })
-	label.Position = UDim2.new(0.5, 0, 0.5, Look.below + Look.height + 4)
-	label.TextColor3 = SAFE
+	label.Position = UDim2.fromOffset(0, Look.below + Look.height + 3)
+	label.TextColor3 = Color3.fromHex(Bar.colors.protected)
 	label.Visible = false
 	Ui.stroke(label, "outline", 2, 0).ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	label.Parent = gui
+	label.Parent = holder
 end
 
 local function number(name: string): number
@@ -71,25 +68,27 @@ local function number(name: string): number
 	return if type(value) == "number" then value else 0
 end
 
-local function onStep()
-	local points, protected = HitPoints.display(
-		number("KnockPoints"),
-		number("KnockResetAt"),
-		number("KnockProtectedUntil"),
-		workspace:GetServerTimeNow(),
-		Knock
-	)
-	local shown = player:GetAttribute("InArena") == true and (points > 0 or protected)
-	row.Visible = shown
-	label.Visible = shown and protected
-	if not shown then
-		return
+local function onStep(dt: number)
+	local now = workspace:GetServerTimeNow()
+	local resetAt = number("KnockResetAt")
+	local points, protected =
+		HitPoints.display(number("KnockPoints"), resetAt, number("KnockProtectedUntil"), now, Knock)
+	local down = now < number("DownUntil")
+	if lastResetAt ~= nil and resetAt ~= lastResetAt then
+		view.hit(os.clock()) -- a new counted hit moved the reset time
 	end
-	for index, segment in segments do
-		local filled = index <= points
-		segment.BackgroundColor3 = if protected then SAFE elseif filled then FULL else EMPTY
-		segment.BackgroundTransparency = if filled or protected then 0 else 0.55
-	end
+	lastResetAt = resetAt
+
+	local target = if down then 0 else HealthPips.left(points, Knock)
+	shown = HealthPips.approach(shown, target, dt, Bar.refill)
+	view.set(shown, HealthPips.tone(shown, down, protected, Bar))
+	view.step(os.clock())
+
+	local wanted = player:GetAttribute("InArena") == true and (shown < 1 or down or protected)
+	alpha = math.clamp(alpha + (if wanted then dt else -dt) / Bar.fade, 0, 1)
+	view.setAlpha(alpha)
+	view.root.Visible = alpha > 0
+	label.Visible = wanted and protected and not down
 end
 
 function KnockMeter.Start()
