@@ -14,9 +14,10 @@ Theme.config = UiConfig
 -- The game's two fonts (Config/Ui.fonts): every text sets one of these, none names a font itself. The Enum forms are
 -- for measuring text (TextService:GetTextSize takes no Font).
 Theme.fontMainEnum = (Enum.Font :: any)[UiConfig.fonts.main] :: Enum.Font
-Theme.fontTextEnum = (Enum.Font :: any)[UiConfig.fonts.text] :: Enum.Font
+Theme.fontTextEnum = (Enum.Font :: any)[UiConfig.fonts.textEnum] :: Enum.Font
 Theme.fontMain = Font.fromEnum(Theme.fontMainEnum) -- Luckiest Guy: buttons, titles, badges, messages
-Theme.fontText = Font.fromEnum(Theme.fontTextEnum) -- Builder Sans ExtraBold: hints, descriptions, settings, small numbers
+-- Nunito ExtraBold: descriptions, passive texts, card details, hints, settings, small numbers
+Theme.fontText = Font.new(UiConfig.fonts.text.family, (Enum.FontWeight :: any)[UiConfig.fonts.text.weight])
 -- Nunito Black: the number displays (coins, the scoop count and its worth, shop prices)
 Theme.fontNumbers = Font.new(UiConfig.fonts.numbers.family, (Enum.FontWeight :: any)[UiConfig.fonts.numbers.weight])
 Theme.icons = UiConfig.icons

@@ -207,6 +207,13 @@ describe("Flavors", function()
 			expect(flavor.mass).toBeGreaterThan(0)
 			expect(string.match(flavor.color, "^#%x%x%x%x%x%x$") ~= nil).toBe(true)
 		end
-		expect(#Flavors.list).toBe(11) -- the eleven commons; the rarer flavors come later as new designs
+		-- the eleven commons; the rarer flavors come later as new designs, until then only placeholders (Scoop Chest)
+		local real = 0
+		for _, flavor in Flavors.list do
+			if not flavor.placeholder then
+				real += 1
+			end
+		end
+		expect(real).toBe(11)
 	end)
 end)

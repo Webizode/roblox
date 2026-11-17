@@ -1,11 +1,16 @@
 --!strict
 -- Every flavor in the game. Values and physics modifiers live here so a new family is a data change, not a code change.
 -- Since 29.10.2026 only the eleven common classics; the rarer flavors (uncommon to legendary) are new designs that
--- come later. The families heavy, sticky and wild stay for them.
+-- come later. The families heavy, sticky and wild stay for them. Until then three placeholders (Rare, Epic,
+-- Legendary, `placeholder = true`) stand in for the Scoop Chest; the Big Swirl only fires them with
+-- Features.placeholderRares, but they stay known here, so stored ones in a save never break.
 
 export type Family = "classic" | "heavy" | "sticky" | "wild"
--- how rare a flavor is for the player (trail, later the collection book); the launcher odds are `weight`
-export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary"
+-- how rare a flavor is for the player (trail, Scoop Chest, later the collection book); the launcher odds are `weight`.
+-- A new rarity (Mythic, Secret and Divine are planned, in that order after Legendary) needs: its name in `rarities`
+-- at the end of this file (the order is the rank), a colour in `rarityColors`, and its values in Config/Chest
+-- (passives.byRarity, sell.byRarity); the UI kit's card uses the neutral card until it has its own picture (Config/Ui).
+export type Rarity = string
 
 export type Flavor = {
 	id: string,
@@ -20,6 +25,9 @@ export type Flavor = {
 	weight: number, -- launcher spawn weight
 	color: string, -- hex, see Palette for the shared tokens
 	material: string, -- Enum.Material name, also used so flavors differ for colorblind players
+	model: string?, -- the flavor whose scoop model it borrows (ReplicatedStorage.TowerScoops); default its own id
+	passive: string?, -- what it gives equipped in the Scoop Chest (Config/Chest.passives); default defaultPassive there
+	placeholder: boolean?, -- a stand-in until the real designs: fired only with Features.placeholderRares
 }
 
 local list: { Flavor } = {
@@ -179,6 +187,59 @@ local list: { Flavor } = {
 		color = "#F2545B",
 		material = "SmoothPlastic",
 	},
+	-- Placeholders for the Scoop Chest (17.11.2026) until the real rare flavors are built: the Vanilla model in their own
+	-- colour, one passive each, small weights (about 1 shot in 30 is one of them).
+	{
+		id = "blue_moon",
+		name = "Blue Moon",
+		family = "classic",
+		rarity = "rare",
+		value = 12,
+		mass = 1,
+		stiffness = 0,
+		damping = 0,
+		jerk = 0,
+		weight = 2.5,
+		color = "#5DB4FF",
+		material = "SmoothPlastic",
+		model = "vanilla",
+		passive = "coins",
+		placeholder = true,
+	},
+	{
+		id = "galaxy_grape",
+		name = "Galaxy Grape",
+		family = "classic",
+		rarity = "epic",
+		value = 25,
+		mass = 1,
+		stiffness = 0,
+		damping = 0,
+		jerk = 0,
+		weight = 1,
+		color = "#B07BFF",
+		material = "SmoothPlastic",
+		model = "vanilla",
+		passive = "luck",
+		placeholder = true,
+	},
+	{
+		id = "sunset_mango",
+		name = "Sunset Mango",
+		family = "classic",
+		rarity = "legendary",
+		value = 50,
+		mass = 1,
+		stiffness = 0,
+		damping = 0,
+		jerk = 0,
+		weight = 0.4,
+		color = "#FF9F1C",
+		material = "SmoothPlastic",
+		model = "vanilla",
+		passive = "catch",
+		placeholder = true,
+	},
 }
 
 local byId: { [string]: Flavor } = {}
@@ -189,6 +250,9 @@ end
 return {
 	list = list,
 	byId = byId,
+	-- every rarity from the most common up; the place in this list is its rank (the Scoop Chest's threshold, sorting).
+	-- Mythic, Secret and Divine come later, in that order after legendary.
+	rarities = { "common", "uncommon", "rare", "epic", "legendary" },
 	-- the colour of a rarity, e.g. for the name over a scoop in flight or on the ground (ScoopLabel); golden its own
 	rarityColors = {
 		common = "#FFFFFF",

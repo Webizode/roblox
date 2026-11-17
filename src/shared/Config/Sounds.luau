@@ -23,6 +23,11 @@ return {
 	headshot = "rbxassetid://124010691633262", -- the thrower hears it on their headshot
 	chargeUp = "rbxassetid://139493189032178", -- at the charging hand, for players nearby
 	perfectReady = "rbxassetid://9125644410", -- at the hand each time letting go would be perfect
+	-- the Scoop Chest (placeholders): the magic chime when it opens, a soft thud when it shuts, a ding when rare
+	-- scoops go into it or a catch turns lucky
+	chestOpen = "rbxassetid://9125644410",
+	chestClose = "rbxasset://sounds/button.wav",
+	chestStored = "rbxassetid://9126073001",
 
 	-- every catch climbs one step of a pentatonic scale so a growing tower "sings"
 	pentatonic = { 0, 2, 4, 7, 9 },

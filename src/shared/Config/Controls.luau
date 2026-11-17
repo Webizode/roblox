@@ -14,6 +14,8 @@ local Controls: { [string]: Binding } = {
 	dash = { keys = { "Q" }, pad = { "ButtonX" } },
 	sprint = { keys = { "LeftShift", "RightShift" }, pad = { "ButtonL3" } },
 	steady = { keys = { "F" } },
+	-- the prompt at the own Scoop Chest (ChestController)
+	chest = { keys = { "E" }, pad = { "DPadRight" } },
 	-- the navigation: the left column, MY PLOT and ARENA
 	upgrades = { keys = { "One" } },
 	cosmetics = { keys = { "Two" } },

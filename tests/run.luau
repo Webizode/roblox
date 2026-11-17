@@ -40,6 +40,7 @@ require("./GuideRules.spec")
 require("./VfxRules.spec")
 require("./Wanted.spec")
 require("./HealthPips.spec")
+require("./ScoopChest.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

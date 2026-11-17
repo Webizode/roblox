@@ -22,6 +22,7 @@ local SettingsRules = require(Shared:WaitForChild("SettingsRules"))
 local SaveConfig = require(Config:WaitForChild("Save"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local SettingsConfig = require(Config:WaitForChild("Settings"))
+local ChestConfig = require(Config:WaitForChild("Chest"))
 local ProfileStore = require(script.Parent.Parent:WaitForChild("Packages"):WaitForChild("ProfileStore"))
 
 local DataService = {}
@@ -74,7 +75,7 @@ local function onPlayer(player: Player)
 
 	profile:AddUserId(player.UserId) -- GDPR: the profile can be found and erased by UserId
 	profile:Reconcile()
-	local _, repaired = SaveData.migrate(profile.Data, EconomyConfig)
+	local _, repaired = SaveData.migrate(profile.Data, EconomyConfig, ChestConfig.equipSlots)
 	if repaired then
 		print(`[Data] {player.Name}'s save was repaired or migrated to version {SaveData.VERSION}`)
 	end
@@ -212,6 +213,16 @@ function DataService.recordServe(player: Player, scoops: { string }, value: numb
 	end
 	SaveData.recordServe(data, scoops, value)
 	publish(player, data)
+	return true
+end
+
+-- Coins from outside a serve (selling from the Scoop Chest). Returns false when the save is not loaded.
+function DataService.addCoins(player: Player, coins: number): boolean
+	local data = DataService.data(player)
+	if not data or type(coins) ~= "number" or coins ~= coins or coins <= 0 or coins == math.huge then
+		return false
+	end
+	data.coins += coins
 	return true
 end
 

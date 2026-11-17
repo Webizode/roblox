@@ -235,6 +235,29 @@ describe("CatchRules", function()
 		expect(result.reason).toBe("too far from the tower")
 	end)
 
+	it("the Scoop Chest's catch passive widens the radius; garbage or less than 1 counts as 1", function()
+		local shot = makeShot(80, 0)
+		local claim, tower = honestClaim(shot, 10)
+		local baseZ = tower.baseZ
+		-- the first sideways offset the plain radius no longer accepts
+		local offset
+		for step = 1, 200 do
+			tower.baseZ = baseZ + step * 0.05
+			if not check(claim, shot, tower, claim.claimTime + 0.1).ok then
+				offset = step * 0.05
+				break
+			end
+		end
+		assert(offset, "some offset must be too far")
+		tower.baseZ = baseZ + offset
+		tower.radiusScale = 1.2
+		expect(check(claim, shot, tower, claim.claimTime + 0.1).ok).toBe(true)
+		for _, garbage in { 0.5, 0 / 0, math.huge, "x" } do
+			tower.radiusScale = garbage :: any
+			expect(check(claim, shot, tower, claim.claimTime + 0.1).ok).toBe(false)
+		end
+	end)
+
 	it("caps the replicated speed at 1.25 x WalkSpeed and ignores garbage", function()
 		expect(CatchRules.cappedSpeed(3, 4, 18)).toBeCloseTo(5)
 		expect(CatchRules.cappedSpeed(1000, 0, 18)).toBeCloseTo(22.5)

@@ -174,16 +174,25 @@ return {
 		text = "#FFFFFF",
 		textDark = "#3B2016",
 		select = "#FFE14D", -- the gamepad's selection frame
+		-- inset panels on a window (the Scoop Chest's slots, bonuses and grid): a darker chocolate inside a caramel rim,
+		-- the waffle labels on them, and the warm cream of short hint lines
+		panel = "#4E2C1E",
+		rim = "#E39A4A",
+		waffleLabel = "#E3942F",
+		hint = "#F7DFA6",
 		shadow = "#000000",
 	},
 
-	-- The two fonts of the whole game (Theme.fontMain, Theme.fontText; the server's signs and boards read them here too),
-	-- as Enum.Font names: LuckiestGuy is the family LuckiestGuy.json, BuilderSansExtraBold the family BuilderSans.json at
-	-- weight ExtraBold. `main` is the bold cartoon face of buttons, titles, badges, the kill feed, hit messages, plot
-	-- signs and the leaderboard; `text` is for numbers (coins, the tower, prices), hints, descriptions and the settings.
+	-- The fonts of the whole game (Theme.fontMain, Theme.fontText, Theme.fontNumbers; the server's signs and boards read
+	-- them here too). `main` is an Enum.Font name (LuckiestGuy is the family LuckiestGuy.json): the bold cartoon face of
+	-- buttons, titles, badges, the kill feed, hit messages, plot signs and the leaderboard. `text` is a family and a
+	-- weight: Nunito ExtraBold (since 17.11.2026, before Builder Sans ExtraBold) for descriptions and small infos:
+	-- passive texts, card details, hints, the settings, small numbers. `textEnum` is the nearest Enum.Font, only for
+	-- measuring text (TextService:GetTextSize takes no Font).
 	fonts = {
 		main = "LuckiestGuy",
-		text = "BuilderSansExtraBold",
+		text = { family = "rbxasset://fonts/families/Nunito.json", weight = "ExtraBold" },
+		textEnum = "Nunito",
 		-- the number displays (coins, the scoop count, the worth under it, later shop prices): a rounder face, Nunito at
 		-- its heaviest weight (Black); a family and a weight, as no Enum.Font has that weight
 		numbers = { family = "rbxasset://fonts/families/Nunito.json", weight = "Heavy" },
@@ -330,4 +339,49 @@ return {
 	-- seconds: a button sinks in (press), eases back (release), a window pops up (pop), a number counts to its new value
 	-- (count) while its pill pops `bump` times as big and back
 	anim = { press = 0.07, release = 0.14, pop = 0.16, hover = 0.1, count = 0.4, bump = 1.08 },
+
+	-- A big window that makes room (Window.new with hudAway, e.g. the Scoop Chest): it pops up from `from` of its size
+	-- in `time` (Back, a clear overshoot), the dim fades in over `dimTime`.
+	windowPop = { from = 0.35, time = 0.34, dimTime = 0.22 },
+	-- The HUD making room for such a window (UiKit/HudAway): every visible top-level piece of these ScreenGuis glides
+	-- out over its nearest screen edge in `away` seconds (Back In: a little wind-up) and back in `back` (Back Out), to
+	-- `margin` pixels beyond the edge.
+	hudAway = { guis = { "Hud", "Navigation" }, away = 0.28, back = 0.32, margin = 24 },
+
+	-- The look of a mutated scoop's card (UiKit/MutationOverlay, Widgets.mutationOverlay): a see-through layer in the
+	-- card's own shape over the card picture, under the scoop, the name and the count. One shared loop moves all of them
+	-- `fps` times a second, only while one shows on an open screen; at a saved graphics level of `lowQuality` or lower
+	-- (1-10, Automatic counts as high) the layers stand still.
+	mutationOverlay = {
+		fps = 30,
+		lowQuality = 3,
+		-- the pure-colour layers (the streak, the rainbow) are rounded rectangles `inset` design pixels inside the card
+		-- with this corner radius, to stay within the card's round corners
+		corner = 18,
+		inset = 5,
+		kinds = {
+			-- gilded: a warm gold from top to bottom (`transparency` 0 = solid), and every `shineEvery` seconds a bright
+			-- streak at `shineAngle` degrees sweeps across in `shineTime`
+			golden = {
+				top = "#FFF1A8",
+				bottom = "#F2A81D",
+				transparency = 0.2, -- the gold is laid over the card picture in its shape and multiplies with it
+				shineEvery = 3,
+				shineTime = 0.75,
+				shineAngle = 30,
+				shineWidth = 0.09, -- half the streak's width, of the card
+				shineTransparency = 0.25,
+				sparkles = {},
+			},
+			-- a rainbow that turns once in `cycle` seconds, with little stars twinkling (x, y as a share of the card, size
+			-- in design pixels of a full card) every `twinkle` seconds
+			rainbow = {
+				colors = { "#FF5A5A", "#FFA63D", "#FFE94D", "#5EE07A", "#4DB8FF", "#8A6BFF", "#FF6BD6" },
+				transparency = 0.62,
+				cycle = 6,
+				sparkles = { { 0.2, 0.3, 22 }, { 0.82, 0.52, 18 }, { 0.3, 0.68, 16 } },
+				twinkle = 1.6,
+			},
+		},
+	},
 }

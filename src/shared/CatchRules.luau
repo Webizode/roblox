@@ -30,6 +30,7 @@ export type Tower = {
 	baseZ: number,
 	count: number,
 	speed: number, -- horizontal root speed, already capped by the caller
+	radiusScale: number?, -- times catchRadius: the Scoop Chest's catch passive (1.05 = +5 %); 1 when nil
 }
 
 export type Rules = {
@@ -121,7 +122,10 @@ function CatchRules.check(
 		points[index + 2] = tower.baseZ + offsets[index + 2]
 	end
 
-	local radius = rules.catchRadius + rules.serverTolerance + math.max(0, tower.speed) * rules.serverSpeedLead
+	local scale = if type(tower.radiusScale) == "number" and isFinite(tower.radiusScale)
+		then math.max(1, tower.radiusScale)
+		else 1
+	local radius = rules.catchRadius * scale + rules.serverTolerance + math.max(0, tower.speed) * rules.serverSpeedLead
 	local sweep = rules.claimSweep / shot.flight
 	local from = math.max(windowStart, alpha - sweep)
 	local to = math.min(rules.catchWindowEnd, alpha + sweep)

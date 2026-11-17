@@ -252,10 +252,14 @@ local function onServe(player: Player, steadyClaim: any)
 
 	local stacks = if Features.secretStacks then Recipes.findStacks(state.scoops, RecipeConfig.secretStacks) else nil
 	local count = #state.scoops
+	-- the rare scoops go into the Scoop Chest instead of being sold (ChestService); they still count for the height
+	local stored = registry.ChestService.serve(player, state.scoops, nil)
 	local value = Economy.serveValue(state.scoops, Flavors.byId, EconomyConfig, {
 		steadyBonus = steady,
 		serveMultiplier = Economy.serveMultiplier(state.cartLevel, EconomyConfig),
 		stacks = stacks,
+		kept = stored and stored.kept,
+		coinBonus = registry.ChestService.bonus(player, "coins"),
 	})
 
 	-- the save is the truth about coins and the record; the state mirrors it for the leaderstats
@@ -581,6 +585,19 @@ function TowerService.endStance(player: Player)
 	local state = states[player]
 	if state and state.stance.active then
 		setStance(player, state, false)
+	end
+end
+
+-- Coins from somewhere else than a serve (selling from the Scoop Chest): into the save, and the leaderstats follow.
+function TowerService.addCoins(player: Player, coins: number)
+	if not registry.DataService.addCoins(player, coins) then
+		return
+	end
+	local state = states[player]
+	local data = registry.DataService.data(player)
+	if state and data then
+		state.coins = data.coins
+		state.leaderstats.coins.Value = math.floor(state.coins)
 	end
 end
 

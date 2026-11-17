@@ -168,8 +168,14 @@ describe("Flavors: the commons", function()
 		end
 	end)
 
-	it("only the commons are in the game until the new rarer flavors come", function()
-		expect(#Flavors.list).toBe(#COMMONS)
+	it("only the commons (and the chest placeholders) are in the game until the new rarer flavors come", function()
+		local real = 0
+		for _, flavor in Flavors.list do
+			if not flavor.placeholder then
+				real += 1
+			end
+		end
+		expect(real).toBe(#COMMONS)
 		for _, id in { "rocky_road", "cookie_dough", "mochi", "jelly", "chili_lava", "cursed_pickle" } do
 			expect(Flavors.byId[id]).toBeNil()
 		end

@@ -18,6 +18,10 @@ export type ServeOptions = {
 	steadyBonus: number?,
 	serveMultiplier: number?,
 	stacks: { StackMatch }?,
+	-- tower indices that are not sold (they went into the Scoop Chest): they pay nothing, but still count for the
+	-- height multiplier, so keeping a rare scoop never makes the rest of a tall tower worth less
+	kept: { [number]: boolean }?,
+	coinBonus: number?, -- the Scoop Chest's coins passive (0.05 = +5 %)
 }
 
 export type Config = {
@@ -75,15 +79,24 @@ function Economy.serveValue(
 		end
 	end
 
+	local kept = opts.kept or {}
 	local base = 0
 	for index, id in flavorIds do
 		local flavor = flavors[id]
-		base += (if flavor then flavor.value else 0) * perScoop[index]
+		if not kept[index] then
+			base += (if flavor then flavor.value else 0) * perScoop[index]
+		end
 	end
 
 	local steady = math.max(0, opts.steadyBonus or 0)
 	local serveMultiplier = opts.serveMultiplier or 1
-	return base * Economy.heightMultiplier(count, config) * (1 + steady) * serveMultiplier * towerFactor
+	local coinBonus = math.max(0, opts.coinBonus or 0)
+	return base
+		* Economy.heightMultiplier(count, config)
+		* (1 + steady)
+		* serveMultiplier
+		* towerFactor
+		* (1 + coinBonus)
 end
 
 -- How many scoops stay on the cone when a tower topples or its carrier is knocked down: none of a small tower (up to

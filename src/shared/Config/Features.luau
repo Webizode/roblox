@@ -7,6 +7,11 @@ return {
 	bump = false, -- week 2
 	greg = false, -- week 3
 	churn = false, -- week 5
+	-- the Scoop Chest (Config/Chest): rare scoops are kept instead of sold, equipped ones give passive bonuses
+	scoopChest = true,
+	-- the three placeholder rare flavors (Config/Flavors, placeholder = true) come out of the Big Swirl; off once the
+	-- real rare flavors are in
+	placeholderRares = true,
 	-- the tower scoops' flight looks (Config/TowerScoops): turning and tipping in flight, the swing back upright when
 	-- caught, the trail. Off: a scoop flies upright without a trail (the model and the plop onto the tower stay)
 	towerScoopFlight = false,

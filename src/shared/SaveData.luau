@@ -16,6 +16,11 @@ export type Data = {
 	scoopsServed: number, -- all scoops ever served, the base of the Cone Rank
 	bestTower: number, -- the tallest tower ever served
 	settings: { [string]: any }, -- the settings menu (since version 2); checked against Config/Settings by DataService
+	-- the Scoop Chest (since version 3, ScoopChest): stacks of stored scoops and the keys of the equipped ones
+	chest: {
+		items: { { flavor: string, rarity: string, mutation: string, count: number } },
+		equipped: { string },
+	},
 }
 
 export type EconomyConfig = {
@@ -24,7 +29,10 @@ export type EconomyConfig = {
 
 local SaveData = {}
 
-SaveData.VERSION = 2
+SaveData.VERSION = 3
+
+-- equipped slots kept when a save is repaired and no chest config is passed (Config/Chest.equipSlots)
+local DEFAULT_EQUIP_SLOTS = 3
 
 local UPGRADES = { "cone", "sneakers", "cart" }
 
@@ -34,6 +42,12 @@ local MIGRATIONS: { [number]: (data: { [string]: any }) -> () } = {
 	[1] = function(data)
 		if type(data.settings) ~= "table" then
 			data.settings = {}
+		end
+	end,
+	-- 2 -> 3: the Scoop Chest, empty
+	[2] = function(data)
+		if type(data.chest) ~= "table" then
+			data.chest = { items = {}, equipped = {} }
 		end
 	end,
 }
@@ -55,7 +69,74 @@ function SaveData.template(): Data
 		scoopsServed = 0,
 		bestTower = 0,
 		settings = {},
+		chest = { items = {}, equipped = {} },
 	}
+end
+
+-- Repairs the chest in place: valid stacks only (a flavor, a rarity, a mutation string, a whole count of at least 1;
+-- stacks of the same flavor and mutation merged), equipped keys only for stacks that exist, each once, at most
+-- `slots`. Flavors that left the game stay, like in flavorServes. Nothing is cut for the capacity: a smaller capacity
+-- only stops new scoops. Returns whether anything changed.
+local function repairChest(data: { [string]: any }, slots: number): boolean
+	local changed = false
+	if type(data.chest) ~= "table" then
+		data.chest = {}
+		changed = true
+	end
+	local chest = data.chest
+	if type(chest.items) ~= "table" then
+		chest.items = {}
+		changed = true
+	end
+	if type(chest.equipped) ~= "table" then
+		chest.equipped = {}
+		changed = true
+	end
+
+	local items = {}
+	local byKey: { [string]: any } = {}
+	for _, item in chest.items do
+		local ok = type(item) == "table"
+			and type(item.flavor) == "string"
+			and item.flavor ~= ""
+			and type(item.rarity) == "string"
+			and isFinite(item.count)
+			and item.count >= 1
+		if not ok then
+			changed = true
+			continue
+		end
+		local mutation = if type(item.mutation) == "string" then item.mutation else ""
+		local amount = math.floor(item.count)
+		if mutation ~= item.mutation or amount ~= item.count then
+			changed = true
+		end
+		local key = item.flavor .. "|" .. mutation
+		local existing = byKey[key]
+		if existing then
+			existing.count += amount
+			changed = true
+		else
+			local clean = { flavor = item.flavor, rarity = item.rarity, mutation = mutation, count = amount }
+			byKey[key] = clean
+			table.insert(items, clean)
+		end
+	end
+	if #items ~= #chest.items then
+		changed = true
+	end
+	chest.items = items
+
+	local equipped = {}
+	for _, key in chest.equipped do
+		if type(key) == "string" and byKey[key] and not table.find(equipped, key) and #equipped < slots then
+			table.insert(equipped, key)
+		else
+			changed = true
+		end
+	end
+	chest.equipped = equipped
+	return changed
 end
 
 -- The highest level of an upgrade path (Config/Economy: one cost per level after 0).
@@ -66,8 +147,8 @@ end
 
 -- Brings any loaded table to the current version and repairs what is broken: unknown versions are treated as the
 -- oldest, numbers become finite and non-negative, levels stay within the config. Returns the data (the same table,
--- changed in place) and whether it had to be repaired or migrated, for the log.
-function SaveData.migrate(raw: any, economy: EconomyConfig): (Data, boolean)
+-- changed in place) and whether it had to be repaired or migrated, for the log. `chestSlots`: Config/Chest.equipSlots.
+function SaveData.migrate(raw: any, economy: EconomyConfig, chestSlots: number?): (Data, boolean)
 	local data: { [string]: any } = if type(raw) == "table" then raw else {}
 	local changed = type(raw) ~= "table"
 
@@ -120,6 +201,10 @@ function SaveData.migrate(raw: any, economy: EconomyConfig): (Data, boolean)
 
 	if type(data.settings) ~= "table" then
 		data.settings = {}
+		changed = true
+	end
+
+	if repairChest(data, chestSlots or DEFAULT_EQUIP_SLOTS) then
 		changed = true
 	end
 

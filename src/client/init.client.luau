@@ -20,6 +20,7 @@ local ORDER = {
 	"LootRenderer",
 	"RemoteTowers",
 	"SettingsController",
+	"ChestController",
 	"Navigation",
 	"PlotGuide",
 	"PlotPins",

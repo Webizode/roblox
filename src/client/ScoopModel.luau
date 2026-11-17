@@ -65,7 +65,9 @@ end
 
 local function template(flavorId: string, lod: string): BasePart?
 	local root = ReplicatedStorage:FindFirstChild(Look.folder)
-	local folder = root and root:FindFirstChild(flavorId)
+	local flavor = Flavors.byId[flavorId]
+	-- a flavor without a model of its own borrows one (Config/Flavors `model`, the placeholder rares)
+	local folder = root and root:FindFirstChild(if flavor and flavor.model then flavor.model else flavorId)
 	local found = folder and folder:FindFirstChild(lod)
 	return if found and found:IsA("BasePart") then found else nil
 end

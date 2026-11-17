@@ -17,6 +17,8 @@ local Stance = require(Shared:WaitForChild("Stance"))
 local DashCharges = require(Shared:WaitForChild("DashCharges"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local Economy = require(Shared:WaitForChild("Economy"))
+local ScoopChest = require(Shared:WaitForChild("ScoopChest"))
+local ChestConfig = require(Config:WaitForChild("Chest"))
 local Dash = require(Shared:WaitForChild("Dash"))
 local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 local Features = require(Config:WaitForChild("Features"))
@@ -225,7 +227,19 @@ local function updateHud(root: BasePart)
 	local distance = if target then (root.Position - target.Position).Magnitude else math.huge
 
 	local steady = TowerModel.steadyBonus(state, Tuning)
-	local value = Economy.serveValue(scoops, Flavors.byId, EconomyConfig, { steadyBonus = steady })
+	-- a preview: the scoops the Scoop Chest will keep pay nothing (if it has room), its coins passive counts
+	local kept = {}
+	if Features.scoopChest then
+		for index, flavorId in scoops do
+			kept[index] = ScoopChest.keeps(flavorId, nil, Flavors.byId, Flavors.rarities, ChestConfig)
+		end
+	end
+	local coinBonus = player:GetAttribute("PassiveCoins")
+	local value = Economy.serveValue(scoops, Flavors.byId, EconomyConfig, {
+		steadyBonus = steady,
+		kept = kept,
+		coinBonus = if type(coinBonus) == "number" then coinBonus else 0,
+	})
 	registry.Hud.setTower(#scoops, Economy.capacity(coneLevel(), EconomyConfig), value, steady)
 
 	if target and #scoops > 0 and not state.toppled then

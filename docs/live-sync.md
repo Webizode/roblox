@@ -69,6 +69,19 @@ Stand: Rojo 7.7.1, festgelegt in `rokit.toml`. Alle Aussagen über das Plugin un
 
 Faustregel: Code ändern ist live, Testen braucht einen neuen Playtest. Studio selbst musst du nicht schließen.
 
+## Bilder hochladen (Icons, UI, VFX-Texturen)
+
+Bilder kommen nicht über Rojo ins Spiel, sie brauchen eine Asset-ID von Roblox. Claude lädt sie über das Studio-MCP hoch. Dessen `upload_image` nimmt nur URLs, keine Dateipfade, also braucht es kurz einen lokalen Server:
+
+1. Die Bilder (PNG oder JPG, freigestellt, so wie sie im Spiel aussehen sollen) liegen in einem Ordner, z. B. im Vault unter `Wobble Scoops/UI Vorschau/Icons`. Am sichersten kopiert man nur die neuen Dateien in einen eigenen leeren Ordner. Dateinamen nur mit Buchstaben, Ziffern, `_`, `-` und `.`, ohne Leerzeichen.
+2. Im Repo-Ordner (Lune läuft nur dort, Rokit sucht `rokit.toml`) den Server starten, im Hintergrund: `lune run scripts/serve-images "<Ordner>" 8765`. Prüfen mit `curl -s -o /dev/null -w "%{http_code}" http://localhost:8765/<datei>.png`, das muss `200` ergeben.
+3. Studio muss offen und mit dem MCP verbunden sein (`list_roblox_studios`), Edit oder Play ist egal. `upload_image` mit allen URLs auf einmal aufrufen, z. B. `http://localhost:8765/chest_title.png`. Zurück kommt je URL eine `rbxassetid://…`. Hochgeladen wird auf den Account, mit dem Studio angemeldet ist.
+4. Den Server beenden (Strg+C bzw. den Hintergrundprozess stoppen).
+5. Die IDs in die passende Config eintragen, mit dem Dateinamen als Kommentar: allgemeine Icons in `Config/Ui.icons`, Truhen-Bilder in `Config/Chest.art`, VFX-Texturen in `Config/Vfx`.
+6. Frisch hochgeladene Bilder können im ersten Playtest eine Sekunde später erscheinen (Laden). Steht ein Bild auch nach einem neuen Playtest leer da, wurde es von der Moderation abgelehnt. Das zeigt `ContentProvider:GetAssetFetchStatus`.
+
+Zuletzt so gemacht am 17.11.2026: 23 Bilder `chest_*.png` für die Scoop Chest.
+
 ## Verbindung halten und Fehler
 
 | Situation | Was passiert | Was tun |

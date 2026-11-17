@@ -76,7 +76,7 @@ describe("Save: loading old or broken data", function()
 		expect(type(data.flavorServes)).toBe("table")
 	end)
 
-	it("a version 1 save moves to version 2 with empty settings and keeps its progress", function()
+	it("a version 1 save moves up with empty settings (and an empty chest) and keeps its progress", function()
 		local data, changed = SaveData.migrate({
 			version = 1,
 			coins = 77,
@@ -86,7 +86,7 @@ describe("Save: loading old or broken data", function()
 			bestTower = 5,
 		}, Economy)
 		expect(changed).toBe(true)
-		expect(data.version).toBe(2)
+		expect(data.version).toBe(SaveData.VERSION)
 		expect(type(data.settings)).toBe("table")
 		expect(next(data.settings)).toBeNil()
 		expect(data.coins).toBe(77)
@@ -148,5 +148,78 @@ describe("Save: serving", function()
 		SaveData.recordServe(data, { "vanilla", "mint" }, 12)
 		local _, changed = SaveData.migrate(data, Economy)
 		expect(changed).toBe(false)
+	end)
+end)
+
+describe("Save: the Scoop Chest (version 3)", function()
+	it("a version 2 save gets an empty chest and keeps everything else", function()
+		local data, changed = SaveData.migrate({ version = 2, coins = 120, settings = { fov = 80 } }, Economy, 3)
+		expect(changed).toBe(true)
+		expect(data.version).toBe(3)
+		expect(data.coins).toBe(120)
+		expect(data.settings.fov).toBe(80)
+		expect(#data.chest.items).toBe(0)
+		expect(#data.chest.equipped).toBe(0)
+	end)
+
+	it("a clean chest loads unchanged", function()
+		local data = SaveData.template()
+		data.chest.items = {
+			{ flavor = "blue_moon", rarity = "rare", mutation = "", count = 2 },
+			{ flavor = "vanilla", rarity = "common", mutation = "golden", count = 1 },
+		}
+		data.chest.equipped = { "blue_moon|", "vanilla|golden" }
+		local _, changed = SaveData.migrate(data, Economy, 3)
+		expect(changed).toBe(false)
+		expect(#data.chest.items).toBe(2)
+		expect(#data.chest.equipped).toBe(2)
+	end)
+
+	it("broken stacks go, duplicates merge, counts become whole numbers", function()
+		local data = SaveData.template()
+		data.chest.items = {
+			{ flavor = "blue_moon", rarity = "rare", count = 2.7 }, -- no mutation: ""
+			{ flavor = "blue_moon", rarity = "rare", mutation = "", count = 1 },
+			{ flavor = "", rarity = "rare", count = 1 },
+			{ flavor = "galaxy_grape", rarity = "epic", mutation = "", count = 0 },
+			{ flavor = "galaxy_grape", rarity = "epic", mutation = "", count = 0 / 0 },
+			"garbage",
+		}
+		local _, changed = SaveData.migrate(data, Economy, 3)
+		expect(changed).toBe(true)
+		expect(#data.chest.items).toBe(1)
+		expect(data.chest.items[1].mutation).toBe("")
+		expect(data.chest.items[1].count).toBe(3)
+	end)
+
+	it("equipped keys only for stacks that exist, each once, at most the slots", function()
+		local data = SaveData.template()
+		data.chest.items = {
+			{ flavor = "a", rarity = "rare", mutation = "", count = 1 },
+			{ flavor = "b", rarity = "rare", mutation = "", count = 1 },
+			{ flavor = "c", rarity = "rare", mutation = "", count = 1 },
+			{ flavor = "d", rarity = "rare", mutation = "", count = 1 },
+		}
+		data.chest.equipped = { "a|", "a|", "gone|", 5, "b|", "c|", "d|" }
+		SaveData.migrate(data, Economy, 3)
+		expect(#data.chest.equipped).toBe(3)
+		expect(data.chest.equipped[1]).toBe("a|")
+		expect(data.chest.equipped[2]).toBe("b|")
+		expect(data.chest.equipped[3]).toBe("c|")
+	end)
+
+	it("a flavor that left the game stays in the chest", function()
+		local data = SaveData.template()
+		data.chest.items = { { flavor = "old_flavor", rarity = "epic", mutation = "", count = 4 } }
+		SaveData.migrate(data, Economy, 3)
+		expect(data.chest.items[1].count).toBe(4)
+	end)
+
+	it("a chest that is not a table becomes an empty one", function()
+		local data = SaveData.template() :: any
+		data.chest = "x"
+		local _, changed = SaveData.migrate(data, Economy, 3)
+		expect(changed).toBe(true)
+		expect(#data.chest.items).toBe(0)
 	end)
 end)

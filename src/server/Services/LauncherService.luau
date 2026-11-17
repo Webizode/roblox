@@ -60,20 +60,25 @@ local rng = Random.new()
 type Arms = { root: BasePart, count: number, freeAt: { number } }
 local arms: Arms? = nil
 
+-- what the Big Swirl fires: every flavor, the placeholder rares only with Features.placeholderRares
+local firing = {}
 local totalWeight = 0
 for _, flavor in Flavors.list do
-	totalWeight += flavor.weight
+	if not flavor.placeholder or Features.placeholderRares then
+		table.insert(firing, flavor)
+		totalWeight += flavor.weight
+	end
 end
 
 local function pickFlavor(): string
 	local roll = rng:NextNumber() * totalWeight
-	for _, flavor in Flavors.list do
+	for _, flavor in firing do
 		roll -= flavor.weight
 		if roll <= 0 then
 			return flavor.id
 		end
 	end
-	return Flavors.list[#Flavors.list].id
+	return firing[#firing].id
 end
 
 local function rootOf(player: Player): BasePart?
@@ -287,6 +292,7 @@ local function onCatchClaim(player: Player, id: any, claimTime: any, tiltX: any,
 		baseZ = base.Z,
 		count = registry.TowerService.count(player),
 		speed = CatchRules.cappedSpeed(velocity.X, velocity.Z, if humanoid then humanoid.WalkSpeed else 0),
+		radiusScale = 1 + registry.ChestService.bonus(player, "catch"),
 	}, workspace:GetServerTimeNow(), Tuning, TowerTuning, ShotMath, TowerShape)
 	if not result.ok then
 		reject(player, id, result.reason, result.distance)
@@ -299,9 +305,15 @@ local function onCatchClaim(player: Player, id: any, claimTime: any, tiltX: any,
 		return
 	end
 
-	if registry.TowerService.addScoop(player, shot.flavorId) then
+	-- the Scoop Chest's luck passive may turn the caught scoop into a rarer one (only the catcher's tower changes; the
+	-- shot itself stays what everybody saw fly)
+	local lucky = registry.ChestService.luckyFlavor(player, shot.flavorId)
+	if registry.TowerService.addScoop(player, lucky or shot.flavorId) then
 		lastCatchAt[player] = claimTime
 		resolve(shot, player)
+		if lucky then
+			Remotes.LuckyCatch:FireClient(player, shot.flavorId, lucky)
+		end
 	else
 		reject(player, id, "cone is full")
 	end

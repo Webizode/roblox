@@ -26,7 +26,7 @@ local LeaderboardRules = require(Shared:WaitForChild("LeaderboardRules"))
 
 -- the game's fonts (Config/Ui.fonts): the main one for words, the text one for the coin numbers
 local FONT_MAIN = Font.fromEnum((Enum.Font :: any)[UiConfig.fonts.main])
-local FONT_TEXT = Font.fromEnum((Enum.Font :: any)[UiConfig.fonts.text])
+local FONT_TEXT = Font.new(UiConfig.fonts.text.family, (Enum.FontWeight :: any)[UiConfig.fonts.text.weight])
 
 local LeaderboardService = {}
 

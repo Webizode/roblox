@@ -5,6 +5,7 @@ local TweenService = game:GetService("TweenService")
 
 local Theme = require(script.Parent:WaitForChild("Theme"))
 local Anim = require(script.Parent:WaitForChild("Anim"))
+local MutationOverlay = require(script.Parent:WaitForChild("MutationOverlay"))
 
 local Widgets = {}
 
@@ -346,5 +347,9 @@ function Widgets.safeSign(width: number, height: number): Frame
 	})
 	return sign
 end
+
+-- The look of a mutated card (Golden, Rainbow) over a card: Widgets.mutationOverlay(card, "golden" | "rainbow",
+-- { image = the card's picture, zIndex = between the card and its icon and texts }). See UiKit/MutationOverlay.
+Widgets.mutationOverlay = MutationOverlay.new
 
 return Widgets

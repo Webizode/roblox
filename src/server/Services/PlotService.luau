@@ -256,6 +256,21 @@ function PlotService.Start()
 	end)
 end
 
+-- The plot the player owns (Workspace.Pier.Plots.Plot_NN), nil when they only share one (more players than plots).
+function PlotService.ownedPlot(player: Player): Model?
+	local plot = assigned[player]
+	return if plot and owners[plot] == player then plot else nil
+end
+
+-- The Scoop Chest model on an island of the map (the plot's Area -> PlotKit.ScoopChest), nil on a map without one.
+function PlotService.chestOf(plot: Instance): Model?
+	local area = plot:FindFirstChild("Area")
+	local island = area and area:IsA("ObjectValue") and area.Value
+	local kit = island and island:FindFirstChild("PlotKit")
+	local chest = kit and kit:FindFirstChild("ScoopChest")
+	return if chest and chest:IsA("Model") then chest else nil
+end
+
 function PlotService.servePoint(player: Player): Vector3?
 	local plot = assigned[player]
 	local servePoint = plot and plot:FindFirstChild("ServePoint")

@@ -48,6 +48,14 @@ local DEFINITIONS = {
 	WantedNotice = "RemoteEvent",
 	-- server -> all: player, from, to (a teleport went through: the puff at both ends, Vfx.Effects.Teleport)
 	Teleported = "RemoteEvent",
+	-- server -> owner: the Scoop Chest as the window shows it (ChestService.snapshot) and what just happened, nil or
+	-- { kind = "stored", stored = { { flavor, mutation } }, overflow = n }, { kind = "sold", coins = n },
+	-- { kind = "refused", reason = "full" | "unknown" | "equipped" | "far" | "amount" }
+	ChestChanged = "RemoteEvent",
+	-- client -> server: action ("sync", "equip", "unequip", "sell"), key (a stack, ScoopChest.key), amount (sell)
+	ChestAction = "RemoteEvent",
+	-- server -> catcher: fromFlavor, toFlavor (the luck passive turned a caught scoop into a rarer one)
+	LuckyCatch = "RemoteEvent",
 }
 
 local remotes = {}

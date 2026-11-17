@@ -119,11 +119,11 @@ function Anim.bump(element: GuiObject)
 	to(element, 1, UiConfig.anim.count * 0.75)
 end
 
--- Grows from small to full size with a little overshoot.
-function Anim.pop(element: GuiObject)
+-- Grows from small (`from`, default 0.6) to full size with a little overshoot, in `time` (default Config/Ui.anim.pop).
+function Anim.pop(element: GuiObject, from: number?, time: number?)
 	local scale = Anim.scaleOf(element)
-	scale.Scale = 0.6
-	to(element, 1, UiConfig.anim.pop, Enum.EasingStyle.Back)
+	scale.Scale = from or 0.6
+	to(element, 1, time or UiConfig.anim.pop, Enum.EasingStyle.Back)
 end
 
 return Anim

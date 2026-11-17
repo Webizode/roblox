@@ -5,10 +5,12 @@
 
 local ContextActionService = game:GetService("ContextActionService")
 local GuiService = game:GetService("GuiService")
+local TweenService = game:GetService("TweenService")
 
 local Theme = require(script.Parent:WaitForChild("Theme"))
 local Anim = require(script.Parent:WaitForChild("Anim"))
 local Screen = require(script.Parent:WaitForChild("Screen"))
+local HudAway = require(script.Parent:WaitForChild("HudAway"))
 local Buttons = require(script.Parent:WaitForChild("Buttons"))
 local Keys = require(script.Parent.Parent:WaitForChild("Keys"))
 
@@ -25,6 +27,7 @@ local CONTENT_TOP = math.ceil(GLAZE.drips * SCALE) + 4
 local RIM = 14
 local CONTENT_LESS = 98
 local TITLE_SIDE = 100 -- each side of the title stays free for the sprinkles and the close button
+local DIM = 0.45 -- the dim behind an open window
 
 export type Window = {
 	gui: ScreenGui,
@@ -38,20 +41,44 @@ export type Window = {
 	firstSelection: GuiObject?,
 }
 
+-- A window drawn from its own pictures instead of the kit's surface (e.g. the Scoop Chest, Config/Chest.art.window):
+-- `panel` is a 9-slice image (`slice` its middle in image pixels, `sliceScale` design pixels per image pixel), `title`
+-- a picture with the title in it, `titleSize` its size and `titleY` its middle (design pixels, from the window's top),
+-- `inset` the content's distance from the window's edges.
+export type Art = {
+	panel: string,
+	slice: Rect,
+	sliceScale: number,
+	title: string?,
+	titleSize: Vector2?,
+	titleY: number?,
+	inset: { top: number, side: number, bottom: number },
+}
+
 local current: Window? = nil
 
 -- props: name, title, color (the window's accent, e.g. a message's big line), width, height (design pixels; the
--- content area is height - 98 high, the window itself as much taller as its glaze needs).
-function Window.new(props: { name: string, title: string, color: Color3, width: number?, height: number? }): Window
+-- content area is height - 98 high, the window itself as much taller as its glaze needs). hudAway: the window pops up
+-- bigger (Config/Ui.windowPop), the dim fades in, and the HUD glides out to the screen edges while it is open (HudAway).
+function Window.new(props: {
+	name: string,
+	title: string,
+	color: Color3,
+	width: number?,
+	height: number?,
+	hudAway: boolean?,
+	art: Art?,
+}): Window
+	local art = props.art
 	local width = props.width or 560
 	local contentHeight = (props.height or 380) - CONTENT_LESS
-	local height = CONTENT_TOP + contentHeight + 22
+	local height = if art then art.inset.top + contentHeight + art.inset.bottom else CONTENT_TOP + contentHeight + 22
 	local gui = Screen.gui(props.name, 30)
 	gui.Enabled = false
 
 	local dim = Theme.frame({
 		Name = "Dim",
-		BackgroundTransparency = 0.45,
+		BackgroundTransparency = DIM,
 		BackgroundColor3 = Color3.new(0, 0, 0),
 		Size = UDim2.new(1, 0, 1, 200),
 		Position = UDim2.fromOffset(0, -100),
@@ -71,30 +98,57 @@ function Window.new(props: { name: string, title: string, color: Color3, width: 
 	layoutScale.Name = "Layout"
 	layoutScale.Parent = root
 	Screen.onChanged(function(plan)
-		-- as big as the screen allows, never bigger than the HUD's scale
-		local room = math.min(plan.frame.w / (width + 40), plan.frame.h / (height + 40))
+		-- as big as the screen allows, never bigger than the HUD's scale. On a touch screen the whole height counts, not
+		-- only the HUD's frame under Roblox's top bar: the window dims and blocks the HUD anyway, and on a phone in
+		-- landscape the frame alone held every window about a sixth smaller (17.11.2026). Only the window's middle
+		-- reaches up there (glaze and title), the top bar's buttons sit in the corners.
+		local tall = if plan.touch then plan.frame.y + plan.frame.h - plan.frame.x else plan.frame.h
+		local room = math.min(plan.frame.w / (width + 40), tall / (height + 40))
 		layoutScale.Scale = math.min(plan.scale, room)
 	end)
 
-	-- the chocolate panel with the pink glaze and its drips (one 9-slice), the faint waffle on the panel under the glaze
-	local panel = Theme.frame({ Name = "Panel", Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = root })
-	Theme.skin(panel, "window", height)
-	local waffle = Theme.waffle(panel, 3, UDim.new(0, 22))
-	waffle.Position = UDim2.fromOffset(RIM, GLAZE.band * SCALE)
-	waffle.Size = UDim2.new(1, -RIM * 2, 1, -GLAZE.band * SCALE - RIM)
-	Theme.text({
-		Name = "Title",
-		Text = props.title,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0, GLAZE_MIDDLE),
-		Size = UDim2.new(1, -TITLE_SIDE * 2, 0, 34),
-		TextScaled = true,
-		ZIndex = 5,
-		Parent = root,
-	})
-	for _, place in Theme.config.sprinkles.window do
-		local x = place[2]
-		Theme.sprinkle(root, place[1], UDim2.new(if x < 0 then 1 else 0, x, 0, GLAZE_MIDDLE), place[3], 5)
+	if art then
+		-- the window's own pictures: the panel as a 9-slice, the title plaque over its top edge
+		local panel = Theme.icon(art.panel, { Name = "Panel", Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = root })
+		panel.ScaleType = Enum.ScaleType.Slice
+		panel.SliceCenter = art.slice
+		panel.SliceScale = art.sliceScale
+		local square = panel:FindFirstChildOfClass("UIAspectRatioConstraint")
+		if square then
+			square:Destroy()
+		end
+		if art.title and art.titleSize then
+			local title = Theme.icon(art.title, {
+				Name = "Title",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, 0, 0, art.titleY or 0),
+				Size = UDim2.fromOffset(art.titleSize.X, art.titleSize.Y),
+				ZIndex = 5,
+				Parent = root,
+			})
+			title:FindFirstChildOfClass("UIAspectRatioConstraint").AspectRatio = art.titleSize.X / art.titleSize.Y
+		end
+	else
+		-- the chocolate panel with the pink glaze and its drips (one 9-slice), the faint waffle on the panel under the glaze
+		local panel = Theme.frame({ Name = "Panel", Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = root })
+		Theme.skin(panel, "window", height)
+		local waffle = Theme.waffle(panel, 3, UDim.new(0, 22))
+		waffle.Position = UDim2.fromOffset(RIM, GLAZE.band * SCALE)
+		waffle.Size = UDim2.new(1, -RIM * 2, 1, -GLAZE.band * SCALE - RIM)
+		Theme.text({
+			Name = "Title",
+			Text = props.title,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0, GLAZE_MIDDLE),
+			Size = UDim2.new(1, -TITLE_SIDE * 2, 0, 34),
+			TextScaled = true,
+			ZIndex = 5,
+			Parent = root,
+		})
+		for _, place in Theme.config.sprinkles.window do
+			local x = place[2]
+			Theme.sprinkle(root, place[1], UDim2.new(if x < 0 then 1 else 0, x, 0, GLAZE_MIDDLE), place[3], 5)
+		end
 	end
 
 	local closeButton = Buttons.close(50)
@@ -105,10 +159,11 @@ function Window.new(props: { name: string, title: string, color: Color3, width: 
 	local closeBadge = Buttons.badge(closeButton, "back", 28)
 	closeBadge.frame.Position = UDim2.new(0, -4, 1, 2)
 
+	local side = if art then art.inset.side else 22
 	local content = Theme.frame({
 		Name = "Content",
-		Position = UDim2.fromOffset(22, CONTENT_TOP),
-		Size = UDim2.new(1, -44, 0, contentHeight),
+		Position = UDim2.fromOffset(side, if art then art.inset.top else CONTENT_TOP),
+		Size = UDim2.new(1, -side * 2, 0, contentHeight),
 		ZIndex = 3,
 		Parent = root,
 	})
@@ -116,6 +171,8 @@ function Window.new(props: { name: string, title: string, color: Color3, width: 
 	local closedCallbacks: { () -> () } = {}
 	local open = false
 	local self: Window
+	local releaseHud: (() -> ())? = nil
+	local dimTween: Tween? = nil
 
 	local function close()
 		if not open then
@@ -123,6 +180,10 @@ function Window.new(props: { name: string, title: string, color: Color3, width: 
 		end
 		open = false
 		gui.Enabled = false
+		if releaseHud then
+			releaseHud()
+			releaseHud = nil
+		end
 		if current == self then
 			current = nil
 		end
@@ -151,7 +212,19 @@ function Window.new(props: { name: string, title: string, color: Color3, width: 
 			current = self
 			open = true
 			gui.Enabled = true
-			Anim.pop(root)
+			if props.hudAway then
+				local look = Theme.config.windowPop
+				Anim.pop(root, look.from, look.time)
+				if dimTween then
+					dimTween:Cancel()
+				end
+				dim.BackgroundTransparency = 1
+				dimTween = TweenService:Create(dim, TweenInfo.new(look.dimTime), { BackgroundTransparency = DIM })
+				dimTween:Play()
+				releaseHud = HudAway.push()
+			else
+				Anim.pop(root)
+			end
 			ContextActionService:BindActionAtPriority(CLOSE_ACTION, function(_, state)
 				if state == Enum.UserInputState.Begin then
 					close()
