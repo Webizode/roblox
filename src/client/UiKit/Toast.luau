@@ -92,7 +92,8 @@ local function pop()
 end
 
 -- Shows `text` (kind: normal white, warn yellow, bad red, good green; icon: a key of Config/Ui.icons or an asset id).
-function Toast.show(text: string, kind: Kind?, iconName: string?)
+-- `color` overrides the kind's colour (a rarity's, the chest's messages).
+function Toast.show(text: string, kind: Kind?, iconName: string?, color: Color3?)
 	if not gui then
 		build()
 	end
@@ -106,7 +107,7 @@ function Toast.show(text: string, kind: Kind?, iconName: string?)
 	else
 		shownText = text
 		label.Text = text
-		label.TextColor3 = Theme.color(Look.kinds[kind or "normal"] or "text")
+		label.TextColor3 = color or Theme.color(Look.kinds[kind or "normal"] or "text")
 		local image = if iconName then Theme.icons[iconName] or iconName else nil
 		icon.Image = image or ""
 		icon.Visible = image ~= nil

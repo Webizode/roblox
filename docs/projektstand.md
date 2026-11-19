@@ -466,6 +466,59 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
     - Mit Luck 1 zwei echte Fänge: Cherry wurde Honey, Pistachio wurde Pineapple, „LUCKY!“ erschien.
     - Wechsel auf dem Turm gemessen: 0,3 s Vanilla, dann Mystic Plum mit Plopp. Das Popup war orange für Legendary.
   - **Offen:** Blitz und Popup mit eigenen Augen (Studio rendert über das MCP nur Weiß), eigener Sound, ein eigenes Icon für Tower Bonus (vorerst der Kugel-Stapel aus `Config/Ui.icons.scoops`), Test mit 2 Spielern (der andere sieht kein Popup).
+- **Seltenheit im Flug** (19.11.2026, nicht committet, wartet auf den Test des Nutzers; Bericht im Vault: `Stand 2026-11-19.md`). Werte in `Config/Vfx.flight`, Regeln rein in `RarityFlight` (mit Tests), Anzeige in `ShotRenderer`, `SwirlAnnounce`, `RarityBanner`. Die Farben sind die der Namensschilder und Landekreise (`Flavors.rarityColors`), bei Legendary Gold.
+  - **Pro Seltenheit:**
+    - Common: keine Spur.
+    - Uncommon: dünne Spur (0,5).
+    - Rare: Spur 0,8 und ein Licht an der Kugel.
+    - Epic: dicke Spur 1,4, Funken, stärkeres Licht und ein eigener Sound beim Abschuss.
+    - Legendary: breite goldene Spur 2,2, viele Funken, starkes Licht, eine goldene Kontur (Highlight, nur hier) und ein eigener Sound. Die Glitzer-Aura (`ScoopAura`) bleibt dazu.
+    - Mythic, Secret und Divine stehen mit `like = "legendary"` in der Config, eine eigene Gestaltung fehlt noch.
+  - **Qualitätsstufen:** Niedrig zeigt nur die Spur (kürzer), ohne Funken, Licht und Kontur. Mittel hat halb so viele Funken.
+  - **Alte Spur ersetzt:** Die frühere Spur (`TowerScoops.trail`, nur mit `Features.towerScoopFlight`) ist entfernt. Die neue ist immer an.
+  - **Ankündigung am Big Swirl:**
+    - Vor einer Epic blitzt ein lila Licht in der Maschine 0,35 s auf.
+    - Vor einer Legendary glüht sie 1 s golden (Licht und goldene Kontur über die Maschine), und nur dieser Schuss geht 1 s später los (`LauncherService`, `RarityFlight.delay`). Der Takt der anderen Schüsse bleibt.
+    - Die Ankündigung zeigt sich auf jeder Qualitätsstufe.
+  - **Banner:** Bei einer Legendary erscheint oben „LEGENDARY!“ in Gold mit dem Sortennamen, gleichzeitig mit dem Glühen, für alle in der Arena (Attribut `InArena`), 2,6 s lang. Bei Epic gibt es keins.
+  - **Sounds** (Platzhalter): `flightEpic` (das „Magic Twirling“-Glockenspiel), `flightLegendary` (das Charge-up), bis 260 Studs hörbar.
+  - **Legendary erzwingen (nur Studio):** Im Edit-Modus an Workspace das Attribut `ForceRarity` (String) auf `legendary` setzen, dann Play. Der Big Swirl schießt dann nur diese Seltenheit. Andere Werte gehen auch (`epic`, `rare` …). Danach das Attribut wieder löschen. Außerhalb von Studio wird es ignoriert.
+  - **In Studio geprüft** (1 Spieler):
+    - Legendary geht 3,24 statt 2,23 s nach der Ankündigung los, der Takt bleibt 1,5 s.
+    - Der Big Swirl leuchtet bis Helligkeit 8, die goldene Kontur ist an, das Banner zeigt „LEGENDARY!“ und die Sorte in Gold.
+    - Spuren gemessen: Legendary 2,2, Gold, Funken, Licht, Kontur. Epic 1,4, Lila, Funken, Licht, kein Banner, keine Verzögerung, der Big Swirl blitzt lila. Rare 0,8, Blau, Licht. Uncommon 0,5, Grün. Common keine Spur.
+    - Keine Fehler in der Konsole.
+  - **Offen:** mit eigenen Augen ansehen (Studio rendert über das MCP nur Weiß), niedrige Qualitätsstufe im Spiel (nur per Unit-Test geprüft), eigene Sounds, Gestaltung von Mythic, Secret und Divine.
+- **Truhe beim Servieren und der „graue Klumpen“** (19.11.2026, nicht committet; Bericht im Vault: `Stand 2026-11-19.md`)
+  - **Höchstens 3 pro Sorte:** Von einer Sorte ohne Mutation gehen höchstens `Config/Chest.maxPerFlavor` (3) in die Truhe. Ab der 4. wird die Kugel zum vollen Wert verkauft.
+    - Golden und Rainbow gehen immer hinein, solange Platz ist.
+    - Ist die Truhe voll, wird verkauft, mit Hinweis.
+    - Logik in `ScoopChest.store` (Rückgabe `capped`, `stored[i].new`), mit Tests.
+  - **Rückmeldung** (UI-Texte englisch nach den Projektregeln):
+    - „+1 to your chest: EPIC Tiramisu“ in der Seltenheitsfarbe.
+    - „NEW!“ bei einer Sorte, die noch nie serviert wurde und nicht in der Truhe liegt (`flavorServes` der Speicherdaten).
+    - Bis 3 Sorten stehen in einer Zeile, ab 4 Sorten eine Zusammenfassung mit der seltensten.
+    - „Already 3x Tiramisu in your chest: sold instead.“ und „Chest full! Sold instead.“
+    - Die Meldungen folgen nacheinander nach „SERVE! +n“ (`Toast.show` kann jetzt eine Farbe).
+    - „SERVE! +0“ gibt es nicht mehr: Ein Servieren, das nur die Truhe füllt, zeigt nur die Truhen-Meldung.
+    - Die Wert-Vorschau im HUD rechnet die Grenze von 3 mit ein (auf einer Kopie der Truhe).
+  - **Ursache „0 Coins“:** Kein Fehler im Wert. Jede der 52 Sorten hat einen Wert über 0, ein Test prüft das für Servieren und Verkauf aus der Truhe. Die Epic ging in die Truhe, deshalb gab es 0 Coins und die Meldung „+0“.
+  - **Ursache „grauer, durchsichtiger Klumpen“:** Kein kaputter Upload.
+    - Alle 416 Meshes und Texturen der 52 Sorten laden, geprüft über `ContentProvider:PreloadAsync` mit echten Instanzen.
+    - Es war das Ausblenden des eigenen Turms (`Config/Tower.ownTowerFade` 0,6): Kugeln, die die Bildmitte verdecken, wurden durchsichtig. Bei den hellen, texturierten Modellen (White Chocolate, Tiramisu, Cheesecake) sah das aus wie grauer Glibber, im Screenshot nachgestellt.
+    - Jetzt blendet es nur noch im Kampfmodus aus (zum Zielen), sonst bleibt der Turm ganz sichtbar.
+  - **„do_not_fallback_to_baseline“:** Die IDs aus diesen Meldungen (109626288623561, 80611854499498, 97728112835088, 121339379085982, 82492456470225, 103446387083468, 135617012880212) kommen nirgends im Spiel vor, weder auf Client noch auf Server. Vermutlich stammen sie aus den früheren Mesh-Upload-Versuchen (Mesh als PNG). Keiner Sorte zuzuordnen, nichts neu hochzuladen.
+  - **Geprüft in Studio:**
+    - 7 Kugeln mit 4 Tiramisu serviert: 110 Coins, dann in Epic-Lila „+4 to your chest: 3x EPIC Tiramisu, RARE Honey“, dann der Hinweis für die 4. Tiramisu.
+    - 10 Legendaries serviert: kein „+0“, Truhen-Meldung mit „NEW!“ für 8 Sorten.
+    - Turm außerhalb des Kampfmodus nie durchsichtig.
+- **Truhe: verkaufen mit Filter** (19.11.2026, Wunsch des Nutzers „filtern, welche man alles sellen kann“; nicht committet)
+  - Neben „STORED n/50“ steht im Fenster ein Knopf „SELL...“. Er öffnet die Verkaufsansicht (an der Stelle der Detailansicht).
+    - Dort gibt es je Seltenheit in der Truhe einen Schalter mit Anzahl („EPIC x3“), dazu „GOLDEN & RAINBOW“ (aus, sonst bleiben Mutationen) und „KEEP 1 OF EACH“ (an).
+    - Darunter stehen die Summe („3 scoops for 120 coins“) und „SELL 3“ mit Bestätigung („YES, +120“). Danach kommt „Sold 3 scoops for 120 coins!“.
+  - Ausgerüstete Stapel behalten immer ein Exemplar und bleiben ausgerüstet.
+  - Der Server rechnet selbst nach (Aktion `sellMany` mit geprüftem Filter, `ScoopChest.sellPlan` und `sellFiltered`, mit Tests).
+  - In Studio geklickt: Rare und Epic mit „Keep 1“ verkauften 2 Tiramisu und 1 Honey für 120 Coins. Coffee, Legendary und die goldene Honey blieben.
 ---
 
 ## 8. Reihenfolge

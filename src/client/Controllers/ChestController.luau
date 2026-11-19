@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local ChestConfig = require(Config:WaitForChild("Chest"))
+local ScoopChest = require(Shared:WaitForChild("ScoopChest"))
 local Controls = require(Config:WaitForChild("Controls"))
 local Features = require(Config:WaitForChild("Features"))
 local Flavors = require(Config:WaitForChild("Flavors"))
@@ -132,6 +133,9 @@ type Entry = {
 
 local entries: { [Instance]: Entry } = {}
 local latest: { [string]: any }? = nil -- the newest snapshot from the server
+local snapshotCount = 0
+local CHEST_MESSAGE_GAP = 1.8 -- seconds between the messages after a serve, so each can be read
+local chestMessages: (stored: { any }, overflow: number, capped: { any }) -> { any }
 
 -- the window and its parts
 local window: any = nil -- UiKit Window
@@ -143,6 +147,10 @@ local emptyLabel: TextLabel
 local detail: Frame
 local detailKey: string? = nil
 local confirming = false
+local sellOpen = false -- the sell view shows (in the detail frame)
+local showSell: () -> ()
+-- the sell view's switches: rarity -> on, plus mutations (golden and rainbow too) and keepOne (keep one of each)
+local sellPicks: { [string]: boolean } = { keepOne = true }
 
 -- ===================================================================================================== the lids ===
 
@@ -531,6 +539,7 @@ end
 
 local function showDetail(key: string?)
 	detailKey = key
+	sellOpen = false
 	confirming = false
 	local item = itemByKey(key)
 	detail.Visible = item ~= nil
@@ -790,6 +799,213 @@ local function showDetail(key: string?)
 	end
 end
 
+-- ============================================================================================ selling by a filter =====
+
+-- The sell view over the window (SELL... beside the STORED label): a switch per rarity in the chest with how many,
+-- "Golden & Rainbow" (also sell those), "Keep 1 of each", the sum, and SELL with a confirmation. The server works it
+-- out again (ScoopChest.sellFiltered); an equipped stack always keeps one.
+function showSell()
+	sellOpen = true
+	detailKey = nil
+	confirming = false
+	detail.Visible = true
+	for _, child in detail:GetChildren() do
+		local keep = child.Name == "Back" or child.Name == "DetailWaffle"
+		if not keep and not child:IsA("UICorner") and not child:IsA("UIStroke") then
+			child:Destroy()
+		end
+	end
+	local snapshot = latest
+	local chest = ChestController.chestCopy() or { items = {}, equipped = {} }
+	if snapshot then
+		chest.equipped = table.clone(snapshot.equipped)
+	end
+	-- the rarities that are in the chest, rarest first
+	local present = {}
+	for _, item in chest.items do
+		present[item.rarity] = true
+	end
+	local rarities = {}
+	for index = #Flavors.rarities, 1, -1 do
+		local rarity = Flavors.rarities[index]
+		if present[rarity] then
+			table.insert(rarities, rarity)
+		end
+	end
+
+	Theme.text({
+		Name = "Title",
+		Text = "SELL SCOOPS",
+		Position = UDim2.fromOffset(DETAIL.pad, DETAIL.pad),
+		Size = UDim2.new(1, -DETAIL.pad * 2, 0, 50),
+		TextScaled = true,
+		ZIndex = 24,
+		Parent = detail,
+	})
+	Theme.text({
+		Name = "Hint",
+		Text = "Pick what to sell. Equipped scoops always keep one.",
+		FontFace = Theme.fontText,
+		Position = UDim2.fromOffset(DETAIL.pad, DETAIL.pad + 54),
+		Size = UDim2.new(1, -DETAIL.pad * 2, 0, 28),
+		TextScaled = true,
+		ZIndex = 24,
+		Parent = detail,
+	})
+
+	local rows = Theme.frame({
+		Name = "Filters",
+		Position = UDim2.fromOffset(DETAIL.pad, DETAIL.pad + 96),
+		Size = UDim2.new(1, -DETAIL.pad * 2, 0, 200),
+		ZIndex = 24,
+		Parent = detail,
+	})
+	local list = Instance.new("UIGridLayout")
+	list.CellSize = UDim2.fromOffset(250, 58)
+	list.CellPadding = UDim2.fromOffset(14, 12)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = rows
+
+	local summary = Theme.text({
+		Name = "Summary",
+		Text = "",
+		FontFace = Theme.fontText,
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, DETAIL.pad, 1, -DETAIL.pad - 70),
+		Size = UDim2.new(1, -DETAIL.pad * 2, 0, 32),
+		TextScaled = true,
+		ZIndex = 24,
+		Parent = detail,
+	})
+	summary.TextColor3 = Theme.color("yellow")
+	local sellButton = Buttons.wide({
+		name = "SellMany",
+		text = "",
+		color = Theme.color("yellow"),
+		width = 300,
+		height = 56,
+		icon = Theme.icons.coin,
+	})
+	sellButton.button.AnchorPoint = Vector2.new(0, 1)
+	sellButton.button.Position = UDim2.new(0, DETAIL.pad, 1, -DETAIL.pad)
+	sellButton.button.ZIndex = 24
+	sellButton.button.Parent = detail
+
+	local function filter(): any
+		local chosen = {}
+		for _, rarity in rarities do
+			if sellPicks[rarity] then
+				table.insert(chosen, rarity)
+			end
+		end
+		return { rarities = chosen, mutations = sellPicks.mutations == true, keepOne = sellPicks.keepOne ~= false }
+	end
+	local function plan(): (number, number)
+		local f = filter()
+		local set = {}
+		for _, rarity in f.rarities do
+			set[rarity] = true
+		end
+		local _, count, coins = ScoopChest.sellPlan(
+			chest,
+			{ rarities = set, mutations = f.mutations, keepOne = f.keepOne },
+			Flavors.byId,
+			ChestConfig
+		)
+		return count, coins
+	end
+
+	local toggles: { { button: any, on: () -> boolean, color: Color3, label: () -> string } } = {}
+	local function paint()
+		for _, entry in toggles do
+			entry.button.setColor(if entry.on() then entry.color else Theme.color("locked"))
+			entry.button.setText(entry.label())
+		end
+		local count, coins = plan()
+		if count <= 0 then
+			summary.Text = if #rarities == 0 then "Your chest is empty." else "Nothing picked to sell."
+			sellButton.setText("SELL")
+			sellButton.setLocked(true)
+		elseif confirming then
+			summary.Text = `Sell {count} scoops for {coins} coins?`
+			sellButton.setLocked(false)
+			sellButton.setText(`YES, +{coins}`)
+			sellButton.setColor(Theme.color("red"))
+		else
+			summary.Text = `{count} scoops for {coins} coins`
+			sellButton.setLocked(false)
+			sellButton.setText(`SELL {count}`)
+			sellButton.setColor(Theme.color("yellow"))
+		end
+	end
+	local function toggle(
+		name: string,
+		order: number,
+		color: Color3,
+		on: () -> boolean,
+		flip: () -> (),
+		label: () -> string
+	)
+		local button = Buttons.wide({ name = name, text = "", color = color, width = 250, height = 58 })
+		button.button.LayoutOrder = order
+		button.button.Parent = rows
+		table.insert(toggles, { button = button, on = on, color = color, label = label })
+		button.button.Activated:Connect(function()
+			flip()
+			confirming = false
+			paint()
+		end)
+	end
+	for order, rarity in rarities do
+		local count = 0
+		for _, item in chest.items do
+			if item.rarity == rarity then
+				count += item.count
+			end
+		end
+		toggle(rarity, order, Theme.rarity(rarity), function()
+			return sellPicks[rarity] == true
+		end, function()
+			sellPicks[rarity] = not sellPicks[rarity]
+		end, function()
+			return `{string.upper(rarityLabel(rarity))} x{count}`
+		end)
+	end
+	toggle("Mutations", 50, Theme.color("yellow"), function()
+		return sellPicks.mutations == true
+	end, function()
+		sellPicks.mutations = not sellPicks.mutations
+	end, function()
+		return "GOLDEN & RAINBOW"
+	end)
+	toggle("KeepOne", 51, Theme.color("mint"), function()
+		return sellPicks.keepOne ~= false
+	end, function()
+		sellPicks.keepOne = sellPicks.keepOne == false
+	end, function()
+		return "KEEP 1 OF EACH"
+	end)
+
+	sellButton.button.Activated:Connect(function()
+		local count = plan()
+		if count <= 0 then
+			return
+		end
+		if not confirming then
+			confirming = true
+			paint()
+			return
+		end
+		confirming = false
+		paint()
+		Remotes.ChestAction:FireServer("sellMany", filter())
+	end)
+	paint()
+	if Screen.input() == "gamepad" then
+		GuiService.SelectedObject = sellButton.button
+	end
+end
+
 local function render()
 	if not window then
 		return
@@ -878,7 +1094,9 @@ local function render()
 	emptyLabel.Visible = #items == 0
 	window.firstSelection = first
 
-	if detail.Visible then
+	if detail.Visible and sellOpen then
+		showSell()
+	elseif detail.Visible then
 		if itemByKey(detailKey) then
 			showDetail(detailKey)
 		else
@@ -1038,6 +1256,21 @@ local function buildWindow()
 	-- the stored scoops: the waffle label with the count and the grid in its panel (how rare scoops get in is said in
 	-- the empty grid; the line beside the label ran through it on a phone)
 	fillLabel = waffleLabel(content, "StoredLabel", L.storedLabel, 214, 42)
+	-- SELL... beside it opens the sell view (sell by rarity)
+	local sellAll = Buttons.wide({
+		name = "SellFilter",
+		text = "SELL...",
+		color = Theme.color("yellow"),
+		width = 150,
+		height = 42,
+		icon = Theme.icons.coin,
+	})
+	sellAll.button.Position = L.storedLabel + UDim2.fromOffset(226, 0)
+	sellAll.button.ZIndex = 6
+	sellAll.button.Parent = content
+	sellAll.button.Activated:Connect(function()
+		showSell()
+	end)
 
 	local gridPanel = panel({
 		Name = "GridPanel",
@@ -1128,6 +1361,7 @@ local function onChanged(snapshot: any, event: any)
 		return
 	end
 	latest = snapshot
+	snapshotCount += 1
 	render()
 	if type(event) ~= "table" then
 		return
@@ -1135,50 +1369,126 @@ local function onChanged(snapshot: any, event: any)
 	if event.kind == "stored" then
 		local stored = if type(event.stored) == "table" then event.stored else {}
 		local overflow = if type(event.overflow) == "number" then event.overflow else 0
-		if #stored > 0 then
-			-- the rarest of them names the message
-			local best, bestRank, mutated = nil, -1, nil
-			for _, entry in stored do
-				local flavor = Flavors.byId[entry.flavor]
-				local rank = flavor and table.find(Flavors.rarities, flavor.rarity) or 0
-				if rank > bestRank then
-					best, bestRank = flavor, rank
-				end
-				if entry.mutation ~= "" then
-					mutated = entry
-				end
+		local capped = if type(event.capped) == "table" then event.capped else {}
+		local messages = chestMessages(stored, overflow, capped)
+		-- the serve's own message ("SERVE! +n", if anything was sold) comes right after this event: the chest's wait
+		-- their turn behind it, one after the other
+		task.delay(0.15, function()
+			local paid = os.clock() - registry.TowerController.lastPaidServe() < 0.5
+			local wait = if paid then CHEST_MESSAGE_GAP else 0
+			for index, message in messages do
+				task.delay(wait + (index - 1) * CHEST_MESSAGE_GAP, function()
+					Toast.show(message.text, message.kind, message.icon, message.color)
+					if index == 1 and #stored > 0 then
+						Sfx.play("chestStored")
+					end
+				end)
 			end
-			local text
-			if #stored == 1 and mutated then
-				local spec = mutationSpec(mutated.mutation)
-				local flavor = Flavors.byId[mutated.flavor]
-				text = `{spec and spec.label or ""} {flavor and flavor.name or ""} added to your chest!`
-			elseif #stored == 1 then
-				text = `{rarityLabel(best and best.rarity or "rare")} scoop added to your chest!`
-			else
-				text = `{#stored} rare scoops added to your chest!`
-			end
-			Toast.show(text, "good", "scoops")
-			Sfx.play("chestStored")
-		end
-		if overflow > 0 then
-			task.delay(if #stored > 0 then 1.8 else 0, function()
-				Toast.show("Chest full! Sold instead.", "warn")
-			end)
-		end
+		end)
 	elseif event.kind == "sold" and type(event.coins) == "number" then
-		Toast.show(`Sold for {event.coins} coins!`, "good", "coin")
+		if type(event.count) == "number" and event.count > 1 then
+			Toast.show(`Sold {event.count} scoops for {event.coins} coins!`, "good", "coin")
+		else
+			Toast.show(`Sold for {event.coins} coins!`, "good", "coin")
+		end
 	elseif event.kind == "refused" then
 		if event.reason == "full" then
 			Toast.show(`All {snapshot.slots} slots are taken!`, "warn")
 		elseif event.reason == "far" then
 			Toast.show("Get closer to your chest!", "warn")
+		elseif event.reason == "nothing" then
+			Toast.show("Nothing to sell with that choice.", "warn")
 		end
 	end
 end
 
 -- Luck turned the scoop just caught rarer: it changes on the tower with a flash, "LUCKY!" pops up in the new rarity's
 -- colour and the sound plays. Only the catcher gets this event.
+-- The messages after a serve that stored scoops (ChestService.serve): "+1 to your chest: EPIC Tiramisu" in the
+-- rarity's colour, with NEW! for a flavor the player never had, several flavors in one line (the rarest names the
+-- colour); then what was sold anyway (the flavor already 3 times in the chest, or the chest full).
+function chestMessages(stored: { any }, overflow: number, capped: { any }): { any }
+	local messages = {}
+	if #stored > 0 then
+		local order, counts, news = {}, {}, {}
+		local best, bestRank = nil, -1
+		for _, entry in stored do
+			local key = entry.flavor .. "|" .. (entry.mutation or "")
+			if not counts[key] then
+				table.insert(order, entry)
+				counts[key] = 0
+			end
+			counts[key] += 1
+			if entry.new then
+				news[key] = true
+			end
+			local flavor = Flavors.byId[entry.flavor]
+			local rank = flavor and table.find(Flavors.rarities, flavor.rarity) or 0
+			if rank > bestRank then
+				best, bestRank = flavor, rank
+			end
+		end
+		local parts = {}
+		for _, entry in order do
+			local key = entry.flavor .. "|" .. (entry.mutation or "")
+			local flavor = Flavors.byId[entry.flavor]
+			local spec = if entry.mutation and entry.mutation ~= "" then mutationSpec(entry.mutation) else nil
+			local name = `{if spec then string.upper(spec.label) .. " " else ""}{string.upper(
+				rarityLabel(flavor and flavor.rarity or "rare")
+			)} {flavor and flavor.name or entry.flavor}`
+			if #order == 1 then
+				name = `+{counts[key]} to your chest: {name}`
+			elseif counts[key] > 1 then
+				name = `{counts[key]}x {name}`
+			end
+			if news[key] then
+				name ..= " NEW!"
+			end
+			table.insert(parts, name)
+		end
+		local text
+		if #order == 1 then
+			text = parts[1]
+		elseif #order <= 3 then
+			text = `+{#stored} to your chest: {table.concat(parts, ", ")}`
+		else
+			-- many flavors at once: the count, how many are new and the rarest one
+			local fresh = 0
+			for _ in news do
+				fresh += 1
+			end
+			local rarest = `{string.upper(rarityLabel(best and best.rarity or "rare"))} {best and best.name or ""}`
+			text =
+				`+{#stored} to your chest, {#order} flavors{if fresh > 0 then `, {fresh} NEW!` else ""} Best: {rarest}`
+		end
+		table.insert(messages, {
+			text = text,
+			kind = "good",
+			icon = "scoops",
+			color = Theme.rarity(best and best.rarity or "rare"),
+		})
+	end
+	if #capped > 0 then
+		local names, seen = {}, {}
+		for _, id in capped do
+			if not seen[id] then
+				seen[id] = true
+				local flavor = Flavors.byId[id]
+				table.insert(names, flavor and flavor.name or id)
+			end
+		end
+		table.insert(messages, {
+			text = `Already {ChestConfig.maxPerFlavor}x {table.concat(names, ", ")} in your chest: sold instead.`,
+			kind = "normal",
+			icon = "coin",
+		})
+	end
+	if overflow > 0 then
+		table.insert(messages, { text = "Chest full! Sold instead.", kind = "warn" })
+	end
+	return messages
+end
+
 local function onLucky(from: any, to: any)
 	local before = type(from) == "string" and Flavors.byId[from]
 	local after = type(to) == "string" and Flavors.byId[to]
@@ -1200,6 +1510,27 @@ local function onLucky(from: any, to: any)
 			changed(top)
 		end
 	end
+end
+
+-- Counts the snapshots: changes whenever the chest does.
+function ChestController.version(): number
+	return snapshotCount
+end
+
+-- A copy of the chest as the server last sent it (its stacks, nothing equipped), to work out what a serve would
+-- store (TowerController's preview); nil before the first snapshot.
+function ChestController.chestCopy(): any
+	if not latest then
+		return nil
+	end
+	local items = {}
+	for _, item in latest.items do
+		table.insert(
+			items,
+			{ flavor = item.flavor, rarity = item.rarity, mutation = item.mutation or "", count = item.count }
+		)
+	end
+	return { items = items, equipped = {} }
 end
 
 function ChestController.Init(reg)

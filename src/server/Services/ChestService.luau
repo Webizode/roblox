@@ -31,7 +31,7 @@ local ATTRIBUTES: { [string]: string } = {}
 for kind in ChestConfig.passives.kinds do
 	ATTRIBUTES[kind] = "Passive" .. string.upper(string.sub(kind, 1, 1)) .. string.sub(kind, 2)
 end
-local ACTIONS = { sync = true, equip = true, unequip = true, sell = true }
+local ACTIONS = { sync = true, equip = true, unequip = true, sell = true, sellMany = true }
 local MAX_KEY_LENGTH = 80
 local MAX_SELL = 1000
 
@@ -109,6 +109,27 @@ local function nearOwnChest(player: Player, radius: number): boolean
 	return Vector3.new(root.Position.X - at.X, 0, root.Position.Z - at.Z).Magnitude <= radius
 end
 
+-- The window's sell filter, checked: known rarities only, two flags; nil when it is anything else.
+local function readFilter(value: any): ScoopChest.SellFilter?
+	if type(value) ~= "table" or type(value.rarities) ~= "table" then
+		return nil
+	end
+	local rarities = {}
+	local count = 0
+	for _, rarity in value.rarities do
+		count += 1
+		if count > #Flavors.rarities or type(rarity) ~= "string" or not table.find(Flavors.rarities, rarity) then
+			return nil
+		end
+		rarities[rarity] = true
+	end
+	return {
+		rarities = rarities,
+		mutations = value.mutations == true,
+		keepOne = value.keepOne ~= false,
+	}
+end
+
 local function onAction(player: Player, action: any, key: any, amount: any)
 	if type(action) ~= "string" or not ACTIONS[action] then
 		return
@@ -124,6 +145,26 @@ local function onAction(player: Player, action: any, key: any, amount: any)
 	end
 	if action == "sync" then
 		send(player, nil)
+		return
+	end
+	if action == "sellMany" then
+		-- selling by a filter (the window's SELL...): { rarities = { "rare", ... }, mutations = bool, keepOne = bool }
+		local filter = readFilter(key)
+		if not filter then
+			return
+		end
+		if not nearOwnChest(player, ChestConfig.actionRadius) then
+			send(player, { kind = "refused", reason = "far" })
+			return
+		end
+		local coins, count = ScoopChest.sellFiltered(chest, filter, Flavors.byId, ChestConfig)
+		if count <= 0 then
+			send(player, { kind = "refused", reason = "nothing" })
+			return
+		end
+		registry.TowerService.addCoins(player, coins)
+		publishBonuses(player)
+		send(player, { kind = "sold", coins = coins, count = count })
 		return
 	end
 	if type(key) ~= "string" or #key == 0 or #key > MAX_KEY_LENGTH then
@@ -190,9 +231,12 @@ function ChestService.serve(
 	if not chest or not Features.scoopChest then
 		return nil
 	end
-	local result = ScoopChest.store(chest, scoops, mutations, Flavors.byId, Flavors.rarities, ChestConfig)
-	if #result.stored > 0 or result.overflow > 0 then
-		send(player, { kind = "stored", stored = result.stored, overflow = result.overflow })
+	-- the flavors served before count as had (the save's flavorServes; this serve is recorded after the chest)
+	local data = registry.DataService.data(player)
+	local seen = if data then data.flavorServes else nil
+	local result = ScoopChest.store(chest, scoops, mutations, Flavors.byId, Flavors.rarities, ChestConfig, seen)
+	if #result.stored > 0 or result.overflow > 0 or #result.capped > 0 then
+		send(player, { kind = "stored", stored = result.stored, overflow = result.overflow, capped = result.capped })
 	end
 	return result
 end

@@ -71,6 +71,7 @@ local visual
 local baseVelocityX, baseVelocityZ = 0, 0
 local accumulator = 0
 local toppledAt: number? = nil
+local lastPaidServeAt = -math.huge
 local tiltTimer = 0
 local sentEmptyTilt = true
 local lastServeRequest = 0
@@ -214,6 +215,9 @@ local function simulate(dt: number, humanoid: Humanoid, safe: boolean)
 	end
 end
 
+-- the HUD's preview of what the chest keeps, worked out again only when the tower or the chest changed
+local keptFor: { scoops: { string }?, version: number, kept: { [number]: boolean } } = { version = -1, kept = {} }
+
 local function updateHud(root: BasePart)
 	local tilt = TowerModel.tilt(state) / Tuning.tipAngle
 	local camera = workspace.CurrentCamera
@@ -227,12 +231,19 @@ local function updateHud(root: BasePart)
 	local distance = if target then (root.Position - target.Position).Magnitude else math.huge
 
 	local steady = TowerModel.steadyBonus(state, Tuning)
-	-- a preview: the scoops the Scoop Chest will keep pay nothing (if it has room), its coins passive counts
+	-- a preview: the scoops the Scoop Chest will keep pay nothing (if it has room and holds fewer than maxPerFlavor
+	-- of that flavor: worked out on a copy of the chest as the window last showed it), its coins passive counts
 	local kept = {}
 	if Features.scoopChest then
-		for index, flavorId in scoops do
-			kept[index] = ScoopChest.keeps(flavorId, nil, Flavors.byId, Flavors.rarities, ChestConfig)
+		local version = registry.ChestController.version()
+		if keptFor.scoops ~= scoops or keptFor.version ~= version then
+			local copy = registry.ChestController.chestCopy()
+			keptFor.kept = if copy
+				then ScoopChest.store(copy, scoops, nil, Flavors.byId, Flavors.rarities, ChestConfig).kept
+				else {}
+			keptFor.scoops, keptFor.version = scoops, version
 		end
+		kept = keptFor.kept
 	end
 	local coinBonus = player:GetAttribute("PassiveCoins")
 	local towerBonus = player:GetAttribute("PassiveTower")
@@ -275,15 +286,17 @@ local function replicateTilt(dt: number)
 	end
 end
 
--- The tower stands on the back, between the camera and the character. Only the scoops that cover the middle of
--- the screen (the crosshair in combat mode, the character's head otherwise) turn see-through, for their owner only;
--- the rest of the tower stays solid. Fading the whole tower left it see-through nearly all the time.
+-- The tower stands on the back, between the camera and the character. Only in combat mode (aiming) do the scoops
+-- that cover the crosshair turn see-through, for their owner only; the rest of the tower stays solid. Fading the whole
+-- tower left it see-through nearly all the time. Since 19.11.2026 not outside combat mode any more: with the textured
+-- scoop models a faded pale scoop on the back looked like a grey, see-through lump.
 local function updateFade(dt: number)
 	local camera = workspace.CurrentCamera
 	local blend = 1 - math.exp(-FADE_RESPONSE * dt)
+	local aiming = player:GetAttribute("CombatMode") == true
 	for index, scoop in visual.scoops do
 		local covers = false
-		if camera then
+		if camera and aiming then
 			local look = camera.CFrame.LookVector
 			local offset = scoop.part.Position - camera.CFrame.Position
 			local along = math.clamp(offset:Dot(look), 0, FADE_RAY)
@@ -657,9 +670,11 @@ function TowerController.Start()
 	Remotes.Served.OnClientEvent:Connect(function(who: Player, _count: number?, value: number?)
 		-- only the own serve shows (kill test 13.11.2026: no feed line for others any more; the server only tells
 		-- the others that someone served, PlotPins glints at their pin)
-		if who == player and type(value) == "number" then
+		-- a serve that only filled the Scoop Chest pays nothing: no "+0", the chest's message says what happened
+		if who == player and type(value) == "number" and value > 0 then
 			Sfx.play("serve")
 			UiKit.Toast.show(string.format("SERVE! +%d", value), "good", "coin")
+			lastPaidServeAt = os.clock()
 		end
 	end)
 	Remotes.Dash.OnClientEvent:Connect(onDash)
@@ -799,6 +814,11 @@ function TowerController.lucky(from: string, to: string, delay: number, changed:
 end
 
 -- How many scoops the tower holds and how many the cone takes (Config/Economy upgrades.cone.capacity).
+-- os.clock() of the last serve that paid coins (its "SERVE!" message), for the chest's message to wait its turn.
+function TowerController.lastPaidServe(): number
+	return lastPaidServeAt
+end
+
 function TowerController.fill(): (number, number)
 	return #scoops, Economy.capacity(coneLevel(), EconomyConfig)
 end

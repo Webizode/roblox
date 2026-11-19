@@ -163,6 +163,152 @@ describe("Scoop Chest: what is kept at a serve", function()
 	end)
 end)
 
+describe("Scoop Chest: at most 3 of a flavor, new flavors", function()
+	it("keeps at most maxPerFlavor (3) of one plain flavor, sells the 4th and later at full value", function()
+		expect(Config.maxPerFlavor).toBe(3)
+		local chest = empty()
+		local tower = { EPIC, EPIC, EPIC, EPIC, EPIC }
+		local result = ScoopChest.store(chest, tower, nil, byId, rarities, Config)
+		expect(#result.stored).toBe(3)
+		expect(#result.capped).toBe(2)
+		expect(result.capped[1]).toBe(EPIC)
+		expect(result.kept[3]).toBe(true)
+		expect(result.kept[4]).toBeNil()
+		expect(result.kept[5]).toBeNil()
+		expect(ScoopChest.plainCount(chest, EPIC)).toBe(3)
+		-- the two sold ones pay their full value (a kept one counts for the height only)
+		local value = Economy.serveValue(tower, byId, EconomyConfig, { kept = result.kept })
+		expect(value).toBeCloseTo(byId[EPIC].value * 2 * Economy.heightMultiplier(5, EconomyConfig))
+		-- a later serve of the same flavor sells it all
+		local again = ScoopChest.store(chest, { EPIC }, nil, byId, rarities, Config)
+		expect(#again.stored).toBe(0)
+		expect(#again.capped).toBe(1)
+	end)
+
+	it("counts each flavor on its own", function()
+		local chest = empty()
+		local result = ScoopChest.store(chest, { EPIC, EPIC, EPIC, RARE, LEGENDARY }, nil, byId, rarities, Config)
+		expect(#result.stored).toBe(5)
+		expect(#result.capped).toBe(0)
+	end)
+
+	it("always stores golden and rainbow scoops while there is room, past the limit too", function()
+		local chest = empty()
+		ScoopChest.store(chest, { EPIC, EPIC, EPIC }, nil, byId, rarities, Config)
+		local result = ScoopChest.store(chest, { EPIC, EPIC }, { "golden", "rainbow" }, byId, rarities, Config)
+		expect(#result.stored).toBe(2)
+		expect(#result.capped).toBe(0)
+		local small = with({ capacity = 4 })
+		local full = empty()
+		ScoopChest.store(full, { EPIC, EPIC, EPIC }, nil, byId, rarities, small)
+		local over = ScoopChest.store(full, { RARE, RARE }, { "golden", "golden" }, byId, rarities, small)
+		expect(#over.stored).toBe(1)
+		expect(over.overflow).toBe(1)
+	end)
+
+	it("marks the first of a flavor the player never had as new, nothing they had or have", function()
+		local chest = empty()
+		local result = ScoopChest.store(chest, { EPIC, EPIC, RARE, LEGENDARY }, nil, byId, rarities, Config, {
+			[LEGENDARY] = 2, -- served before
+		})
+		expect(result.stored[1].new).toBe(true)
+		expect(result.stored[2].new).toBe(false) -- the second of the same serve
+		expect(result.stored[3].new).toBe(true)
+		expect(result.stored[4].new).toBe(false)
+		-- already in the chest: not new again
+		expect(ScoopChest.store(chest, { RARE }, nil, byId, rarities, Config).stored[1].new).toBe(false)
+	end)
+end)
+
+describe("Scoop Chest: selling by a filter", function()
+	local function filled()
+		local chest = empty()
+		ScoopChest.store(chest, { RARE, RARE, RARE, EPIC, EPIC, LEGENDARY }, nil, byId, rarities, Config)
+		ScoopChest.store(chest, { RARE }, { "golden" }, byId, rarities, Config)
+		return chest
+	end
+	local function only(list: { string }): { [string]: boolean }
+		local set = {}
+		for _, rarity in list do
+			set[rarity] = true
+		end
+		return set
+	end
+
+	it("sells the picked rarities, keeping one of each stack when asked", function()
+		local chest = filled()
+		local filter = { rarities = only({ "rare", "epic" }), mutations = false, keepOne = true }
+		local _, count, coins = ScoopChest.sellPlan(chest, filter, byId, Config)
+		expect(count).toBe(3) -- 2 of 3 rare, 1 of 2 epic; golden and legendary stay
+		local got, sold = ScoopChest.sellFiltered(chest, filter, byId, Config)
+		expect(sold).toBe(3)
+		expect(got).toBe(coins)
+		expect(ScoopChest.plainCount(chest, RARE)).toBe(1)
+		expect(ScoopChest.plainCount(chest, EPIC)).toBe(1)
+		expect(ScoopChest.plainCount(chest, LEGENDARY)).toBe(1)
+		expect(ScoopChest.find(chest, ScoopChest.key(RARE, "golden")) ~= nil).toBe(true)
+	end)
+
+	it("sells everything of a rarity without keep one, golden and rainbow only when picked", function()
+		local chest = filled()
+		ScoopChest.sellFiltered(
+			chest,
+			{ rarities = only({ "rare" }), mutations = false, keepOne = false },
+			byId,
+			Config
+		)
+		expect(ScoopChest.plainCount(chest, RARE)).toBe(0)
+		expect(ScoopChest.find(chest, ScoopChest.key(RARE, "golden")) ~= nil).toBe(true)
+		ScoopChest.sellFiltered(chest, { rarities = only({ "rare" }), mutations = true, keepOne = false }, byId, Config)
+		expect(ScoopChest.find(chest, ScoopChest.key(RARE, "golden"))).toBeNil()
+	end)
+
+	it("never empties an equipped stack: it keeps one and stays equipped", function()
+		local chest = filled()
+		ScoopChest.equip(chest, ScoopChest.key(EPIC, ""), Config)
+		ScoopChest.sellFiltered(
+			chest,
+			{ rarities = only({ "epic" }), mutations = false, keepOne = false },
+			byId,
+			Config
+		)
+		expect(ScoopChest.plainCount(chest, EPIC)).toBe(1)
+		expect(table.find(chest.equipped, ScoopChest.key(EPIC, "")) ~= nil).toBe(true)
+	end)
+
+	it("sells nothing with nothing picked", function()
+		local chest = filled()
+		local coins, count =
+			ScoopChest.sellFiltered(chest, { rarities = {}, mutations = true, keepOne = false }, byId, Config)
+		expect(count).toBe(0)
+		expect(coins).toBe(0)
+		expect(ScoopChest.used(chest)).toBe(7)
+	end)
+end)
+
+describe("Every flavor is worth something", function()
+	it("sells every one of the 52 flavors for more than 0 coins at a serve and from the chest", function()
+		local count = 0
+		for _, flavor in Flavors.list do
+			if not flavor.placeholder then
+				count += 1
+			end
+			expect(flavor.value).toBeGreaterThan(0)
+			expect(Economy.serveValue({ flavor.id }, byId, EconomyConfig)).toBeGreaterThan(0)
+			local item = { flavor = flavor.id, rarity = flavor.rarity, mutation = "", count = 1 }
+			expect(ScoopChest.sellValue(item, byId, Config)).toBeGreaterThan(0)
+		end
+		expect(count).toBe(52)
+	end)
+
+	it("pays nothing for a tower the chest took whole: the serve shows the chest's message, not +0", function()
+		local chest = empty()
+		local result = ScoopChest.store(chest, { EPIC }, nil, byId, rarities, Config)
+		expect(Economy.serveValue({ EPIC }, byId, EconomyConfig, { kept = result.kept })).toBe(0)
+		expect(#result.stored).toBe(1)
+	end)
+end)
+
 describe("Scoop Chest: serving pays for what is sold", function()
 	it("kept scoops pay nothing but still count for the height", function()
 		local tower = { COMMON, COMMON, RARE, COMMON }

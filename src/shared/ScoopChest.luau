@@ -16,6 +16,7 @@ export type Flavors = { [string]: FlavorInfo }
 export type Config = {
 	minRarity: string,
 	storeMutations: boolean,
+	maxPerFlavor: number?,
 	capacity: number,
 	equipSlots: number,
 	mutations: { order: { string }, kinds: { [string]: { passive: number, sell: number } } },
@@ -30,8 +31,10 @@ export type Config = {
 
 export type StoreResult = {
 	kept: { [number]: boolean }, -- tower indices that went into the chest (not sold)
-	stored: { { flavor: string, mutation: string } }, -- what went in, bottom to top
+	-- what went in, bottom to top; `new`: a flavor the player never had before (`seen` of store), the first of it
+	stored: { { flavor: string, mutation: string, new: boolean } },
 	overflow: number, -- scoops that would have gone in but the chest was full (sold instead)
+	capped: { string }, -- flavors sold because the chest already holds maxPerFlavor plain ones of them, bottom to top
 }
 
 local ScoopChest = {}
@@ -104,29 +107,94 @@ function ScoopChest.add(chest: Chest, flavorId: string, mutation: string?, flavo
 	return true
 end
 
+-- How many plain (unmutated) scoops of `flavorId` the chest holds.
+function ScoopChest.plainCount(chest: Chest, flavorId: string): number
+	local item = ScoopChest.find(chest, ScoopChest.key(flavorId, ""))
+	return if item then item.count else 0
+end
+
 -- A served tower (`scoops` bottom to top, `mutations` by the same index or nil): the scoops the chest keeps go in
--- while there is room; what does not fit is sold with the rest.
+-- while there is room; what does not fit is sold with the rest. Of a plain flavor at most config.maxPerFlavor go in,
+-- the next ones are sold at full value (`capped`); a mutation (Golden, Rainbow) always goes in while there is room.
+-- `seen` (flavor id -> anything) holds the flavors the player already had: the first stored one of any other is `new`.
 function ScoopChest.store(
 	chest: Chest,
 	scoops: { string },
 	mutations: { [number]: string }?,
 	flavors: Flavors,
 	rarities: { string },
-	config: Config
+	config: Config,
+	seen: { [string]: any }?
 ): StoreResult
-	local result: StoreResult = { kept = {}, stored = {}, overflow = 0 }
+	local result: StoreResult = { kept = {}, stored = {}, overflow = 0, capped = {} }
+	local had: { [string]: boolean } = {}
+	for flavorId in seen or {} do
+		had[flavorId] = true
+	end
+	for _, item in chest.items do
+		had[item.flavor] = true
+	end
 	for index, flavorId in scoops do
 		local mutation = mutations and mutations[index] or ""
 		if ScoopChest.keeps(flavorId, mutation, flavors, rarities, config) then
-			if ScoopChest.add(chest, flavorId, mutation, flavors, config) then
+			local limit = config.maxPerFlavor
+			if mutation == "" and limit and ScoopChest.plainCount(chest, flavorId) >= limit then
+				table.insert(result.capped, flavorId)
+			elseif ScoopChest.add(chest, flavorId, mutation, flavors, config) then
 				result.kept[index] = true
-				table.insert(result.stored, { flavor = flavorId, mutation = mutation })
+				table.insert(result.stored, { flavor = flavorId, mutation = mutation, new = not had[flavorId] })
+				had[flavorId] = true
 			else
 				result.overflow += 1
 			end
 		end
 	end
 	return result
+end
+
+export type SellFilter = {
+	rarities: { [string]: boolean }, -- the rarities to sell
+	mutations: boolean, -- also sell golden and rainbow scoops (else they stay)
+	keepOne: boolean, -- keep one of every stack
+}
+
+-- What selling by `filter` would do, without changing the chest: per stack key how many go, how many in all and the
+-- coins. An equipped stack always keeps one (its slot stays).
+function ScoopChest.sellPlan(
+	chest: Chest,
+	filter: SellFilter,
+	flavors: Flavors,
+	config: Config
+): ({ [string]: number }, number, number)
+	local plan: { [string]: number } = {}
+	local count, coins = 0, 0
+	for _, item in chest.items do
+		if not filter.rarities[ScoopChest.rarityOf(item, flavors)] then
+			continue
+		end
+		if item.mutation ~= "" and not filter.mutations then
+			continue
+		end
+		local key = ScoopChest.key(item.flavor, item.mutation)
+		local keep = if filter.keepOne or table.find(chest.equipped, key) then 1 else 0
+		local amount = math.max(0, item.count - keep)
+		if amount > 0 then
+			plan[key] = amount
+			count += amount
+			coins += ScoopChest.sellValue(item, flavors, config) * amount
+		end
+	end
+	return plan, count, coins
+end
+
+-- Sells by `filter` (ScoopChest.sellPlan). Returns the coins and how many scoops went.
+function ScoopChest.sellFiltered(chest: Chest, filter: SellFilter, flavors: Flavors, config: Config): (number, number)
+	local plan, count = ScoopChest.sellPlan(chest, filter, flavors, config)
+	local coins = 0
+	for key, amount in plan do
+		coins += ScoopChest.sell(chest, key, amount, flavors, config) or 0
+	end
+	return coins, count
 end
 
 -- Equips the stack `key` into the next free slot. Returns true, or false and why ("unknown", "equipped", "full").

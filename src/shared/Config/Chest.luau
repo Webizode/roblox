@@ -10,8 +10,11 @@
 return {
 	-- scoops of this rarity and rarer go into the chest when served, the rest is sold; to decide with Nik (rare or epic)
 	minRarity = "rare",
-	-- a scoop with a mutation (Golden, Rainbow) always goes into the chest, whatever its rarity
+	-- a scoop with a mutation (Golden, Rainbow) always goes into the chest, whatever its rarity (while there is room)
 	storeMutations = true,
+	-- of one flavor (plain, without a mutation) at most this many go into the chest; from the next one on it is sold at
+	-- its full value like any other scoop (19.11.2026)
+	maxPerFlavor = 3,
 	-- scoops it holds in all (each stored scoop counts, also in a stack); a full chest sells the rest as usual
 	capacity = 50,
 	equipSlots = 3,
