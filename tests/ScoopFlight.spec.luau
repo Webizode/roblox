@@ -79,54 +79,6 @@ describe("Tower scoops: the catch", function()
 	end)
 end)
 
-describe("Tower scoops: the trail", function()
-	local function tierOf(id: string): string
-		return ScoopFlight.trailTier(Flavors.byId[id].rarity, false, Config)
-	end
-
-	it("the classics have the plain trail, rarer flavors a stronger one, golden its own", function()
-		expect(tierOf("vanilla")).toBe("common")
-		expect(tierOf("lemon")).toBe("common")
-		-- the rarer flavors come later; their tiers by rarity
-		expect(ScoopFlight.trailTier("uncommon", false, Config)).toBe("rare")
-		expect(ScoopFlight.trailTier("rare", false, Config)).toBe("rare")
-		expect(ScoopFlight.trailTier("epic", false, Config)).toBe("epic")
-		expect(ScoopFlight.trailTier("legendary", false, Config)).toBe("epic")
-		expect(ScoopFlight.trailTier("common", true, Config)).toBe("golden")
-		expect(ScoopFlight.trailTier("unknown", false, Config)).toBe("common")
-	end)
-
-	it("rarer means longer and brighter, and only golden and the rarest sparkle", function()
-		local order = { "common", "rare", "epic", "golden" }
-		for i = 2, #order do
-			local before = ScoopFlight.trailStyle(order[i - 1], "high", Config)
-			local now = ScoopFlight.trailStyle(order[i], "high", Config)
-			expect(now.lifetime > before.lifetime).toBe(true)
-			expect(now.lightEmission >= before.lightEmission).toBe(true)
-		end
-		expect(ScoopFlight.trailStyle("common", "high", Config).sparkles).toBe(0)
-		expect(ScoopFlight.trailStyle("golden", "high", Config).sparkles > 0).toBe(true)
-		expect(ScoopFlight.trailStyle("golden", "high", Config).color).toBe("#FFD23F")
-	end)
-
-	it("a lower VFX quality shortens the trail and drops the sparkles; low still leaves a trail", function()
-		local high = ScoopFlight.trailStyle("golden", "high", Config)
-		local medium = ScoopFlight.trailStyle("golden", "medium", Config)
-		local low = ScoopFlight.trailStyle("golden", "low", Config)
-		expect(medium.lifetime < high.lifetime).toBe(true)
-		expect(low.lifetime < medium.lifetime).toBe(true)
-		expect(low.lifetime > 0).toBe(true)
-		expect(medium.sparkles < high.sparkles).toBe(true)
-		expect(low.sparkles).toBe(0)
-	end)
-
-	it("fades fast: even the longest trail is gone in half a second", function()
-		for tier in Config.trail.styles do
-			expect(ScoopFlight.trailStyle(tier, "high", Config).lifetime <= 0.5).toBe(true)
-		end
-	end)
-end)
-
 describe("Tower scoops: the far model", function()
 	it("takes over from farDistance on and hands back a little closer, so it does not flicker", function()
 		expect(ScoopFlight.useFar(Config.farDistance - 1, false, Config)).toBe(false)

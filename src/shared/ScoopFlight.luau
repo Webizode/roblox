@@ -1,16 +1,8 @@
 --!strict
 -- How a tower scoop looks on its way from the Big Swirl to a tower (Config/TowerScoops): its turn and tip in flight,
--- the swing back upright when it is caught, the plop onto the tower, its trail and when the far model takes over.
+-- the swing back upright when it is caught, the plop onto the tower and when the far model takes over
+-- (the trail by rarity is RarityFlight, Config/Vfx.flight).
 -- Pure: the config is passed in. Only looks; the flight path itself is ShotMath's, the server's.
-
-export type TrailStyle = {
-	lifetime: number,
-	width: number,
-	transparency: number,
-	lightEmission: number,
-	sparkles: number, -- per second, 0 = none
-	color: string?, -- nil: the flavor's own colour
-}
 
 local ScoopFlight = {}
 
@@ -65,29 +57,6 @@ function ScoopFlight.plop(elapsed: number, config: any): (number, number, number
 	end
 	local bump = math.sin((t - fall) / (1 - fall) * math.pi) * config.catch.squash
 	return 0, 1 - bump, 1 + bump * 0.5
-end
-
--- The trail tier of a flavor of rarity `rarity` (Config/Flavors); golden scoops have their own, an unknown rarity the
--- plain one.
-function ScoopFlight.trailTier(rarity: string, golden: boolean, config: any): string
-	if golden then
-		return "golden"
-	end
-	return config.trail.tiers[rarity] or "common"
-end
-
--- The trail of a tier at a VFX quality ("high", "medium", "low"; the performance mode counts as "low").
-function ScoopFlight.trailStyle(tier: string, quality: string, config: any): TrailStyle
-	local style = config.trail.styles[tier] or config.trail.styles.common
-	local scale = config.trail.quality[quality] or config.trail.quality.high
-	return {
-		lifetime = style.lifetime * scale.lifetime,
-		width = style.width,
-		transparency = style.transparency,
-		lightEmission = style.lightEmission,
-		sparkles = style.sparkles * scale.sparkles,
-		color = style.color,
-	}
 end
 
 -- Whether the far model (LOD1) shows at `distance` studs from the camera, given what showed before: it takes over

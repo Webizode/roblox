@@ -101,6 +101,67 @@ return {
 		},
 	},
 
+	-- A scoop's rarity in flight (19.11.2026, RarityFlight, ShotRenderer, SwirlAnnounce, RarityBanner): readable while
+	-- it flies, not only when it lands. Colours are the rarity's (Config/Flavors rarityColors, like the name signs and
+	-- landing circles), `color` overrides (legendary: gold). Per rarity:
+	--   trail      width (studs), lifetime (s), transparency at the scoop, lightEmission; none for common
+	--   glow       a PointLight on the scoop: brightness, range (studs)
+	--   sparks     particles per second from the scoop
+	--   highlight  a golden outline on the scoop (Highlight; only legendary and up, Roblox shows few at once)
+	--   sound      played at the release (Config/Sounds), heard up to `hearing` studs
+	--   announce   the Big Swirl before it fires: "flash" (a short burst of light) or "glow" (it glows for `time` s and
+	--              this one shot leaves `delay` s later, the others keep their beat), in `color` or the rarity's
+	--   banner     "LEGENDARY!" at the top of the screen for everybody in the arena, with the flavor's name
+	-- `like` takes another rarity's look (mythic, secret and divine are not designed yet).
+	flight = {
+		byRarity = {
+			common = {},
+			uncommon = {
+				trail = { width = 0.5, lifetime = 0.25, transparency = 0.35, lightEmission = 0.3 },
+			},
+			rare = {
+				trail = { width = 0.8, lifetime = 0.35, transparency = 0.25, lightEmission = 0.5 },
+				glow = { brightness = 1.5, range = 8 },
+			},
+			epic = {
+				trail = { width = 1.4, lifetime = 0.5, transparency = 0.15, lightEmission = 0.8 },
+				glow = { brightness = 2.5, range = 11 },
+				sparks = 18,
+				sound = "flightEpic",
+				announce = { kind = "flash", time = 0.35, brightness = 6, range = 40 },
+			},
+			legendary = {
+				color = "#FFD23F", -- gold (Palette.lemon)
+				trail = { width = 2.2, lifetime = 0.7, transparency = 0.05, lightEmission = 1 },
+				glow = { brightness = 4, range = 16 },
+				sparks = 40,
+				highlight = true,
+				sound = "flightLegendary",
+				announce = { kind = "glow", time = 1, delay = 1, brightness = 8, range = 60 },
+				banner = true,
+			},
+			mythic = { like = "legendary" },
+			secret = { like = "legendary" },
+			divine = { like = "legendary" },
+		},
+		-- VFX quality (Settings; performance mode counts as low): the trail's lifetime share, the sparks' share, and
+		-- whether lights and the highlight show. Low keeps only the trail. The Big Swirl's announcement shows always.
+		quality = {
+			high = { lifetime = 1, sparks = 1, light = true },
+			medium = { lifetime = 0.8, sparks = 0.5, light = true },
+			low = { lifetime = 0.6, sparks = 0, light = false },
+		},
+		hearing = 260, -- studs the release sounds carry (the arena is about 300 across)
+		banner = {
+			time = 2.6, -- seconds on screen
+			popTime = 0.3,
+			fadeTime = 0.4,
+			top = 0.13, -- share of the screen height from the top to its middle
+			width = 520, -- pixels at a 1080 high screen, scaled with it
+			height = 120,
+		},
+	},
+
 	auras = {
 		maxDistance = 70,
 		maxShown = 10,

@@ -1,6 +1,6 @@
 --!strict
 -- The look of the tower scoops (stacked on the back, not the attack scoops): their model, the flight from the Big
--- Swirl and the trail. Purely visual; the server's flight path and catch rules stay as they are (Config/Launcher).
+-- Swirl (the trail by rarity is in Config/Vfx.flight). Purely visual; the server's flight path and catch rules stay as they are (Config/Launcher).
 -- Models: ReplicatedStorage.TowerScoops.<flavor id> with the MeshParts LOD0 (close) and LOD1 (far), built in Blender
 -- (assets/TowerScoops). A flavor without its model is drawn as the plain ball.
 
@@ -70,31 +70,5 @@ return {
 		plopTime = 0.28,
 		plopDrop = 0.7, -- studs above its place it starts
 		squash = 0.22, -- share it gets flatter (and wider) when it lands
-	},
-
-	-- The trail in the flavor's colour, by the flavor's rarity (Config/Flavors): the rarer, the longer and brighter the
-	-- trail; golden scoops also sparkle.
-	trail = {
-		tiers = { common = "common", uncommon = "rare", rare = "rare", epic = "epic", legendary = "epic" },
-		styles = {
-			common = { lifetime = 0.18, width = 0.9, transparency = 0.45, lightEmission = 0.2, sparkles = 0 },
-			rare = { lifetime = 0.3, width = 1.2, transparency = 0.3, lightEmission = 0.5, sparkles = 0 },
-			epic = { lifetime = 0.4, width = 1.4, transparency = 0.2, lightEmission = 0.8, sparkles = 8 },
-			golden = {
-				lifetime = 0.45,
-				width = 1.5,
-				transparency = 0.15,
-				lightEmission = 1,
-				sparkles = 24,
-				color = "#FFD23F", -- Palette.lemon
-			},
-		},
-		-- VFX quality (Settings; the performance mode counts as low): the share of the trail's lifetime and of the
-		-- sparkles that is left. Low keeps a short trail so a scoop can still be followed, without sparkles.
-		quality = {
-			high = { lifetime = 1, sparkles = 1 },
-			medium = { lifetime = 0.7, sparkles = 0.5 },
-			low = { lifetime = 0.45, sparkles = 0 },
-		},
 	},
 }

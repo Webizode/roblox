@@ -28,6 +28,10 @@ return {
 	chestOpen = "rbxassetid://9125644410",
 	chestClose = "rbxasset://sounds/button.wav",
 	chestStored = "rbxassetid://9126073001",
+	-- a rare scoop leaves the Big Swirl (Config/Vfx.flight): placeholders, the "Magic Twirling" chime for epic, the
+	-- charge-up sweep for legendary
+	flightEpic = "rbxassetid://9125644410",
+	flightLegendary = "rbxassetid://139493189032178",
 	-- luck turned a caught scoop rarer (placeholder: the "Synth Sparkle" bell of perfectHit, played higher)
 	lucky = "rbxassetid://9126073001",
 	-- a gummy pad throws a player up (Config/Bounce): free Creator Store placeholder "Pogo Stick Boing Sound City Break"

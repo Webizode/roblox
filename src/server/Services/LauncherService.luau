@@ -21,7 +21,9 @@ local CatchRules = require(Shared:WaitForChild("CatchRules"))
 local LaunchArms = require(Shared:WaitForChild("LaunchArms"))
 local TargetRules = require(Shared:WaitForChild("TargetRules"))
 local FlavorOdds = require(Shared:WaitForChild("FlavorOdds"))
+local RarityFlight = require(Shared:WaitForChild("RarityFlight"))
 local Flavors = require(Config:WaitForChild("Flavors"))
+local VfxConfig = require(Config:WaitForChild("Vfx"))
 local Tuning = require(Config:WaitForChild("Launcher"))
 local ArmConfig = require(Config:WaitForChild("BigSwirl"))
 local TowerTuning = require(Config:WaitForChild("Tower"))
@@ -67,7 +69,23 @@ local pools = FlavorOdds.pools(Flavors.list, function(flavor)
 	return not flavor.placeholder or Features.placeholderRares
 end)
 
+-- Studio only: the Workspace attribute ForceRarity ("epic", "legendary", ...) makes the Big Swirl fire only flavors of
+-- that rarity, to look at them (set it in Edit mode before Play; remove it afterwards). Ignored outside Studio and for
+-- a rarity without flavors.
+local function forcedPool(): { string }?
+	if not RunService:IsStudio() then
+		return nil
+	end
+	local rarity = workspace:GetAttribute("ForceRarity")
+	local pool = if type(rarity) == "string" then pools[string.lower(rarity)] else nil
+	return if pool and #pool > 0 then pool else nil
+end
+
 local function pickFlavor(): string
+	local forced = forcedPool()
+	if forced then
+		return forced[rng:NextInteger(1, #forced)]
+	end
 	return FlavorOdds.pick(rng:NextNumber(), rng:NextNumber(), Flavors, pools)
 end
 
@@ -157,7 +175,12 @@ local function fire(interval: number)
 	end
 
 	local now = workspace:GetServerTimeNow()
-	local from, t0, arm, scoopAt, speed = map.nozzle.Position, now, nil, nil, nil
+	local flavorId = pickFlavor()
+	local flavor = Flavors.byId[flavorId]
+	-- a legendary is announced: the Big Swirl glows first and only this shot leaves that much later (Config/Vfx.flight);
+	-- the beat of the others stays, the loop below keeps its pace
+	local hold = RarityFlight.delay(flavor and flavor.rarity or "common", VfxConfig.flight)
+	local from, t0, arm, scoopAt, speed = map.nozzle.Position, now + hold, nil, nil, nil
 	if arms then
 		local base = arms.root.Position
 		arm = LaunchArms.pick(to.X - base.X, to.Z - base.Z, arms.freeAt, now, ArmConfig)
@@ -168,9 +191,9 @@ local function fire(interval: number)
 		local timing = LaunchArms.timing(LaunchArms.playSpeed(interval, ArmConfig), ArmConfig)
 		local point = ArmConfig.releasePoints[arm]
 		from = arms.root.CFrame:PointToWorldSpace(Vector3.new(point[1], point[2], point[3]))
-		t0 = now + timing.releaseLead
+		t0 = now + hold + timing.releaseLead
 		scoopAt = t0 - timing.scoopLead
-		arms.freeAt[arm] = now + timing.busyFor -- never reused before its motion is over
+		arms.freeAt[arm] = now + hold + timing.busyFor -- never reused before its motion is over
 		speed = timing.speed
 	end
 	local distance = Vector3.new(to.X - from.X, 0, to.Z - from.Z).Magnitude
@@ -178,7 +201,7 @@ local function fire(interval: number)
 	nextId += 1
 	local shot: Shot = {
 		id = nextId,
-		flavorId = pickFlavor(),
+		flavorId = flavorId,
 		from = from,
 		to = to,
 		apex = ShotMath.apex(distance, Tuning),

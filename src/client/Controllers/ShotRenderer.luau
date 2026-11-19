@@ -6,9 +6,10 @@
 -- flight at t0; until then it is not catchable. The landing circle shows from the start, as a warning.
 -- The scoop is the tower scoop model (ScoopModel); caught, it waits above the free slot, where the tower's new top
 -- scoop then plops in (TowerVisual). With Features.towerScoopFlight it also turns slowly on the way up, tips over like
--- a shuttlecock after the apex, dome first, swings back upright when caught, and a short trail in its colour follows
--- it, stronger for rarer flavors and shorter at a lower VFX quality (Config/TowerScoops, ScoopFlight). All of it is
--- looks: the path is the server's.
+-- a shuttlecock after the apex, dome first, and swings back upright when caught (Config/TowerScoops, ScoopFlight).
+-- Its rarity shows all the way (Config/Vfx.flight, RarityFlight): from uncommon a trail in the rarity's colour, from
+-- rare a glow, from epic sparks and a sound at the release, legendary a wide golden trail and a golden outline; a lower
+-- VFX quality keeps only the trail. All of it is looks: the path is the server's.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,11 +21,12 @@ local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local ShotMath = require(Shared:WaitForChild("ShotMath"))
 local ScoopFlight = require(Shared:WaitForChild("ScoopFlight"))
+local RarityFlight = require(Shared:WaitForChild("RarityFlight"))
 local Tuning = require(Config:WaitForChild("Launcher"))
 local Features = require(Config:WaitForChild("Features"))
 local ArmConfig = require(Config:WaitForChild("BigSwirl"))
 local Flavors = require(Config:WaitForChild("Flavors"))
-local Palette = require(Config:WaitForChild("Palette"))
+local VfxConfig = require(Config:WaitForChild("Vfx"))
 local Look = require(Config:WaitForChild("TowerScoops"))
 
 local client = script.Parent.Parent
@@ -34,12 +36,24 @@ local ScoopSign = require(client:WaitForChild("ScoopSign"))
 local ScoopAura = require(client:WaitForChild("ScoopAura"))
 local BigSwirlArms = require(client:WaitForChild("BigSwirlArms"))
 local Settings = require(client:WaitForChild("Settings"))
+local Sfx = require(client:WaitForChild("Sfx"))
+local SwirlAnnounce = require(client:WaitForChild("SwirlAnnounce"))
+local RarityBanner = require(client:WaitForChild("RarityBanner"))
 local CatchVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Catch"))
 local SwirlShotVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("SwirlShot"))
 
 local ShotRenderer = {}
 
-type Trail = { anchor: Part, trail: Trail, sparkles: ParticleEmitter?, lifetime: number }
+-- what shows a scoop's rarity in flight, on an invisible carrier that follows it (nil for a common one)
+type Trail = {
+	anchor: Part,
+	trail: Trail?,
+	sparkles: ParticleEmitter?,
+	light: PointLight?,
+	highlight: Highlight?,
+	sound: string?, -- played once at the release
+	lifetime: number,
+}
 
 type Shot = {
 	path: ShotMath.Path,
@@ -51,7 +65,7 @@ type Shot = {
 	flavorId: string,
 	scoop: ScoopModel.ScoopModel,
 	circle: Part,
-	trail: Trail?, -- nil while Features.towerScoopFlight is off
+	trail: Trail?, -- its rarity's trail, glow and sparks (nil for a common one)
 	spin0: number, -- its turn at the start, so scoops in the air do not all face the same way
 	claimed: boolean,
 	released: boolean?, -- left the cup (its trail is on)
@@ -87,68 +101,122 @@ local function makePart(): Part
 	return part
 end
 
--- The trail rides on an invisible, unturned carrier that follows the scoop, so the scoop's turn and tip do not
--- twist it. It starts switched off (in the cup) and is switched on at the release.
-local function makeTrail(flavorId: string): Trail
+-- The rarity's look rides on an invisible, unturned carrier that follows the scoop, so the scoop's turn and tip do not
+-- twist the trail. It starts switched off (in the cup) and is switched on at the release. Nil when the rarity shows
+-- nothing (common).
+local function makeTrail(flavorId: string): Trail?
 	local flavor = Flavors.byId[flavorId]
-	local golden = false -- golden scoops come with Features.goldenScoops; the launcher does not send them yet
-	local effects = Settings.effective()
-	local style = ScoopFlight.trailStyle(
-		ScoopFlight.trailTier(flavor and flavor.rarity or "common", golden, Look),
-		effects.vfxQuality,
-		Look
+	local style = RarityFlight.style(
+		flavor and flavor.rarity or "common",
+		Settings.effective().vfxQuality,
+		VfxConfig.flight,
+		Flavors.rarityColors
 	)
-	local color = Color3.fromHex(style.color or (if flavor then flavor.color else Palette.vanilla))
+	if not style.trail and not style.glow and style.sparks <= 0 then
+		return nil
+	end
+	local color = Color3.fromHex(style.color)
 
 	local anchor = makePart()
 	anchor.Name = "ScoopTrail"
 	anchor.Transparency = 1
 	anchor.Size = Vector3.one * 0.1
-	local top, bottom = Instance.new("Attachment"), Instance.new("Attachment")
-	top.Position = Vector3.new(0, style.width / 2, 0)
-	bottom.Position = Vector3.new(0, -style.width / 2, 0)
-	top.Parent, bottom.Parent = anchor, anchor
-
-	local trail = Instance.new("Trail")
-	trail.Attachment0, trail.Attachment1 = top, bottom
-	trail.Lifetime = style.lifetime
-	trail.FaceCamera = true
-	trail.LightEmission = style.lightEmission
-	trail.Color = ColorSequence.new(color)
-	trail.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, style.transparency),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
-	trail.Enabled = false
-	trail.Parent = anchor
+	local lifetime = 0
+	local trail: Trail? = nil
+	if style.trail then
+		local look = style.trail
+		lifetime = look.lifetime
+		local top, bottom = Instance.new("Attachment"), Instance.new("Attachment")
+		top.Position = Vector3.new(0, look.width / 2, 0)
+		bottom.Position = Vector3.new(0, -look.width / 2, 0)
+		top.Parent, bottom.Parent = anchor, anchor
+		local made = Instance.new("Trail")
+		made.Attachment0, made.Attachment1 = top, bottom
+		made.Lifetime = look.lifetime
+		made.FaceCamera = true
+		made.LightEmission = look.lightEmission
+		made.Color = ColorSequence.new(color)
+		made.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, look.transparency),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		made.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
+		made.Enabled = false
+		made.Parent = anchor
+		trail = made :: any
+	end
 
 	local sparkles: ParticleEmitter? = nil
-	if style.sparkles > 0 then
+	if style.sparks > 0 then
 		local emitter = Instance.new("ParticleEmitter") -- Roblox's built-in sparkle texture
-		emitter.Rate = style.sparkles
-		emitter.Lifetime = NumberRange.new(0.3, 0.6)
-		emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 0) })
-		emitter.Transparency = NumberSequence.new(0.1, 1)
+		emitter.Rate = style.sparks
+		emitter.Lifetime = NumberRange.new(0.3, 0.7)
+		emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 0) })
+		emitter.Transparency = NumberSequence.new(0.05, 1)
 		emitter.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
 		emitter.LightEmission = 1
-		emitter.Speed = NumberRange.new(0.2, 1)
+		emitter.Speed = NumberRange.new(0.5, 2)
 		emitter.SpreadAngle = Vector2.new(180, 180)
 		emitter.Drag = 3
 		emitter.Enabled = false
 		emitter.Parent = anchor
 		sparkles = emitter
 	end
-	return { anchor = anchor, trail = trail, sparkles = sparkles, lifetime = style.lifetime }
+
+	local light: PointLight? = nil
+	if style.glow then
+		local made = Instance.new("PointLight")
+		made.Color = color
+		made.Brightness = style.glow.brightness
+		made.Range = style.glow.range
+		made.Shadows = false
+		made.Enabled = false
+		made.Parent = anchor
+		light = made
+	end
+
+	local highlight: Highlight? = nil
+	if style.highlight then
+		local made = Instance.new("Highlight")
+		made.FillColor = color
+		made.FillTransparency = 0.65
+		made.OutlineColor = color
+		made.OutlineTransparency = 0
+		made.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		made.Enabled = false
+		made.Parent = anchor
+		highlight = made
+	end
+	return {
+		anchor = anchor,
+		trail = trail,
+		sparkles = sparkles,
+		light = light,
+		highlight = highlight,
+		sound = style.sound,
+		lifetime = lifetime,
+	}
 end
 
 local function setTrail(trail: Trail?, on: boolean)
 	if not trail then
 		return
 	end
-	trail.trail.Enabled = on
+	if trail.trail then
+		trail.trail.Enabled = on
+	end
 	if trail.sparkles then
 		trail.sparkles.Enabled = on
+	end
+	if trail.light then
+		trail.light.Enabled = on
+	end
+	if trail.highlight then
+		trail.highlight.Enabled = on
+	end
+	if on and trail.sound then
+		Sfx.at(trail.sound, trail.anchor, VfxConfig.flight.hearing)
+		trail.sound = nil -- once, at the release
 	end
 end
 
@@ -226,6 +294,16 @@ local function onShotFired(
 	if arm and speed then
 		BigSwirlArms.start(arm, t0, speed) -- the arm dives, scoops and whips so that it releases at t0
 	end
+	-- a rare one is announced: the Big Swirl flashes or glows before it leaves, a legendary gets the banner
+	SwirlAnnounce.shot(flavorId, t0)
+	local flavor = Flavors.byId[flavorId]
+	local look = flavor and RarityFlight.style(flavor.rarity, "high", VfxConfig.flight, Flavors.rarityColors)
+	if flavor and look and look.banner then
+		local lead = if look.announce then look.announce.time else 0
+		task.delay(math.max(0, t0 - lead - workspace:GetServerTimeNow()), function()
+			RarityBanner.show(`{string.upper(flavor.rarity)}!`, flavor.name, Color3.fromHex(look.color))
+		end)
+	end
 	local scoop = ScoopModel.new(TowerVisual.root(), flavorId)
 	scoop:setScale(Vector3.one * FLIGHT_SCALE * (if arm then ArmConfig.scoopInCupScale else 1))
 	scoop:setSign(ScoopSign.new(flavorId, false)) -- golden scoops come with Features.goldenScoops
@@ -264,7 +342,7 @@ local function onShotFired(
 	outline.Parent = circle
 	SwirlShotVfx.circle(to, flavorId)
 
-	local trail = if Features.towerScoopFlight then makeTrail(flavorId) else nil
+	local trail = makeTrail(flavorId)
 	if trail then
 		trail.anchor.CFrame = CFrame.new(from)
 	end
@@ -371,6 +449,9 @@ local function onRenderStep()
 
 		local scoop = shot.scoop
 		local part = scoop:updateLod((scoop.part.Position - eye).Magnitude)
+		if shot.trail and shot.trail.highlight and shot.trail.highlight.Adornee ~= part then
+			shot.trail.highlight.Adornee = part -- the outline goes round whichever model shows
+		end
 		local arm = shot.arm
 		if arm and alpha < 0 then
 			-- still in the arm: hidden until it is scooped, then riding upright in the cup
