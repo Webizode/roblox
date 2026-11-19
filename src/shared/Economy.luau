@@ -22,6 +22,7 @@ export type ServeOptions = {
 	-- height multiplier, so keeping a rare scoop never makes the rest of a tall tower worth less
 	kept: { [number]: boolean }?,
 	coinBonus: number?, -- the Scoop Chest's coins passive (0.05 = +5 %)
+	towerBonus: number?, -- the Scoop Chest's tower bonus as it counts for this tower (Economy.towerBonus), added to coinBonus
 }
 
 export type Config = {
@@ -90,13 +91,23 @@ function Economy.serveValue(
 
 	local steady = math.max(0, opts.steadyBonus or 0)
 	local serveMultiplier = opts.serveMultiplier or 1
-	local coinBonus = math.max(0, opts.coinBonus or 0)
+	local coinBonus = math.max(0, opts.coinBonus or 0) + math.max(0, opts.towerBonus or 0)
 	return base
 		* Economy.heightMultiplier(count, config)
 		* (1 + steady)
 		* serveMultiplier
 		* towerFactor
 		* (1 + coinBonus)
+end
+
+-- The Scoop Chest's tower bonus (Config/Chest passives.kinds.tower) for a tower of `count` scoops: nothing below
+-- `from`, then rising evenly to the whole `bonus` at `full` scoops and above.
+function Economy.towerBonus(count: number, bonus: number, from: number, full: number): number
+	if bonus <= 0 or count < from then
+		return 0
+	end
+	local share = if full > from then (count - from + 1) / (full - from + 1) else 1
+	return bonus * math.clamp(share, 0, 1)
 end
 
 -- How many scoops stay on the cone when a tower topples or its carrier is knocked down: none of a small tower (up to

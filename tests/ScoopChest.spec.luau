@@ -45,6 +45,50 @@ describe("Scoop Chest: data", function()
 		end
 	end)
 
+	it(
+		"has the three boost kinds Coins 25 %, Luck 25 %, Tower Bonus 30 %, the prepared ones out of the window",
+		function()
+			expect(#Config.passives.order).toBe(3)
+			expect(Config.passives.kinds.coins.cap).toBe(0.25)
+			expect(Config.passives.kinds.luck.cap).toBe(0.25)
+			expect(Config.passives.kinds.tower.cap).toBe(0.3)
+			expect(Config.passives.kinds.catch).toBeNil()
+			for _, kind in { "goldenLuck", "eventLuck", "xp", "sprinkles" } do
+				local spec = Config.passives.kinds[kind]
+				expect(spec ~= nil and spec.prepared == true).toBe(true)
+				expect(table.find(Config.passives.order, kind)).toBeNil()
+			end
+		end
+	)
+
+	it("spreads the chest's flavors (rare and up) 3/3/4 over the three kinds, none on a prepared kind", function()
+		expect(Config.minRarity).toBe("rare")
+		for _, rarity in { "rare", "epic", "legendary" } do
+			local counts = { coins = 0, luck = 0, tower = 0 }
+			for _, flavor in Flavors.list do
+				if flavor.rarity == rarity and not flavor.placeholder then
+					local kind = flavor.passive or Config.passives.defaultPassive
+					expect(counts[kind] ~= nil).toBe(true)
+					counts[kind] += 1
+				end
+			end
+			local sorted = { counts.coins, counts.luck, counts.tower }
+			table.sort(sorted)
+			expect(sorted[1]).toBe(3)
+			expect(sorted[2]).toBe(3)
+			expect(sorted[3]).toBe(4)
+		end
+	end)
+
+	it("gives the uncommons no boost: they never reach the chest", function()
+		for _, flavor in Flavors.list do
+			if flavor.rarity == "uncommon" then
+				expect(flavor.passive).toBeNil()
+				expect(ScoopChest.keeps(flavor.id, nil, Flavors.byId, Flavors.rarities, Config)).toBe(false)
+			end
+		end
+	end)
+
 	it("the threshold is a known rarity, every passive kind is listed and capped", function()
 		expect(table.find(rarities, Config.minRarity) ~= nil).toBe(true)
 		for _, kind in Config.passives.order do
@@ -137,6 +181,23 @@ describe("Scoop Chest: serving pays for what is sold", function()
 		local bonus = Economy.serveValue(tower, byId, EconomyConfig, { coinBonus = 0.1 })
 		expect(bonus).toBeCloseTo(plain * 1.1)
 		expect(Economy.serveValue(tower, byId, EconomyConfig, { coinBonus = -1 })).toBeCloseTo(plain)
+	end)
+
+	it("the tower bonus pays nothing below its start, then grows with the tower up to the whole bonus", function()
+		local spec = Config.passives.kinds.tower
+		expect(Economy.towerBonus(spec.from - 1, 0.3, spec.from, spec.full)).toBe(0)
+		local first = Economy.towerBonus(spec.from, 0.3, spec.from, spec.full)
+		local middle = Economy.towerBonus(math.floor((spec.from + spec.full) / 2), 0.3, spec.from, spec.full)
+		expect(first).toBeGreaterThan(0)
+		expect(middle).toBeGreaterThan(first)
+		expect(Economy.towerBonus(spec.full, 0.3, spec.from, spec.full)).toBeCloseTo(0.3)
+		expect(Economy.towerBonus(200, 0.3, spec.from, spec.full)).toBeCloseTo(0.3)
+		expect(Economy.towerBonus(50, 0, spec.from, spec.full)).toBe(0)
+		-- it adds to the coins passive
+		local tower = table.create(spec.full, COMMON)
+		local plain = Economy.serveValue(tower, byId, EconomyConfig)
+		local both = Economy.serveValue(tower, byId, EconomyConfig, { coinBonus = 0.1, towerBonus = 0.3 })
+		expect(both).toBeCloseTo(plain * 1.4)
 	end)
 
 	it("a tower of only kept scoops pays nothing", function()

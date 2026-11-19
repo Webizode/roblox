@@ -11,6 +11,7 @@ local ORDER = {
 	"ArenaService",
 	"TowerService",
 	"ChestService",
+	"LuckService",
 	"LauncherService",
 	"CombatService",
 	"LootService",

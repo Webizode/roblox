@@ -27,6 +27,8 @@ local client = script.Parent.Parent
 local UiKit = require(client:WaitForChild("UiKit"))
 local Sfx = require(client:WaitForChild("Sfx"))
 local ChestVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Chest"))
+local LuckyVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Lucky"))
+local LuckyPopup = require(client:WaitForChild("LuckyPopup"))
 
 local Theme, Window, Widgets, Buttons, Anim, Toast, Screen =
 	UiKit.Theme, UiKit.Window, UiKit.Widgets, UiKit.Buttons, UiKit.Anim, UiKit.Toast, UiKit.Screen
@@ -34,6 +36,7 @@ local Theme, Window, Widgets, Buttons, Anim, Toast, Screen =
 local ChestController = {}
 
 local player = Players.LocalPlayer
+local registry
 local LID = ChestConfig.lid
 local CARD_W, CARD_H = 144, 161 -- a stored scoop's card (the card pictures are about 458 x 512)
 local SLOT_SCALE = 0.8 -- the equipped cards, of a full card
@@ -593,7 +596,7 @@ local function showDetail(key: string?)
 	countPill.BackgroundTransparency = 0.2
 	Theme.outline(countPill, 3, Theme.color("rim"))
 
-	-- the passive: its icon (coin, clover, catch), the bonus and what it does
+	-- the passive: its icon (coin, clover, stacked cone), the bonus and what it does
 	local kind = ChestConfig.passives.kinds[item.passive]
 	local icon = passiveIcon(item.passive)
 	local box = Theme.frame({
@@ -1174,13 +1177,33 @@ local function onChanged(snapshot: any, event: any)
 	end
 end
 
+-- Luck turned the scoop just caught rarer: it changes on the tower with a flash, "LUCKY!" pops up in the new rarity's
+-- colour and the sound plays. Only the catcher gets this event.
 local function onLucky(from: any, to: any)
 	local before = type(from) == "string" and Flavors.byId[from]
 	local after = type(to) == "string" and Flavors.byId[to]
-	if before and after then
-		Toast.show(`Lucky! {before.name} became {after.name}!`, "good", "sparkle")
-		Sfx.play("chestStored", 1.25)
+	if not before or not after then
+		return
 	end
+	local look = ChestConfig.luckyPopup
+	local color = Theme.rarity(after.rarity)
+	local rarity = rarityLabel(after.rarity)
+	local function changed(at: Vector3)
+		LuckyVfx.play(at, color)
+		LuckyPopup.show(at, color, `{string.upper(rarity)} {string.upper(after.name)}`)
+		Sfx.play("lucky", look.pitch)
+	end
+	if not registry.TowerController.lucky(before.id, after.id, look.delay, changed) then
+		-- the tower does not show that catch (served or toppled already): the message alone
+		local top = registry.TowerController.topPosition()
+		if top then
+			changed(top)
+		end
+	end
+end
+
+function ChestController.Init(reg)
+	registry = reg
 end
 
 function ChestController.Start()

@@ -16,6 +16,7 @@ local Recipes = require(Shared:WaitForChild("Recipes"))
 local SaveData = require(Shared:WaitForChild("SaveData"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
+local ChestConfig = require(Config:WaitForChild("Chest"))
 local RecipeConfig = require(Config:WaitForChild("Recipes"))
 local TowerTuning = require(Config:WaitForChild("Tower"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
@@ -260,6 +261,12 @@ local function onServe(player: Player, steadyClaim: any)
 		stacks = stacks,
 		kept = stored and stored.kept,
 		coinBonus = registry.ChestService.bonus(player, "coins"),
+		towerBonus = Economy.towerBonus(
+			count,
+			registry.ChestService.bonus(player, "tower"),
+			ChestConfig.passives.kinds.tower.from,
+			ChestConfig.passives.kinds.tower.full
+		),
 	})
 
 	-- the save is the truth about coins and the record; the state mirrors it for the leaderstats

@@ -160,6 +160,13 @@ function TowerVisual:update(baseCFrame: CFrame, tiltX: number, tiltZ: number)
 	workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
 end
 
+-- Plays the landing plop of the scoop at `index` again (a scoop that just changed, Luck).
+function TowerVisual:replop(index: number)
+	if self.scoops[index] then
+		self.landedAt[index] = os.clock()
+	end
+end
+
 function TowerVisual:topPosition(): Vector3
 	local ox, oy, oz = TowerShape.top(#self.scoops, self.tiltX, self.tiltZ, Tuning)
 	return self.base + Vector3.new(ox, oy, oz)

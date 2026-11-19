@@ -282,7 +282,6 @@ local function onCatchClaim(player: Player, id: any, claimTime: any, tiltX: any,
 		baseZ = base.Z,
 		count = registry.TowerService.count(player),
 		speed = CatchRules.cappedSpeed(velocity.X, velocity.Z, if humanoid then humanoid.WalkSpeed else 0),
-		radiusScale = 1 + registry.ChestService.bonus(player, "catch"),
 	}, workspace:GetServerTimeNow(), Tuning, TowerTuning, ShotMath, TowerShape)
 	if not result.ok then
 		reject(player, id, result.reason, result.distance)
@@ -295,9 +294,9 @@ local function onCatchClaim(player: Player, id: any, claimTime: any, tiltX: any,
 		return
 	end
 
-	-- the Scoop Chest's luck passive may turn the caught scoop into a rarer one (only the catcher's tower changes; the
-	-- shot itself stays what everybody saw fly)
-	local lucky = registry.ChestService.luckyFlavor(player, shot.flavorId)
+	-- luck (LuckService: the Scoop Chest and later other sources) may turn the caught scoop into a rarer one (only the
+	-- catcher's tower changes; the shot itself stays what everybody saw fly)
+	local lucky = registry.LuckService.luckyFlavor(player, shot.flavorId)
 	if registry.TowerService.addScoop(player, lucky or shot.flavorId) then
 		lastCatchAt[player] = claimTime
 		resolve(shot, player)

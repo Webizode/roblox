@@ -235,10 +235,18 @@ local function updateHud(root: BasePart)
 		end
 	end
 	local coinBonus = player:GetAttribute("PassiveCoins")
+	local towerBonus = player:GetAttribute("PassiveTower")
+	local tower = ChestConfig.passives.kinds.tower
 	local value = Economy.serveValue(scoops, Flavors.byId, EconomyConfig, {
 		steadyBonus = steady,
 		kept = kept,
 		coinBonus = if type(coinBonus) == "number" then coinBonus else 0,
+		towerBonus = Economy.towerBonus(
+			#scoops,
+			if type(towerBonus) == "number" then towerBonus else 0,
+			tower.from,
+			tower.full
+		),
 	})
 	registry.Hud.setTower(#scoops, Economy.capacity(coneLevel(), EconomyConfig), value, steady)
 
@@ -766,6 +774,28 @@ function TowerController.bounceLanded(kick: number)
 		local angle = math.random() * 2 * math.pi
 		TowerModel.impulse(state, math.cos(angle) * kick, math.sin(angle) * kick)
 	end
+end
+
+-- Luck turned the scoop just caught (the top one, already `to` in the server's list) from `from` into `to`: it shows
+-- as `from` for a moment, then changes with a fresh plop. Calls `changed(position)` at the change, with where the
+-- scoop is. False when the top scoop is not that catch (nothing shown).
+function TowerController.lucky(from: string, to: string, delay: number, changed: (Vector3) -> ()): boolean
+	local index = #scoops
+	if index == 0 or scoops[index] ~= to then
+		return false
+	end
+	local shown = table.clone(scoops)
+	shown[index] = from
+	visual:setFlavors(shown)
+	task.delay(delay, function()
+		if scoops[index] ~= to then
+			return -- served, toppled or changed meanwhile: the tower already shows the server's list
+		end
+		visual:setFlavors(scoops)
+		visual:replop(index)
+		changed(visual:topPosition())
+	end)
+	return true
 end
 
 -- How many scoops the tower holds and how many the cone takes (Config/Economy upgrades.cone.capacity).

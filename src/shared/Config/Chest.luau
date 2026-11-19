@@ -26,17 +26,47 @@ return {
 		},
 	},
 
+	-- Three boost kinds since 19.11.2026 (before Coins, Luck, Catch; the catch radius bonus is gone). The flavors are
+	-- spread over them by theme, about a third each per rarity (Config/Flavors `passive`).
 	passives = {
-		order = { "coins", "luck", "catch" }, -- as listed in the window
+		order = { "coins", "luck", "tower" }, -- as listed in the window
 		-- a flavor without its own `passive` (Config/Flavors) gives this one
 		defaultPassive = "coins",
 		kinds = {
 			-- times the coins of the scoops sold at a serve
 			coins = { label = "Coins", text = "more coins when serving", color = "#FFC61E", cap = 0.25 },
-			-- the chance that a caught scoop turns into one of the next rarer rarity (ChestService.luckyFlavor)
+			-- the chance that a caught scoop turns into one of the next rarer rarity. The chest is one luck source of
+			-- several (LuckService, Config/Luck); the Big Swirl fires the same for everybody
 			luck = { label = "Luck", text = "chance for a rarer scoop when catching", color = "#2FD99A", cap = 0.25 },
-			-- times the catch radius round the tower (Config/Launcher.catchRadius), on client and server alike
-			catch = { label = "Catch", text = "bigger catch radius", color = "#2EA6F2", cap = 0.15 },
+			-- extra coins at a serve that grow with the tower: none below `from` scoops, rising evenly to the full bonus
+			-- at `full` scoops (Economy.towerBonus), on top of the coins passive
+			tower = {
+				label = "Tower Bonus",
+				text = "extra coins for big towers when serving",
+				color = "#2EA6F2",
+				cap = 0.3,
+				from = 10,
+				full = 30,
+			},
+			-- prepared, no flavor gives them yet and nothing applies them (prepared = true keeps them out of the
+			-- window): a chance for a golden scoop, luck during events, more XP, more sprinkles (the second currency
+			-- that does not exist yet)
+			goldenLuck = {
+				label = "Golden Luck",
+				text = "chance for a golden scoop when catching",
+				color = "#FFD23F",
+				cap = 0.1,
+				prepared = true,
+			},
+			eventLuck = {
+				label = "Event Luck",
+				text = "more luck during events",
+				color = "#B57BFF",
+				cap = 0.25,
+				prepared = true,
+			},
+			xp = { label = "XP", text = "more XP", color = "#3EC1F0", cap = 0.25, prepared = true },
+			sprinkles = { label = "Sprinkles", text = "more sprinkles", color = "#FF5FB0", cap = 0.25, prepared = true },
 		},
 		-- the bonus of one equipped scoop by its rarity (0.02 = +2 %), times its mutation's `passive`. Common and
 		-- uncommon only reach the chest with a mutation.
@@ -58,6 +88,21 @@ return {
 	-- sells for what it would have been worth at the cart (before 1 to 10 on the placeholders' flat values).
 	sell = {
 		byRarity = { common = 1, uncommon = 1, rare = 1, epic = 1, legendary = 1, mythic = 1, secret = 1, divine = 1 },
+	},
+
+	-- luck turned a caught scoop rarer (LuckService; only the catcher sees this): the scoop shows its old flavor for
+	-- `delay` s, then flashes (Config/Vfx.effects.lucky) and changes, and "LUCKY!" pops up over the tower in the new
+	-- rarity's colour (LuckyPopup) with the sound `lucky` (Config/Sounds) at `pitch`
+	luckyPopup = {
+		delay = 0.3, -- seconds after the catch before the scoop changes (its landing plop first)
+		width = 260, -- pixels of the popup
+		height = 110,
+		above = 2.5, -- studs over the scoop
+		rise = 2.5, -- studs it rises
+		popTime = 0.3,
+		time = 1.4, -- seconds it stays in all
+		fadeTime = 0.35,
+		pitch = 1.3,
 	},
 
 	-- opening: the server opens the owner's chest when they come within openRadius studs of its pivot and closes it
@@ -138,7 +183,7 @@ return {
 		-- the passives' icons; coins uses the kit's coin (Config/Ui.icons.coin)
 		passiveIcons = {
 			luck = "rbxassetid://122651245550491", -- the clover
-			catch = "rbxassetid://87091706591755",
+			tower = "rbxassetid://121681267523913", -- the stacked cone (Config/Ui.icons.scoops)
 		},
 	},
 }

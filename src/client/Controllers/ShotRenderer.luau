@@ -435,10 +435,7 @@ local function onRenderStep()
 		if column then
 			local from = math.max(shot.lastAlpha, shot.apexAlpha - Tuning.apexSlack)
 			local to = math.min(alpha, Tuning.catchWindowEnd)
-			-- the Scoop Chest's catch passive, the same the server allows (ChestService, CatchRules radiusScale)
-			local passive = player:GetAttribute("PassiveCatch")
-			local radius = Tuning.catchRadius * (1 + (if type(passive) == "number" then math.max(0, passive) else 0))
-			local hit = ShotMath.firstContact(shot.path, from, to, column, radius, Tuning.contactStep)
+			local hit = ShotMath.firstContact(shot.path, from, to, column, Tuning.catchRadius, Tuning.contactStep)
 			if hit then
 				claim(id, shot, hit, tiltX, tiltZ)
 			end

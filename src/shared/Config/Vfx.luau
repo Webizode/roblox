@@ -758,6 +758,54 @@ return {
 				},
 			},
 		},
+		-- luck turned a caught scoop rarer (Effects/Lucky, only the catcher): a bright flash on it, stars in the new
+		-- rarity's colour burst out and a ring in that colour (passed as the "scoop" colour)
+		lucky = {
+			budget = { particles = 14, duration = 0.7 },
+			layers = {
+				{
+					texture = "flash",
+					count = 2,
+					color = "white",
+					lifetime = { 0.25, 0.35 },
+					speed = { 0, 1 },
+					spread = 180,
+					size = { { 0, 1 }, { 0.35, 4.5 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0.6 } },
+					light = 1,
+					z = 0.8,
+				},
+				{
+					texture = "star",
+					count = 8,
+					color = "scoop",
+					lighten = 0.2,
+					lifetime = { 0.45, 0.7 },
+					speed = { 10, 18 },
+					spread = 180,
+					size = { { 0, 0.2 }, { 0.2, 0.9 }, { 1, 0 } },
+					transparency = { { 0, 0 }, { 1, 0 } },
+					drag = 4,
+					rotation = { 0, 360 },
+					rotSpeed = { -360, 360 },
+					light = 0.6,
+					z = 0.7,
+				},
+				{
+					texture = "ring",
+					count = 1,
+					color = "scoop",
+					lighten = 0.3,
+					lifetime = { 0.4, 0.4 },
+					speed = { 0, 0 },
+					spread = 0,
+					size = { { 0, 1.5 }, { 1, 7 } },
+					transparency = { { 0, 0 }, { 1, 1 } },
+					light = 0.5,
+					z = 0.6,
+				},
+			},
+		},
 
 		-- a free scoop is picked up from the ground: a small pop, drops of its colour hop up
 		pickup = {

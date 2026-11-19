@@ -9,7 +9,8 @@
 --   Window    ChestAction (sync, equip, unequip, sell), checked and rate-limited; every change answers with
 --             ChestChanged (the whole chest as the window shows it).
 --   Passives  the bonuses of the equipped scoops, summed and capped (ScoopChest.bonuses), published as the attributes
---             PassiveCoins, PassiveLuck, PassiveCatch; TowerService and LauncherService read them through `bonus`.
+--             Passive<Kind> (PassiveCoins, PassiveLuck, PassiveTower); TowerService reads coins and tower through
+--             `bonus`, the luck goes to LuckService as the source "chest".
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,22 +26,18 @@ local Features = require(Config:WaitForChild("Features"))
 
 local ChestService = {}
 
-local ATTRIBUTES = { coins = "PassiveCoins", luck = "PassiveLuck", catch = "PassiveCatch" }
+-- the attribute of every passive kind: Passive<Kind>
+local ATTRIBUTES: { [string]: string } = {}
+for kind in ChestConfig.passives.kinds do
+	ATTRIBUTES[kind] = "Passive" .. string.upper(string.sub(kind, 1, 1)) .. string.sub(kind, 2)
+end
 local ACTIONS = { sync = true, equip = true, unequip = true, sell = true }
 local MAX_KEY_LENGTH = 80
 local MAX_SELL = 1000
 
 local registry
-local rng = Random.new()
 local lastActionAt: { [Player]: number } = {}
 local bonuses: { [Player]: { [string]: number } } = {}
--- the flavors the luck passive may turn a scoop into: those the Big Swirl fires
-local luckPool: { { id: string, rarity: string, weight: number } } = {}
-for _, flavor in Flavors.list do
-	if not flavor.placeholder or Features.placeholderRares then
-		table.insert(luckPool, { id = flavor.id, rarity = flavor.rarity, weight = flavor.weight })
-	end
-end
 
 local function chestData(player: Player): ScoopChest.Chest?
 	local data = registry.DataService.data(player)
@@ -200,7 +197,7 @@ function ChestService.serve(
 	return result
 end
 
--- The player's bonus of a passive kind ("coins", "luck", "catch"), 0..its cap.
+-- The player's bonus of a passive kind ("coins", "luck", "tower"), 0..its cap.
 function ChestService.bonus(player: Player, kind: string): number
 	if not Features.scoopChest then
 		return 0
@@ -209,25 +206,12 @@ function ChestService.bonus(player: Player, kind: string): number
 	return totals and totals[kind] or 0
 end
 
--- The luck passive on a caught scoop: the id of the rarer flavor it turns into, or nil (ScoopChest.luckyFlavor).
-function ChestService.luckyFlavor(player: Player, flavorId: string): string?
-	local luck = ChestService.bonus(player, "luck")
-	if luck <= 0 then
-		return nil
-	end
-	return ScoopChest.luckyFlavor(
-		flavorId,
-		luck,
-		rng:NextNumber(),
-		rng:NextNumber(),
-		luckPool,
-		Flavors.byId,
-		Flavors.rarities
-	)
-end
-
 function ChestService.Init(reg)
 	registry = reg
+	-- the equipped luck scoops are one of the luck sources
+	reg.LuckService.register("chest", function(player: Player): number
+		return ChestService.bonus(player, "luck")
+	end)
 end
 
 function ChestService.Start()

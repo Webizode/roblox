@@ -305,7 +305,7 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
   - **Öffnen:** Der Server öffnet die Truhe des Besitzers ab 12 Studs und schließt sie über 16 (Attribut `ChestOpen` am Pier-Plot). Jeder Client klappt den Deckel um 100° um das `Hinge` (Back-Out auf, Quad-In zu), dazu goldene Sterne, ein Glanzlicht innen und alle 0,7 s ein Glitzern, solange sie offen ist. Platzhalter-Sounds `chestOpen`/`chestClose`. Andere sehen sie offen, öffnen kann nur der Besitzer. Prompt „Open“ nur an der eigenen offenen Truhe (E, DPadRight, Tippen, `Config/Controls.chest`).
   - **Lagern:** Beim Servieren gehen Scoops ab `minRarity` (Rare, mit Nik zu entscheiden) und jede Mutation (auch Golden-Common) in die Truhe statt verkauft zu werden. Der Höhenfaktor zählt den ganzen Turm (`Economy.serveValue` `kept`). Platz 50, voll wird normal verkauft („Chest full! Sold instead.“). Meldung „Rare scoop added to your chest!“. Gespeichert in `SaveData` Version 3 (`chest.items`: Sorte, Seltenheit, Mutation, Anzahl; `chest.equipped`), mit Migration und Reparatur.
   - **Fenster:** 3 Ausrüst-Plätze, aktive Boni mit Obergrenze, Raster aus Item-Karten (rarste zuerst, Anzahl, Mutation, EQUIPPED), Detail mit Passiv-Bonus, Equip/Unequip und Sell mit Bestätigung, leerer Zustand mit Hinweis.
-  - **Passive:** Coins (Serve-Wert), Luck (gefangene Kugel wird mit dieser Chance zur nächsten Seltenheit, die es gibt), Catch (Fangradius auf Client und Server). Rare +2 %, Epic +5 %, Legendary +10 %, Common/Uncommon +1/+1,5 % (nur mit Mutation erreichbar), Golden ×1,5, Rainbow ×2. Obergrenzen 25/15/20 %. Die Art kommt aus `Flavors.passive`, sonst Coins.
+  - **Passive:** Coins (Serve-Wert), Luck (gefangene Kugel wird mit dieser Chance zur nächsten Seltenheit, die es gibt), Catch (Fangradius auf Client und Server). Rare +2 %, Epic +5 %, Legendary +10 %, Common/Uncommon +1/+1,5 % (nur mit Mutation erreichbar), Golden ×1,5, Rainbow ×2. Obergrenzen 25/15/20 %. Die Art kommt aus `Flavors.passive`, sonst Coins. **Überholt am 19.11.2026**, siehe „Truhe: drei Boost-Typen und Luck an einer Stelle“.
   - **Platzhalter-Sorten** (`Features.placeholderRares`): Blue Moon (Rare, Coins), Galaxy Grape (Epic, Luck), Sunset Mango (Legendary, Catch), Vanilla-Modell in eigener Farbe, zusammen etwa 1 von 30 Schüssen. Mutationen kommen noch nicht aus der Big Swirl (erst mit `goldenScoops`); `ServerStorage.StudioChestTest` legt sie zum Testen direkt in die Truhe.
   - **Erweitern:** Mythic, Secret, Divine (in dieser Reihenfolge nach Legendary) brauchen nur einen Eintrag in `Flavors.rarities`, `rarityColors` und in `Config/Chest` (`passives.byRarity`, `sell.byRarity`). Eine zweite Währung ist nicht gebaut.
   - **Anpassungen 17.11.2026 (Nachmittag):** Fenster nach den Referenzen `UI Vorschau/Galaxy-Grape Scoop-Detailfenster.png` und `Deko Kit Vorschau/Bunter Scoop-Chest-Spielbildschirm.png`: Waffel-Bänder „EQUIPPED“ und „STORED n/50“ über abgesetzten Panels mit Karamell-Rand, Boni-Panel mit Titel-Pille, Hinweis mit Sternchen, Karten mit „x2“ (Nunito Black) und gelbem Mutations-Schild. Detail: große Karte, Seltenheits-Pille, Zähl-Pille, Passiv-Box („+5% Luck:“ in der Passiv-Farbe), Hinweis zwischen Linien, Unequip und Sell mit Münze, Back unten rechts. Nicht gebaut, weil es im Kit kein Bild dafür gibt: Titel-Schild mit den zwei Waffeln, schräge Enden der Waffel-Bänder, Sahne-Glasur auf dem Boni-Panel, Pinselstrich unter dem Namen, Icons für Truhe, Kleeblatt und Pfeil (stattdessen der Farbpunkt der Passiv-Art). Auf Handys (`UiLayout`-Gerät „phone“) eine breite Anordnung (Plätze und Boni links, Raster rechts), in Studio per Workspace-Attribut `ChestLayout` umschaltbar. Fenster des UI-Kits nutzen auf Touch-Geräten die ganze Höhe (`Window.new`), auf einem 750 × 369-Handy 0,61 statt 0,43. Truhe öffnet ab 14 Studs, schließt ab 18, Deckel 0,7 s auf und 0,6 s zu mit Sine InOut, das Licht blendet gleich mit (`Config/Chest.lid`). **Schrift:** `Theme.fontText` ist Nunito ExtraBold statt Builder Sans ExtraBold (`Config/Ui.fonts.text`, gilt überall, auch auf der Bestenliste). Screenshots in `UI Vorschau/Scoop Chest ... 2026-11-17.jpg` (Handy nachgebildet: Studios Geräte-Emulator lässt sich über das MCP nicht schalten). **Offen:** die offene Truhe im Bild (Studio rendert über das MCP die Welt nur weiß), echtes Handy, die winzigen Seltenheits- und EQUIPPED-Schilder auf den kleinen Platz-Karten (Kit-Karte, auf dem Handy etwa 4 px), im Einstellungs-Reiter „Controls“ ragt die letzte Zeile über das Fenster (schon vorher so).
@@ -431,6 +431,41 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
   - **Streaming:** Die Arena streamt beim Laufen ein und aus, und ihre Teile kommen dann als neue Instanzen zurück. Deshalb merkt sich der Client keine Teile, sondern erkennt das Pad bei jedem Kontakt neu über den Teilnamen `Collision*` und das Model.
   - **Aufstellung:** Der Sprung ist fast senkrecht. In der Höhe über einer hohen Deckung kommt man nur etwa 5 bis 8 Studs weit. Ein Pad muss also höchstens ein paar Studs neben einer hohen Deckung stehen. Das GummyPad bei 240° (r 102) hat aber die nächste hohe Deckung erst 44 Studs entfernt (Eissäule). Für den Test stand nur im Playtest eine Kopie des Macaron-Turms 2 Studs neben dem Pad.
   - **Offen:** Pad näher an eine hohe Deckung stellen (Entscheidung des Nutzers), Test mit 2 Spielern (sieht der andere Squash und Puff?), Test auf Handy und Konsole, eigener Sound.
+- **Truhe: drei Boost-Typen und Luck an einer Stelle** (19.11.2026, Korrektur des Nutzers; nicht committet, wartet auf den Test des Nutzers; Bericht im Vault: `Stand 2026-11-19.md`). Ersetzt die Passiv-Typen oben.
+  - **Coins:** mehr Coins beim Servieren, höchstens 25 %.
+  - **Luck:** Beim Fangen wird die Kugel mit dieser Chance eine Seltenheit höher, höchstens 25 %. Der Big Swirl schießt für alle gleich, nur der Turm des Fängers ändert sich.
+  - **Tower Bonus:** Extra-Coins beim Servieren, höchstens 30 %.
+    - Unter 10 Kugeln gibt es nichts. Ab 10 Kugeln steigt der Bonus gleichmäßig an und ist ab 30 Kugeln voll (`Economy.towerBonus`).
+    - Er wird zum Coins-Boost addiert. Beispiel: 10 % Coins plus 30 % Tower Bonus ergeben 40 % mehr.
+    - Werte `from`/`full` in `Config/Chest.passives.kinds.tower`.
+  - **Catch fällt weg:** Der Fangradius-Bonus ist entfernt (Client `ShotRenderer`, Server `LauncherService`). `CatchRules` kann den Radius weiter skalieren, nutzt es aber nicht mehr.
+  - **Sorten neu verteilt** (`Config/Flavors`, Test: Rare, Epic und Legendary genau 3/3/4):
+    - **Coins**, Golden und Edles: Caramel, Orange, Pineapple, Peach, Honey, Maple Syrup, Coffee, Salted Caramel, White Chocolate, Mocha, Royal Cream, Honey Blossom, Velvet Mocha.
+    - **Luck**, Obst, Beeren und Glücksbringer: Blueberry, Raspberry, Cherry, Grape, Dragon Fruit, Pomegranate, Cotton Candy, Black Cherry, Passion Fruit, Marzipan (Glücksschwein), Midnight Berry, Mystic Plum, Sapphire Cream.
+    - **Tower Bonus**, Kuchen und Gebäck: Coconut, Lime, Blue Raspberry, Red Velvet, Birthday Cake, Brownie, Cookies and Cream, Tiramisu, Cheesecake, Cinnamon Roll, Pistachio Cream, Velvet Dream, Crimson Velvet, Arctic Coconut, Frosted Melon.
+    - Verteilung: Rare, Epic und Legendary je 3/3/4 (Test prüft das genau).
+    - **Entscheidung 19.11.2026:** Die Truhe bleibt ab Rare. Uncommons und Commons haben deshalb keinen Boost, sie kommen nie in die Truhe. Die oben bei Coins, Luck und Tower genannten Uncommons (Caramel, Orange, Pineapple, Peach, Blueberry, Raspberry, Cherry, Grape, Coconut, Lime, Blue Raspberry) geben keinen.
+    - Die Platzhalter-Sorte Sunset Mango gibt jetzt Tower Bonus.
+  - **Vorbereitet, aber keiner Sorte gegeben:** Golden Luck, Event Luck, XP, Streusel. Sie stehen in `Config/Chest.passives.kinds` mit `prepared = true`, erscheinen nicht im Fenster, und nichts wendet sie an. Ihre Attribute (`PassiveGoldenLuck` usw.) sind schon da, Wert 0.
+  - **Luck an einer Stelle** (`Services/LuckService`, Rechnung rein in `Luck.total` mit Tests, Werte in `Config/Luck`):
+    - Jede Quelle meldet sich mit `LuckService.register(name, function(player) ... end)` an.
+    - Jede Quelle hat eine eigene Obergrenze, die Summe einen Gesamtdeckel (`totalCap` 50 %).
+    - Eine Quelle ohne Eintrag in `Config/Luck` zählt nichts.
+    - Bisher meldet sich nur die Truhe an (`chest`, in `ChestService.Init`). Für Freunde, Gruppe, Upgrade, Potion, Server Luck und Event stehen Platzhalter-Grenzen in der Config.
+    - `LauncherService` fragt beim Fangen `LuckService.luckyFlavor`.
+    - In Studio setzt `ServerStorage.StudioLuckTest(player, luck)` die Luck fest (1 = jeder Fang wird seltener).
+  - **Luck sieht man** (nur der Fänger):
+    - Die gefangene Kugel zeigt 0,3 s ihre alte Sorte und wechselt dann mit einem neuen Plopp zur neuen (`TowerController.lucky`, `TowerVisual:replop`).
+    - Dabei blitzt sie auf, Sterne und ein Ring kommen in der Farbe der neuen Seltenheit (`Vfx/Effects/Lucky`, `Config/Vfx.effects.lucky`).
+    - „LUCKY!“ springt über dem Turm in der Farbe der neuen Seltenheit auf, darunter klein Seltenheit und Sorte („LEGENDARY MYSTIC PLUM“). Es steigt und verblasst in 1,4 s (`LuckyPopup`, Werte `Config/Chest.luckyPopup`).
+    - Platzhalter-Sound `Config/Sounds.lucky` (das Glitzern von perfectHit, höher gespielt).
+    - Der alte Toast „Lucky! X became Y!“ ist weg.
+  - **In Studio geprüft** (1 Spieler):
+    - Je eine Legendary-Kugel Coins, Luck und Tower ausgerüstet: Attribute je 0,1, LuckService liefert 0,1.
+    - 20 Kugeln serviert: 418 Coins. Das ist genau Grundwert × 1,12 (Cart-Stufe) × (1 + 10 % Coins + 5,24 % Tower Bonus bei 20 Kugeln).
+    - Mit Luck 1 zwei echte Fänge: Cherry wurde Honey, Pistachio wurde Pineapple, „LUCKY!“ erschien.
+    - Wechsel auf dem Turm gemessen: 0,3 s Vanilla, dann Mystic Plum mit Plopp. Das Popup war orange für Legendary.
+  - **Offen:** Blitz und Popup mit eigenen Augen (Studio rendert über das MCP nur Weiß), eigener Sound, ein eigenes Icon für Tower Bonus (vorerst der Kugel-Stapel aus `Config/Ui.icons.scoops`), Test mit 2 Spielern (der andere sieht kein Popup).
 ---
 
 ## 8. Reihenfolge
