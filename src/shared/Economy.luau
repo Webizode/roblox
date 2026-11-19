@@ -29,7 +29,7 @@ export type Config = {
 	spillShare: number,
 	spillAllUpTo: number,
 	baseWalkSpeed: number,
-	towerSlow: { walk: number, dash: number, curve: number },
+	towerSlow: { walk: number, dash: number, jump: number?, curve: number },
 	minWalkSpeed: number,
 	sprintMultiplier: number,
 	upgrades: {
@@ -139,6 +139,11 @@ end
 function Economy.dashScale(count: number, capacity: number, sneakersLevel: number, config: Config): number
 	local slow = config.towerSlow.dash * level(config.upgrades.sneakers.penaltyScale, sneakersLevel)
 	return 1 - slow * Economy.towerLoad(count, capacity, config)
+end
+
+-- The share of a gummy pad's jump height left with that tower (Config/Bounce): 1 - towerSlow.jump x load.
+function Economy.jumpScale(count: number, capacity: number, config: Config): number
+	return 1 - (config.towerSlow.jump or 0) * Economy.towerLoad(count, capacity, config)
 end
 
 function Economy.capacity(coneLevel: number, config: Config): number

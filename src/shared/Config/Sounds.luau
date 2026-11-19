@@ -28,6 +28,8 @@ return {
 	chestOpen = "rbxassetid://9125644410",
 	chestClose = "rbxasset://sounds/button.wav",
 	chestStored = "rbxassetid://9126073001",
+	-- a gummy pad throws a player up (Config/Bounce): free Creator Store placeholder "Pogo Stick Boing Sound City Break"
+	bounce = "rbxassetid://137750395861529",
 
 	-- every catch climbs one step of a pentatonic scale so a growing tower "sings"
 	pentatonic = { 0, 2, 4, 7, 9 },

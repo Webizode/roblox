@@ -759,6 +759,15 @@ function TowerController.canTake(): boolean
 	return canCatch()
 end
 
+-- The carrier landed after a gummy pad's jump (Controllers/BounceController): a kick of `kick` rad/s in a random
+-- direction (Bounce.towerKick, never enough to topple a standing tower on its own).
+function TowerController.bounceLanded(kick: number)
+	if #scoops > 0 and kick > 0 and not state.toppled and not toppledAt then
+		local angle = math.random() * 2 * math.pi
+		TowerModel.impulse(state, math.cos(angle) * kick, math.sin(angle) * kick)
+	end
+end
+
 -- How many scoops the tower holds and how many the cone takes (Config/Economy upgrades.cone.capacity).
 function TowerController.fill(): (number, number)
 	return #scoops, Economy.capacity(coneLevel(), EconomyConfig)

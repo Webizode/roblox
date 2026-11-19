@@ -411,6 +411,26 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
     - Knöpfe ziehen und Regler bedienen, Speichern und Rejoin.
     - Die Kugel-Schilder mit eigenen Augen.
     - Eigene Icons für Jump und Sprint (jetzt nur das Wort). Dash nutzt die Sternchen.
+- **Gummibär-Pads mit Sprunglogik** (19.11.2026, nicht committet, wartet auf den Test des Nutzers; Bericht im Vault: `Stand 2026-11-19.md`). Werte in `Config/Bounce`, Regeln rein in `Bounce` (mit Tests), Client `BounceController`, Server `BounceService`, Puff `Vfx/Effects/Bounce`, Sound `Config/Sounds.bounce` (Platzhalter „Pogo Stick Boing“).
+  - **Was ein Pad ist:** jedes Model in `Covery`, dessen Name mit `GummyPad` oder `GummyBouncer` beginnt. Draufstellen genügt, es gibt keine Taste (PC, Handy, Konsole gleich).
+  - **Nach dem Test des Nutzers am selben Tag:** Beide schleudern viel höher, das GummyPad auf 22 statt 14, der GummyBouncer auf 14 statt 8. Das seitliche Zurückschubsen am Bouncer ist entfernt, weil es ruckelte (7 Schubser pro Sekunde, solange man dagegendrückte). Jetzt steigt man von jeder Seite auf den Bouncer und wird geschleudert. Die Server-Prüfung erlaubt dafür bis 24 Studs über der Oberkante. Im Playtest geprüft:
+    - Bouncer von 3 Seiten angelaufen: Scheitel 14,0, kein Ruckeln.
+    - GummyPad: Scheitel 21,6.
+    - Mit vollem Turm (20 Kugeln): Scheitel 13,2 und 20,7, der Turm steht.
+    - Auf dem Bouncer stehen bleiben: genau ein Sprung, kein Dauerhüpfen.
+  - **GummyPad:** schleudert die Füße auf 22 Studs über den Boden, dazu 10 Studs/s in Lauf- oder Blickrichtung. Mit Turm etwas niedriger über `Economy.towerSlow.jump` (0,07 × Füllgrad, voller Turm etwa 20,5). Mit der alten Höhe 14 landete man im Playtest auf einer hohen Deckung (11,0), auch mit vollem Turm.
+  - **GummyBouncer:** schleudert auf 14 Studs, dazu 6 Studs/s, und erreicht damit auch hohe Deckungen.
+  - **Turm:** Bei der Landung nach einem Pad-Sprung bekommt der Turm einen Stoß in zufällige Richtung, kräftiger als ein Dash (Pad bis 0,9 rad/s, Bouncer die Hälfte).
+    - Ab 16 Kugeln wird der Stoß kleiner, weil hohe Türme empfindlicher sind.
+    - Simuliert: Ein stehender Turm mit 1 bis 40 Kugeln kippt nie durch den Sprung allein. Ab 45 Kugeln kippt ein stehender Turm auch ohne Sprung, wenn man nicht die Steady-Haltung nutzt.
+  - **Cooldown und Dauerhüpfen:** Zwischen zwei Sprüngen eines Spielers liegen 0,8 s. Wer auf demselben Pad wieder landet, wird nicht erneut geschleudert. Erst Herunter- und wieder Hinaufgehen oder ein Sprung lösen es wieder aus. Dash in der Luft funktioniert wie immer, Fallschaden gibt es nicht.
+  - **Gefühl:** Nur die Meshes des Pads stauchen sich in 0,08 s (Pad auf 55 %, Bouncer auf 60 % Höhe, 12 % breiter) und federn in 0,45 s mit einem Überschwinger zurück. Die Kollision bleibt dabei gleich. Dazu kommen ein Puff (weiße Wölkchen, pinke Gummitropfen, ein Ring am Boden) und der Boing. Andere Spieler sehen und hören das auch.
+  - **Server-Prüfung** (`Bounce.check`): Der Spieler muss leben, in der Arena sein (8 Studs Spielraum) und höchstens 6 Studs vom Pad-Rand entfernt stehen. Er darf höchstens 1 Stud unter dessen Boden und höchstens 14 Studs über dessen Oberkante sein. Der Cooldown auf dem Server beträgt 0,6 s (die Höhe über der Oberkante seit dem Höher-Umbau bis 24), wegen der Verzögerung etwas weniger als auf dem Client.
+    - Fällt die Prüfung durch, wird der Spieler auf den Boden unter sich zurückgesetzt, mit einer Warnung im Log. Getestet mit einem vorgetäuschten Sprung 40 Studs vom Pad entfernt.
+    - **Grenze:** Wer gar keinen Sprung meldet und einfach fliegt, fällt dabei nicht auf. Einen allgemeinen Schutz gegen Fliegen gibt es im Spiel noch nicht.
+  - **Streaming:** Die Arena streamt beim Laufen ein und aus, und ihre Teile kommen dann als neue Instanzen zurück. Deshalb merkt sich der Client keine Teile, sondern erkennt das Pad bei jedem Kontakt neu über den Teilnamen `Collision*` und das Model.
+  - **Aufstellung:** Der Sprung ist fast senkrecht. In der Höhe über einer hohen Deckung kommt man nur etwa 5 bis 8 Studs weit. Ein Pad muss also höchstens ein paar Studs neben einer hohen Deckung stehen. Das GummyPad bei 240° (r 102) hat aber die nächste hohe Deckung erst 44 Studs entfernt (Eissäule). Für den Test stand nur im Playtest eine Kopie des Macaron-Turms 2 Studs neben dem Pad.
+  - **Offen:** Pad näher an eine hohe Deckung stellen (Entscheidung des Nutzers), Test mit 2 Spielern (sieht der andere Squash und Puff?), Test auf Handy und Konsole, eigener Sound.
 ---
 
 ## 8. Reihenfolge

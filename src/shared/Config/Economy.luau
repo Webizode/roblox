@@ -19,7 +19,8 @@ return {
 	-- full costs 3 %, half 9 %, three quarters 16 %, full `walk` (25 %) of the walking and sprinting speed and `dash`
 	-- (20 %) of the dash's distance; the sneakers' penaltyScale shrinks both. Before: 18 / (1 + 0.012 per scoop), 19 %
 	-- slower with 20 scoops, 44 % with 65, at least minWalkSpeed.
-	towerSlow = { walk = 0.25, dash = 0.2, curve = 1.5 },
+	-- jump: a gummy pad throws a full tower's carrier this much less high (Config/Bounce)
+	towerSlow = { walk = 0.25, dash = 0.2, jump = 0.07, curve = 1.5 },
 	minWalkSpeed = 9,
 	sprintMultiplier = 1.3, -- Shift (hold), L3 or the Sprint button; also scales what the tower feels and the catch speed cap
 	jumpPower = 40, -- Roblox default is 50; a bit lower so a jump with a tower stays a hop

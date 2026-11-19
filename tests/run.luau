@@ -8,6 +8,7 @@ local process = require("@lune/process")
 local harness = require("./harness")
 
 require("./TowerModel.spec")
+require("./Bounce.spec")
 require("./Economy.spec")
 require("./Geometry.spec")
 require("./Catch.spec")

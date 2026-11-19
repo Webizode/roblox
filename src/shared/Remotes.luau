@@ -20,6 +20,7 @@ local DEFINITIONS = {
 	Served = "RemoteEvent", -- server -> the one who served: player, count, value, steady; -> everybody else: player only
 	-- client -> server: dirX, dirZ (request); server -> all: player, dirX, dirZ, kind (granted: "dash" or "quick")
 	Dash = "RemoteEvent",
+	Bounce = "RemoteEvent", -- client -> server: the gummy pad Model it bounced on; server -> everybody else: player, pad (Config/Bounce)
 	SetSprint = "RemoteEvent", -- client -> server: sprinting (boolean)
 	SetStance = "RemoteEvent", -- client -> server: holding the steady stance (boolean); the server answers with the SteadyStance attribute
 	SetCombatMode = "RemoteEvent", -- client -> server: combat mode on or off (boolean)

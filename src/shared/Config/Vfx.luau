@@ -50,6 +50,7 @@ return {
 		sprinkleLemon = "#FFD23F",
 		-- pastel, but strong enough to read on the arena's cream floor
 		dustPink = "#FF9DBC",
+		gummy = "#FF4F8B", -- the gummy bear pads (Arena Kit 2)
 		dustBlue = "#9FD3F5",
 		dustCream = "#EBCDA8", -- a dash's dust: the floor's cream, a shade darker so it reads on it
 		coin = "#FFD23F", -- Palette.lemon, the coin of the HUD
@@ -793,6 +794,41 @@ return {
 			},
 		},
 
+		-- a gummy pad throws a player up (Config/Bounce): a soft puff around its rim and gummy drops jumping off
+		bounce = {
+			budget = { particles = 8, duration = 0.55 },
+			layers = {
+				{
+					texture = "cloud",
+					count = 4,
+					color = "white",
+					lifetime = { 0.35, 0.55 },
+					speed = { 9, 14 },
+					spread = 85,
+					size = { { 0, 1.2 }, { 0.4, 2.4 }, { 1, 3 } },
+					transparency = { { 0, 0.1 }, { 0.45, 0.25 }, { 1, 1 } },
+					accel = 2,
+					drag = 4,
+					rotation = { 0, 360 },
+					rotSpeed = { -40, 40 },
+					z = 0.5,
+				},
+				{
+					texture = "drop",
+					orient = "velocity",
+					count = 4,
+					color = "gummy",
+					lifetime = { 0.3, 0.5 },
+					speed = { 12, 18 },
+					spread = 35,
+					size = { { 0, 0.5 }, { 1, 0.12 } },
+					transparency = { { 0, 0 }, { 0.8, 0 }, { 1, 1 } },
+					accel = -45,
+					z = 0.3,
+				},
+			},
+		},
+
 		-- round 3 ---------------------------------------------------------------------------------------------------
 
 		-- scoops are served: coins spin up out of the player and rain back down, a little confetti, a short flash,
@@ -1290,6 +1326,11 @@ return {
 			{ color = "ringOutline", from = 1.9, to = 6.9, time = 0.35, transparency = 0.25 },
 			{ color = "scoop", from = 1.5, to = 6.4, time = 0.35, transparency = 0 },
 			{ color = "white", from = 1, to = 3.8, time = 0.25, transparency = 0.25, extra = true },
+		},
+		-- a gummy pad bounces: a ring in gummy pink runs out from its rim
+		bounce = {
+			{ color = "ringOutline", from = 5, to = 11, time = 0.35, transparency = 0.3 },
+			{ color = "gummy", from = 4.5, to = 10.5, time = 0.35, transparency = 0 },
 		},
 		-- a new landing circle shows itself: a ring in the scoop's colour runs out of it (the circle is
 		-- Config/TowerScoops.landingCircle.size, 7, across)

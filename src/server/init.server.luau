@@ -15,6 +15,7 @@ local ORDER = {
 	"CombatService",
 	"LootService",
 	"WantedService",
+	"BounceService",
 	"DebugDummies",
 	"WalkTimer",
 	"LeaderboardService",

@@ -7,6 +7,7 @@ local ORDER = {
 	"TouchControls",
 	"MovementController",
 	"TowerController",
+	"BounceController",
 	"AimHud",
 	"CombatController",
 	"HitFeedback",
