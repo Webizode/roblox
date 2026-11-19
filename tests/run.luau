@@ -41,6 +41,8 @@ require("./VfxRules.spec")
 require("./Wanted.spec")
 require("./HealthPips.spec")
 require("./ScoopChest.spec")
+require("./TouchLayout.spec")
+require("./FlavorOdds.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0

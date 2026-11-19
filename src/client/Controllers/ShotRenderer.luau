@@ -31,6 +31,7 @@ local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local ScoopModel = require(client:WaitForChild("ScoopModel"))
 local ScoopSign = require(client:WaitForChild("ScoopSign"))
+local ScoopAura = require(client:WaitForChild("ScoopAura"))
 local BigSwirlArms = require(client:WaitForChild("BigSwirlArms"))
 local Settings = require(client:WaitForChild("Settings"))
 local CatchVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Catch"))
@@ -228,6 +229,7 @@ local function onShotFired(
 	local scoop = ScoopModel.new(TowerVisual.root(), flavorId)
 	scoop:setScale(Vector3.one * FLIGHT_SCALE * (if arm then ArmConfig.scoopInCupScale else 1))
 	scoop:setSign(ScoopSign.new(flavorId, false)) -- golden scoops come with Features.goldenScoops
+	scoop:setAura(ScoopAura.new(flavorId)) -- a legendary one glitters in flight
 	scoop.part.CFrame = scoop:at(CFrame.new(from))
 
 	local circle = makePart()
@@ -236,6 +238,12 @@ local function onShotFired(
 	circle.Size = Vector3.new(0.2, CIRCLE_SIZE, CIRCLE_SIZE)
 	circle.CFrame = CFrame.new(to + Vector3.new(0, 0.12, 0)) * CIRCLE_ROTATION
 	TowerVisual.applyFlavor(circle, flavorId)
+	-- from uncommon on the circle takes the rarity's colour (Config/Flavors rarityColors): where a rare one will come
+	-- down shows from far away; a common one keeps its flavour's colour
+	local rarity = Flavors.byId[flavorId] and Flavors.byId[flavorId].rarity
+	if rarity and rarity ~= "common" and Flavors.rarityColors[rarity] then
+		circle.Color = Color3.fromHex(Flavors.rarityColors[rarity])
+	end
 	circle.Material = Enum.Material.Neon
 	-- it lights up as the Big Swirl fires and settles to its normal faintness
 	circle.Transparency = 0
@@ -339,6 +347,7 @@ end
 local function claim(id: number, shot: Shot, alpha: number, tiltX: number, tiltZ: number)
 	shot.claimed = true
 	shot.scoop:setSign(nil) -- it is a tower scoop now: those carry no sign
+	shot.scoop:setAura(nil) -- and no particles
 	hideCircle(shot.circle)
 	local _, axis, angle, spin = flying(shot, alpha, workspace:GetServerTimeNow())
 	shot.claimedAt, shot.claimAxis, shot.claimAngle, shot.claimSpin = os.clock(), axis, angle, spin

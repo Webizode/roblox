@@ -96,6 +96,9 @@ return {
 		mouseSpeed = math.rad(0.4), -- per pixel of mouse movement at Roblox's mouse sensitivity 1
 		gamepadSpeed = math.rad(220), -- per second with the right stick fully out
 		touchSpeed = math.rad(0.35), -- per pixel a finger drags over the screen
+		-- on touch screens only a finger that touches down right of this share of the width turns the camera (the left is
+		-- the move stick's side), and never one that starts on a button
+		touchFromX = 0.4,
 		-- the aim camera (AimCamera), in combat mode while a throw is charged: it eases further out over the shoulder and
 		-- closer, so the character does not hide the crosshair; the view narrows with the charge (fov degrees at full
 		-- strength, perfectFov more in the perfect window), relative to the field of view setting. On the throw it eases

@@ -34,9 +34,9 @@ return {
 			-- times the coins of the scoops sold at a serve
 			coins = { label = "Coins", text = "more coins when serving", color = "#FFC61E", cap = 0.25 },
 			-- the chance that a caught scoop turns into one of the next rarer rarity (ChestService.luckyFlavor)
-			luck = { label = "Luck", text = "chance for a rarer scoop when catching", color = "#2FD99A", cap = 0.15 },
+			luck = { label = "Luck", text = "chance for a rarer scoop when catching", color = "#2FD99A", cap = 0.25 },
 			-- times the catch radius round the tower (Config/Launcher.catchRadius), on client and server alike
-			catch = { label = "Catch", text = "bigger catch radius", color = "#2EA6F2", cap = 0.2 },
+			catch = { label = "Catch", text = "bigger catch radius", color = "#2EA6F2", cap = 0.15 },
 		},
 		-- the bonus of one equipped scoop by its rarity (0.02 = +2 %), times its mutation's `passive`. Common and
 		-- uncommon only reach the chest with a mutation.
@@ -46,13 +46,18 @@ return {
 			rare = 0.02,
 			epic = 0.05,
 			legendary = 0.1,
-			-- mythic, secret, divine: later
+			-- placeholders above legendary until those rarities get flavors (18.11.2026); every bonus is capped anyway
+			mythic = 0.15,
+			secret = 0.2,
+			divine = 0.25,
 		},
 	},
 
-	-- selling one stored scoop: its flavor's value times its rarity's factor times its mutation's `sell`
+	-- selling one stored scoop: its flavor's value times its rarity's factor times its mutation's `sell`. Since 18.11.2026
+	-- a flavor's value already holds its rarity (Config/Flavors.valueFactors: x1 to x30), so these are 1: a stored scoop
+	-- sells for what it would have been worth at the cart (before 1 to 10 on the placeholders' flat values).
 	sell = {
-		byRarity = { common = 1, uncommon = 1.5, rare = 3, epic = 5, legendary = 10 },
+		byRarity = { common = 1, uncommon = 1, rare = 1, epic = 1, legendary = 1, mythic = 1, secret = 1, divine = 1 },
 	},
 
 	-- opening: the server opens the owner's chest when they come within openRadius studs of its pivot and closes it

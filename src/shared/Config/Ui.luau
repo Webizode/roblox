@@ -118,7 +118,7 @@ return {
 	-- (`icon` across) overhanging the left end, then one row of parts `gap` apart, below the cream glaze (`glaze`: the
 	-- share of the height on top kept free), `padRight` before the right end. The pill is as long as its row, so it never
 	-- shows much empty room; the coins' row is at least `coinsMinRow` long (the number centred in it) and a number longer
-	-- than `maxChars` characters gets smaller instead of the pill growing on. Numbers in Theme.fontNumbers at `text`.
+	-- than `coinsMaxRow` gets smaller instead of the pill growing on. Numbers in Theme.fontNumbers at `text`.
 	infoPill = {
 		height = 44,
 		icon = 56,
@@ -129,8 +129,11 @@ return {
 		worthText = 24,
 		worthIcon = 24,
 		steadyText = 18,
+		-- the coin amount's box: as wide as its characters need (charWidth of the text size each), between these, the
+		-- number scaled into it (never out of the pill, phone test 17.11.2026)
 		coinsMinRow = 64,
-		maxChars = 9,
+		coinsMaxRow = 190,
+		charWidth = 0.62,
 	},
 
 	-- the window's pink glaze: where its middle is, in source pixels from the top, and where the drips end
@@ -346,7 +349,7 @@ return {
 	-- The HUD making room for such a window (UiKit/HudAway): every visible top-level piece of these ScreenGuis glides
 	-- out over its nearest screen edge in `away` seconds (Back In: a little wind-up) and back in `back` (Back Out), to
 	-- `margin` pixels beyond the edge.
-	hudAway = { guis = { "Hud", "Navigation" }, away = 0.28, back = 0.32, margin = 24 },
+	hudAway = { guis = { "Hud", "Navigation", "Settings", "TouchControls" }, away = 0.28, back = 0.32, margin = 24 },
 
 	-- The look of a mutated scoop's card (UiKit/MutationOverlay, Widgets.mutationOverlay): a see-through layer in the
 	-- card's own shape over the card picture, under the scoop, the name and the count. One shared loop moves all of them

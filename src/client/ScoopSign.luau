@@ -20,6 +20,23 @@ local Theme = require(script.Parent:WaitForChild("UiKit"):WaitForChild("Theme"))
 local ScoopSign = {}
 
 local folder: Folder?
+local LABEL = Look.label
+-- every sign with its scale, so a new screen size (a phone turned, the window resized) resizes them all
+local signs: { [BillboardGui]: UIScale } = setmetatable({}, { __mode = "k" }) :: any
+local currentScale = 1
+
+-- The signs' size on this screen: the text screenShare of the height, between minText and textSize pixels.
+local function screenScale(): number
+	local camera = workspace.CurrentCamera
+	local height = if camera then camera.ViewportSize.Y else 720
+	local text = math.clamp(height * LABEL.screenShare, LABEL.minText, LABEL.textSize)
+	return text / LABEL.textSize
+end
+
+local function sizeSign(sign: BillboardGui, scale: UIScale)
+	scale.Scale = currentScale
+	sign.Size = UDim2.fromOffset(260 * currentScale, (LABEL.textSize + 12) * currentScale)
+end
 
 -- The signs live in the PlayerGui (a BillboardGui there draws over its Adornee), so swapping the scoop's model only
 -- moves the Adornee.
@@ -56,7 +73,6 @@ function ScoopSign.new(flavorId: string, golden: boolean): BillboardGui?
 
 	local sign = Instance.new("BillboardGui")
 	sign.Name = "ScoopSign"
-	sign.Size = UDim2.fromOffset(260, Look.label.textSize + 12)
 	sign.StudsOffsetWorldSpace = Vector3.new(0, Look.label.height, 0) -- above it whichever way it is turned
 	sign.MaxDistance = Look.label.maxDistance
 	sign.LightInfluence = 0
@@ -65,9 +81,13 @@ function ScoopSign.new(flavorId: string, golden: boolean): BillboardGui?
 	local row = Instance.new("Frame")
 	row.BackgroundTransparency = 1
 	row.AutomaticSize = Enum.AutomaticSize.X
-	row.Size = UDim2.fromScale(0, 1)
+	row.Size = UDim2.fromOffset(0, LABEL.textSize + 12) -- design pixels; the UIScale fits it to the screen
 	row.AnchorPoint = Vector2.new(0.5, 0.5)
 	row.Position = UDim2.fromScale(0.5, 0.5)
+	local scale = Instance.new("UIScale")
+	scale.Parent = row
+	signs[sign] = scale
+	sizeSign(sign, scale)
 	Ui.list(row, Enum.FillDirection.Horizontal, 6)
 	piece(label.name, 1, Color3.fromHex(label.color)).Parent = row
 	-- the worth and its coin as one piece, the coin tight behind the number
@@ -85,5 +105,26 @@ function ScoopSign.new(flavorId: string, golden: boolean): BillboardGui?
 	sign.Parent = root()
 	return sign
 end
+
+local function rescale()
+	currentScale = screenScale()
+	for sign, scale in signs do
+		if sign.Parent then
+			sizeSign(sign, scale)
+		else
+			signs[sign] = nil
+		end
+	end
+end
+
+local function watchCamera()
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+	end
+	rescale()
+end
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
+watchCamera()
 
 return ScoopSign

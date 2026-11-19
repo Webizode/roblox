@@ -44,6 +44,24 @@ function SettingsRules.value(key: string, raw: any, config: any): any
 	if choices then
 		return if type(raw) == "string" and table.find(choices, raw) then raw else default
 	end
+	local layout = config.layouts and config.layouts[key]
+	if layout then
+		-- button spots (TouchLayout): known buttons with finite numbers only, clamped; anything else is left out
+		local clean = {}
+		if type(raw) == "table" then
+			for _, id in layout.ids do
+				local spot = raw[id]
+				if type(spot) == "table" and isFinite(spot.x) and isFinite(spot.y) and isFinite(spot.size) then
+					clean[id] = {
+						x = math.clamp(spot.x, 0, 1),
+						y = math.clamp(spot.y, 0, 1),
+						size = math.clamp(spot.size, layout.minSize, layout.maxSize),
+					}
+				end
+			end
+		end
+		return clean
+	end
 	if type(default) == "boolean" then
 		return if type(raw) == "boolean" then raw else default
 	end

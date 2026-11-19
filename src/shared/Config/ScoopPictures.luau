@@ -1,0 +1,50 @@
+--!strict
+-- The detail pictures of the rarer tower scoops (assets/TowerScoops/build_rarities.py, uploaded 18.11.2026 through the
+-- Studio MCP, docs/live-sync.md "Bilder hochladen"): per flavor its details picture (a SurfaceAppearance ColorMap in
+-- Overlay mode over the flavor colour) and, for the glossier ones, its RoughnessMap. The commons' ids are in
+-- assets/TowerScoops/studio_setup.luau. assets/TowerScoops/studio_rarities.luau builds the templates in
+-- ReplicatedStorage.TowerScoops from these (the vanilla meshes, these pictures).
+
+return {
+	blueberry = { details = "rbxassetid://134412934191176" },
+	raspberry = { details = "rbxassetid://122888164404773" },
+	peach = { details = "rbxassetid://117885395424659" },
+	grape = { details = "rbxassetid://117690613924055" },
+	coconut = { details = "rbxassetid://90982272534521" },
+	cherry = { details = "rbxassetid://98733724459015" },
+	pineapple = { details = "rbxassetid://116529376951102" },
+	orange = { details = "rbxassetid://120867075212807" },
+	lime = { details = "rbxassetid://131870198661040" },
+	caramel = { details = "rbxassetid://79731976253985", roughness = "rbxassetid://118929142449478" },
+	blue_raspberry = { details = "rbxassetid://90417791921604" },
+	cotton_candy = { details = "rbxassetid://88444607041667" },
+	red_velvet = { details = "rbxassetid://124117794457577" },
+	birthday_cake = { details = "rbxassetid://80244575480963" },
+	brownie = { details = "rbxassetid://74422938684744" },
+	cookies_cream = { details = "rbxassetid://110428343668584" },
+	coffee = { details = "rbxassetid://121266934196088" },
+	dragon_fruit = { details = "rbxassetid://89946266151557" },
+	pomegranate = { details = "rbxassetid://133052601105638", roughness = "rbxassetid://85909684946570" },
+	honey = { details = "rbxassetid://109436081488165", roughness = "rbxassetid://75455599601348" },
+	maple_syrup = { details = "rbxassetid://75161687328909", roughness = "rbxassetid://96688220607785" },
+	tiramisu = { details = "rbxassetid://73677981826682" },
+	white_chocolate = { details = "rbxassetid://114246047520976", roughness = "rbxassetid://127484579448660" },
+	black_cherry = { details = "rbxassetid://132441362147993" },
+	pistachio_cream = { details = "rbxassetid://91085231432685" },
+	salted_caramel = { details = "rbxassetid://123862185312448", roughness = "rbxassetid://85199198560785" },
+	marzipan = { details = "rbxassetid://128911667950359" },
+	cinnamon_roll = { details = "rbxassetid://113176487121963" },
+	cheesecake = { details = "rbxassetid://83415201442957" },
+	mocha = { details = "rbxassetid://117331563213233" },
+	passion_fruit = { details = "rbxassetid://127423250269281", roughness = "rbxassetid://121557544745925" },
+	royal_cream = { details = "rbxassetid://116226716312926", roughness = "rbxassetid://99529739496908" },
+	midnight_berry = { details = "rbxassetid://83441248643176", roughness = "rbxassetid://74500119044442" },
+	frosted_melon = { details = "rbxassetid://74845860851657" },
+	velvet_dream = { details = "rbxassetid://95758861231359" },
+	mystic_plum = { details = "rbxassetid://80235106783734", roughness = "rbxassetid://87568546326228" },
+	arctic_coconut = { details = "rbxassetid://123220917479279" },
+	crimson_velvet = { details = "rbxassetid://137122718617176", roughness = "rbxassetid://91358008456666" },
+	honey_blossom = { details = "rbxassetid://83417104877165", roughness = "rbxassetid://127484579448660" },
+	velvet_mocha = { details = "rbxassetid://119223003645931", roughness = "rbxassetid://89326853072462" },
+	sapphire_cream = { details = "rbxassetid://111606237243899", roughness = "rbxassetid://75455599601348" },
+}

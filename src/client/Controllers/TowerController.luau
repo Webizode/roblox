@@ -658,22 +658,24 @@ function TowerController.Start()
 	ContextActionService:BindActionAtPriority(
 		DASH_ACTION,
 		requestDash,
-		true, -- creates the dash button on touch screens
+		false, -- touch screens use the Dash button of TouchControls
 		ACTION_PRIORITY,
 		table.unpack(Keys.inputs("dash"))
 	)
-	ContextActionService:SetTitle(DASH_ACTION, "Dash")
-	UiKit.Buttons.touchTitle(DASH_ACTION)
+	registry.TouchControls.bind("dash", function(state)
+		requestDash(DASH_ACTION, state)
+	end)
 
 	ContextActionService:BindActionAtPriority(
 		SPRINT_ACTION,
 		onSprintInput,
-		true, -- creates the Sprint button on touch screens
+		false, -- touch screens use the Sprint button of TouchControls (it toggles)
 		ACTION_PRIORITY,
 		table.unpack(Keys.inputs("sprint"))
 	)
-	ContextActionService:SetTitle(SPRINT_ACTION, "Sprint")
-	UiKit.Buttons.touchTitle(SPRINT_ACTION)
+	registry.TouchControls.bind("sprint", function(state, input)
+		onSprintInput(SPRINT_ACTION, state, input)
+	end)
 	-- the server resets sprint on respawn, so the client does too
 	player.CharacterAdded:Connect(function()
 		sprinting = false
@@ -689,12 +691,13 @@ function TowerController.Start()
 	ContextActionService:BindActionAtPriority(
 		STANCE_ACTION,
 		onStanceInput,
-		true, -- creates the Steady button on touch screens
+		false, -- touch screens use the Steady button of TouchControls
 		ACTION_PRIORITY,
 		table.unpack(Keys.inputs("steady"))
 	)
-	ContextActionService:SetTitle(STANCE_ACTION, "Steady")
-	UiKit.Buttons.touchTitle(STANCE_ACTION)
+	registry.TouchControls.bind("steady", function(state)
+		onStanceInput(STANCE_ACTION, state)
+	end)
 
 	RunService:BindToRenderStep("WobbleTower", TowerController.RENDER_PRIORITY, onRenderStep)
 	RunService:BindToRenderStep("WobbleTowerVisual", TowerController.VISUAL_PRIORITY, onVisualStep)

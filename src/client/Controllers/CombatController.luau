@@ -634,12 +634,11 @@ local function enterCombatMode()
 	ContextActionService:BindActionAtPriority(
 		THROW_ACTION,
 		requestThrow,
-		true, -- creates the Throw button on touch screens
+		false, -- touch screens use the Throw button of TouchControls
 		ACTION_PRIORITY,
 		table.unpack(Keys.inputs("throw"))
 	)
-	ContextActionService:SetTitle(THROW_ACTION, "Throw")
-	UiKit.Buttons.touchTitle(THROW_ACTION)
+	registry.TouchControls.setShown("throw", true)
 end
 
 -- Ends combat mode locally and gives the mouse back to Roblox. Safe to call when it is already off.
@@ -653,6 +652,7 @@ local function exitCombatMode()
 	end
 	combatMode = false
 	ContextActionService:UnbindAction(THROW_ACTION)
+	registry.TouchControls.setShown("throw", false)
 	ContextActionService:UnbindAction(BLOCK_SHIFT_LOCK_ACTION)
 	ContextActionService:UnbindAction(BLOCK_CAMERA_PAN_ACTION)
 	RunService:UnbindFromRenderStep(MOUSE_STEP)
@@ -720,12 +720,17 @@ function CombatController.Start()
 	ContextActionService:BindActionAtPriority(
 		MODE_ACTION,
 		onModeInput,
-		true, -- creates the Combat button on touch screens
+		false, -- touch screens use the Combat button of TouchControls
 		ACTION_PRIORITY,
 		table.unpack(Keys.inputs("combat"))
 	)
-	ContextActionService:SetTitle(MODE_ACTION, "Combat")
-	UiKit.Buttons.touchTitle(MODE_ACTION)
+	-- the touch buttons call the same functions as the keys
+	registry.TouchControls.bind("combat", function(state)
+		onModeInput(MODE_ACTION, state)
+	end)
+	registry.TouchControls.bind("throw", function(state)
+		requestThrow(THROW_ACTION, state)
+	end)
 	RunService.RenderStepped:Connect(onRenderStep)
 	RunService.RenderStepped:Connect(onAimStep)
 	-- no first person in the arena (Config/Combat camera.arenaMinZoom), in and out of combat mode

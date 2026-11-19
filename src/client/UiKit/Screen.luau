@@ -7,6 +7,7 @@
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -66,12 +67,29 @@ function Screen.place(frame: GuiObject, rect: UiLayout.Rect, scale: number)
 	(uiScale :: UIScale).Scale = scale
 end
 
+-- Studio only: the Workspace attribute ScreenPreview (a Vector2 in GUI pixels, e.g. 936 x 432 for a 2576 x 1188 phone)
+-- lays the whole kit out as on such a touch screen, in the top left corner of the real one, with a phone's top bar.
+-- Studio's device emulator cannot be switched through the MCP (17.11.2026).
+local function preview(): Vector2?
+	if not RunService:IsStudio() then
+		return nil
+	end
+	local size = workspace:GetAttribute("ScreenPreview")
+	return if typeof(size) == "Vector2" and size.X > 100 and size.Y > 100 then size else nil
+end
+
+-- The size the kit lays out on (the safe area, or the Studio preview).
+function Screen.size(): Vector2
+	return preview() or probe.AbsoluteSize
+end
+
 local function update()
-	local size = probe.AbsoluteSize
+	local previewSize = preview()
+	local size = previewSize or probe.AbsoluteSize
 	if size.X <= 0 or size.Y <= 0 then
 		return
 	end
-	input = Settings.inputKind()
+	input = if previewSize then "touch" else Settings.inputKind()
 	-- the free part of Roblox's top bar, from screen pixels into the ScreenGui's (its origin sits at its
 	-- AbsolutePosition plus the inset Roblox reserves at the top)
 	local origin = probe.AbsolutePosition + GuiService:GetGuiInset()
@@ -83,6 +101,10 @@ local function update()
 	}
 	if topbar.right <= topbar.left then
 		topbar = { left = 0, right = size.X, height = 0 }
+	end
+	if previewSize then
+		-- a phone's top bar, about: Roblox's menu, chat and voice buttons on the left, 44 pixels high
+		topbar = { left = 150, right = size.X, height = 44 }
 	end
 	local device = UiLayout.device(size.X, size.Y, input, GuiService:IsTenFootInterface(), UiConfig)
 	local plan = UiLayout.plan(size.X, size.Y, device, UiConfig, topbar)
@@ -120,6 +142,9 @@ current = UiLayout.plan(
 probe:GetPropertyChangedSignal("AbsoluteSize"):Connect(update)
 GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(update)
 Settings.onChanged(update)
+if RunService:IsStudio() then
+	workspace:GetAttributeChangedSignal("ScreenPreview"):Connect(update)
+end
 task.defer(update)
 
 return Screen

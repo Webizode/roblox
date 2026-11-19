@@ -9,7 +9,12 @@ describe("Settings: checking values", function()
 		for _, raw in { nil, 5, "x", {} } do
 			local clean = SettingsRules.sanitize(raw, Config)
 			for key, default in Config.defaults do
-				expect(clean[key]).toBe(default)
+				if type(default) == "table" then
+					-- a layout (touchLayout): an empty table of its own, not the shared default
+					expect(next(clean[key])).toBe(nil)
+				else
+					expect(clean[key]).toBe(default)
+				end
 			end
 		end
 	end)

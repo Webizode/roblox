@@ -4,6 +4,7 @@ local Controllers = script:WaitForChild("Controllers")
 
 local ORDER = {
 	"Hud",
+	"TouchControls",
 	"MovementController",
 	"TowerController",
 	"AimHud",

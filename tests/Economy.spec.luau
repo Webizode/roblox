@@ -207,13 +207,14 @@ describe("Flavors", function()
 			expect(flavor.mass).toBeGreaterThan(0)
 			expect(string.match(flavor.color, "^#%x%x%x%x%x%x$") ~= nil).toBe(true)
 		end
-		-- the eleven commons; the rarer flavors come later as new designs, until then only placeholders (Scoop Chest)
+		-- the eleven commons and since 18.11.2026 the 41 rarer flavors up to legendary (FlavorOdds.spec counts them by
+		-- rarity); the Scoop Chest's placeholders stay known for old saves
 		local real = 0
 		for _, flavor in Flavors.list do
 			if not flavor.placeholder then
 				real += 1
 			end
 		end
-		expect(real).toBe(11)
+		expect(real).toBe(52)
 	end)
 end)

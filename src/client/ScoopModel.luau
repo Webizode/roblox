@@ -11,6 +11,8 @@ local Flavors = require(Config:WaitForChild("Flavors"))
 local Palette = require(Config:WaitForChild("Palette"))
 local Look = require(Config:WaitForChild("TowerScoops"))
 local ScoopFlight = require(Shared:WaitForChild("ScoopFlight"))
+local ScoopAura = require(script.Parent:WaitForChild("ScoopAura"))
+local ScoopBeacon = require(script.Parent:WaitForChild("ScoopBeacon"))
 
 local ScoopModel = {}
 ScoopModel.__index = ScoopModel
@@ -25,11 +27,13 @@ export type ScoopModel = typeof(setmetatable(
 		isFar: boolean,
 		parent: Instance,
 		nearSize: Vector3,
-		nearLift: number,
-		farLift: number,
+		nearLift: Vector3, -- from the scoop's centre to the shown part's centre, unscaled
+		farLift: Vector3,
 		farSize: Vector3?,
 		scale: Vector3,
 		sign: BillboardGui?, -- the name sign (ScoopSign), kept on the shown part
+		aura: ParticleEmitter?, -- a legendary scoop's particles (ScoopAura), kept on the shown part
+		beacon: Beam?, -- the rarity beacon over a scoop on the ground (ScoopBeacon), kept on the shown part
 	},
 	ScoopModel
 ))
@@ -72,11 +76,19 @@ local function template(flavorId: string, lod: string): BasePart?
 	return if found and found:IsA("BasePart") then found else nil
 end
 
--- How far the part's centre sits above the scoop's centre: the importer centres a mesh on its bounding box, which for
--- a scoop model runs from its lowest drip (Config/TowerScoops dripDepth below the scoop's centre) up to its top.
--- The ball is centred on the scoop's centre.
-local function lift(part: BasePart, isModel: boolean): number
-	return if isModel then part.Size.Y / 2 - Look.dripDepth else 0
+-- Where the part's centre sits from the scoop's centre: Roblox centres a mesh on its bounding box. A template with the
+-- attribute Centre (Vector3, the scoop's centre from the part's centre, written by studio_proto.luau for the
+-- prototype-2 models whose toppings stick out to one side) says it; otherwise the box runs from the lowest drip
+-- (Config/TowerScoops dripDepth below the scoop's centre) up to the top and is centred sideways. The ball is centred.
+local function lift(part: BasePart, isModel: boolean): Vector3
+	if not isModel then
+		return Vector3.zero
+	end
+	local centre = part:GetAttribute("Centre")
+	if typeof(centre) == "Vector3" then
+		return -centre
+	end
+	return Vector3.new(0, part.Size.Y / 2 - Look.dripDepth, 0)
 end
 
 function ScoopModel.new(parent: Instance, flavorId: string): ScoopModel
@@ -99,22 +111,22 @@ function ScoopModel.new(parent: Instance, flavorId: string): ScoopModel
 		nearSize = near.Size,
 		farSize = if far then far.Size else nil,
 		nearLift = lift(near, nearTemplate ~= nil),
-		farLift = if far then lift(far, true) else 0,
+		farLift = if far then lift(far, true) else Vector3.zero,
 		scale = Vector3.one,
 	}, ScoopModel)
 end
 
 -- The CFrame for the shown part when the scoop's centre is at `centre` (turned as `centre` is).
 function ScoopModel:at(centre: CFrame): CFrame
-	local up = (if self.isFar then self.farLift else self.nearLift) * self.scale.Y
-	return if up == 0 then centre else centre * CFrame.new(0, up, 0)
+	local shift = (if self.isFar then self.farLift else self.nearLift) * self.scale
+	return if shift == Vector3.zero then centre else centre * CFrame.new(shift)
 end
 
 -- How far below the scoop's centre its lowest point is (the drips; for the ball its radius), at the current scale:
 -- the height of the centre above the ground for a scoop lying on it.
 function ScoopModel:restHeight(): number
 	local size = if self.isFar and self.farSize then self.farSize else self.nearSize
-	local up = if self.isFar then self.farLift else self.nearLift
+	local up = (if self.isFar then self.farLift else self.nearLift).Y
 	return (size.Y / 2 - up) * self.scale.Y
 end
 
@@ -136,6 +148,12 @@ function ScoopModel:updateLod(distance: number): BasePart
 		self.part, self.isFar = to, wantFar
 		if self.sign then
 			self.sign.Adornee = to
+		end
+		if self.aura then
+			self.aura.Parent = to
+		end
+		if self.beacon then
+			ScoopBeacon.attach(self.beacon, to)
 		end
 	end
 	return self.part
@@ -183,8 +201,32 @@ function ScoopModel:setSign(sign: BillboardGui?)
 	end
 end
 
+-- Puts a legendary scoop's particles (ScoopAura) on it, or takes them away with nil; they follow the model that shows.
+function ScoopModel:setAura(aura: ParticleEmitter?)
+	if self.aura and self.aura ~= aura then
+		ScoopAura.release(self.aura)
+	end
+	self.aura = aura
+	if aura then
+		aura.Parent = self.part
+	end
+end
+
+-- Puts a rarity beacon (ScoopBeacon) on it, or takes it away with nil; it follows the model that shows.
+function ScoopModel:setBeacon(beacon: Beam?)
+	if self.beacon and self.beacon ~= beacon then
+		ScoopBeacon.release(self.beacon)
+	end
+	self.beacon = beacon
+	if beacon then
+		ScoopBeacon.attach(beacon, self.part)
+	end
+end
+
 function ScoopModel:destroy()
 	self:setSign(nil)
+	self:setAura(nil)
+	self:setBeacon(nil)
 	self.near:Destroy()
 	if self.far then
 		self.far:Destroy()

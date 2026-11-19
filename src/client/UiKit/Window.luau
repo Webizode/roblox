@@ -28,6 +28,7 @@ local RIM = 14
 local CONTENT_LESS = 98
 local TITLE_SIDE = 100 -- each side of the title stays free for the sprinkles and the close button
 local DIM = 0.45 -- the dim behind an open window
+local WINDOW_MARGIN = 16 -- design pixels kept free round a window (and its title plaque) inside the HUD's frame
 
 export type Window = {
 	gui: ScreenGui,
@@ -94,18 +95,41 @@ function Window.new(props: {
 		Size = UDim2.fromOffset(width, height),
 		Parent = gui,
 	})
+	-- The window's one UIScale: its fit to the screen and the pop when it opens in one (Roblox applies only the first
+	-- UIScale of an object, so a second one for the pop never showed, found 17.11.2026).
 	local layoutScale = Instance.new("UIScale")
 	layoutScale.Name = "Layout"
 	layoutScale.Parent = root
+	local fit = 1
+	local popTween: Tween? = nil
+	-- what reaches out of the window's box: the title plaque over the top edge (own pictures) or the close button
+	local overTop = if art and art.titleSize then math.max(13, art.titleSize.Y / 2 - (art.titleY or 0)) else 13
 	Screen.onChanged(function(plan)
-		-- as big as the screen allows, never bigger than the HUD's scale. On a touch screen the whole height counts, not
-		-- only the HUD's frame under Roblox's top bar: the window dims and blocks the HUD anyway, and on a phone in
-		-- landscape the frame alone held every window about a sixth smaller (17.11.2026). Only the window's middle
-		-- reaches up there (glaze and title), the top bar's buttons sit in the corners.
-		local tall = if plan.touch then plan.frame.y + plan.frame.h - plan.frame.x else plan.frame.h
-		local room = math.min(plan.frame.w / (width + 40), tall / (height + 40))
-		layoutScale.Scale = math.min(plan.scale, room)
+		-- As big as the HUD's frame allows (the safe area under Roblox's top bar, with its margins), never bigger than
+		-- the HUD's scale, with a margin all round; title plaque and close button count. Centred in that frame. Before
+		-- (phone test 17.11.2026) a touch screen let the window reach up under Roblox's top bar, and the close button
+		-- sat on the gear.
+		local frame = plan.frame
+		local needW, needH = width + 2 * WINDOW_MARGIN, height + overTop + 2 * WINDOW_MARGIN
+		fit = math.min(plan.scale, frame.w / needW, frame.h / needH)
+		local top = frame.y + (frame.h - needH * fit) / 2 + (WINDOW_MARGIN + overTop) * fit
+		root.Position = UDim2.fromOffset(math.round(frame.x + frame.w / 2), math.round(top + height * fit / 2))
+		if not (popTween and popTween.PlaybackState == Enum.PlaybackState.Playing) then
+			layoutScale.Scale = fit
+		end
 	end)
+	local function pop(from: number, time: number)
+		if popTween then
+			popTween:Cancel()
+		end
+		layoutScale.Scale = fit * from
+		popTween = TweenService:Create(
+			layoutScale,
+			TweenInfo.new(time, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{ Scale = fit }
+		)
+		popTween:Play()
+	end
 
 	if art then
 		-- the window's own pictures: the panel as a 9-slice, the title plaque over its top edge
@@ -214,7 +238,7 @@ function Window.new(props: {
 			gui.Enabled = true
 			if props.hudAway then
 				local look = Theme.config.windowPop
-				Anim.pop(root, look.from, look.time)
+				pop(look.from, look.time)
 				if dimTween then
 					dimTween:Cancel()
 				end
@@ -223,7 +247,7 @@ function Window.new(props: {
 				dimTween:Play()
 				releaseHud = HudAway.push()
 			else
-				Anim.pop(root)
+				pop(0.6, Theme.config.anim.pop)
 			end
 			ContextActionService:BindActionAtPriority(CLOSE_ACTION, function(_, state)
 				if state == Enum.UserInputState.Begin then

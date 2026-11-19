@@ -324,6 +324,93 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
     - Screenshots: `UI Vorschau/Scoop Chest Boosts und Mutationen PC|Handy-Anordnung 2026-11-17.jpg`, `Scoop Chest Golden Detail 2026-11-17.jpg`, `Scoop Chest Rainbow Detail 2026-11-17.jpg`.
     - **Offen:** die niedrige Grafikstufe im Spiel (lässt sich per Script nicht umstellen) und ein echtes Handy.
   - In Studio mit 1 Spieler geprüft: Servieren (nur Commons verkauft, 3 Seltene in der Truhe), Öffnen und Schließen beim Hin- und Weggehen, Prompt, Fenster, Ausrüsten, Verkaufen mit Bestätigung, Coin-Bonus beim nächsten Servieren nachgerechnet, Rejoin (alles noch da). **Offen:** Deckel und Effekte mit eigenen Augen (Studio rendert über das MCP nur Weiß), Handy und Konsole, Test mit 2 Spielern (die Truhe des anderen geht für einen nicht auf), der Luck-Wechsel im Spiel (nur per Unit-Test geprüft), eigene Icons je Sorte (das rosa Kugel-Icon färbt Blue Moon lila).
+- **Turm-Kugeln mit echter Geometrie** (Prototyp 2, 18.11.2026, vom Nutzer abgenommen; nicht committet; Bericht im Vault: `Stand Sorten Prototyp 2.md`). Ersetzt die Optik aus dem Abschnitt darunter, Config, Chancen und Truhe bleiben:
+  - **Formen und Toppings:**
+    - Vier Grundformen (glatt, Rillen, klumpig, Swirl) mit unregelmäßiger Silhouette und dickem Schmelzrand.
+    - Toppings sind echte Teile im Kugel-Mesh (Stücke halb eingesunken, Soßen als flache Stränge, Glasur-Hauben, Früchte, Kekse, Kristalle).
+    - Die Maps werden vom hochaufgelösten Modell gebacken: Color mit AO, Normal, Roughness.
+  - **Budget:** LOD0 höchstens 1.200 Dreiecke, LOD1 höchstens 250.
+  - **Pipeline:**
+    - Bau: `assets/TowerScoops/build_proto.py` (Bausteine, Backen, FBX), Rezepte der übrigen Sorten in `build_rollout.py`, Renders mit `preview_proto.py`.
+    - Import: Die FBX aus `Desktop\roblox-assets\TowerScoops\proto2` importiert der Nutzer, das MCP kann keine Meshes veröffentlichen.
+    - Einrichtung: `studio_proto.luau` (Prototypen) und `studio_rollout.luau` (geschrieben von `studio_rollout_gen.luau`).
+    - Der Importer dreht die FBX um 180° um die Hochachse.
+    - Die Templates tragen das Attribut `Centre` (Mitte der Kugel relativ zum Part), `ScoopModel` setzt die Kugel danach.
+  - **Turm:** Jede Kugel bekommt eine eigene Pose (`ScoopFlight.stackPose`, `Config/TowerScoops.stack`): goldener Winkel ± 30°, bis 3° Neigung, Größe 0,95 bis 1,05.
+  - **Seltenheit aus der Ferne:**
+    - Der Landekreis trägt ab Uncommon die Seltenheitsfarbe.
+    - Liegende Kugeln bekommen ab Rare eine Lichtsäule in der Seltenheitsfarbe (`ScoopBeacon`, `Config/Vfx.beacons`): je seltener, desto höher, höchstens 16, bis 260 Studs, bei niedriger Qualität halb so viele.
+    - Seltenere Rezepte sind aufwendiger: ab Epic mit Glasur oder Sahne, Legendary mit Gold und Kristallen.
+  - **Rollout (19.11.2026):** Alle 52 Sorten haben jetzt Geometrie-Kugeln (5 Prototypen plus 47 aus `assets/TowerScoops/build_rollout.py`, Rezepte in `RECIPES`). Ablauf: Build in Blender, Texturen per `upload_image` (IDs in `proto2/uploaded.json`), `lune run assets/TowerScoops/studio_rollout_gen.luau` erzeugt `studio_rollout.luau`, der Nutzer importiert die FBX aus `Desktop\roblox-assets\TowerScoops\proto2`, dann `studio_rollout.luau` in Studio ausführen und den Place speichern. Die alten Templates liegen in `ServerStorage.TowerScoopsBefore_Proto2`. Der vorübergehende Schalter `Features.showcaseFlavors` ist wieder entfernt.
+- **Sorten bis Legendary** (18.11.2026, unbeaufsichtigt gebaut, nicht committet, wartet auf den Test des Nutzers; Bericht im Vault: `Stand Sorten 2026-11-18.md`):
+  - **41 neue Sorten:** Uncommon 11 (mit Lime), Rare 10 (mit Red Velvet), Epic 10, Legendary 10, Namen laut `Sorten-Katalog.md`. Die 11 Commons sind unverändert. Mythic, Secret und Divine stehen als Seltenheiten in `Config/Flavors.rarities` (mit Farbe, Chance und Wert-Faktor), haben aber noch keine Sorten.
+  - **Aussehen:**
+    - Alle neuen Sorten haben die Grundform der Commons, also dieselben Meshes wie Vanilla (LOD0 und LOD1). Es gibt nichts zu importieren.
+    - Jede Sorte hat eine eigene Farbe und ein eigenes Detailbild (SurfaceAppearance, Overlay), die glänzenden zusätzlich ein Roughness-Bild.
+    - Die Bilder malt `assets/TowerScoops/build_rarities.py` in Blender nach den Referenzbildern: Swirl-Bänder, Glasur mit Tropfen von oben, Fruchtstücke, Beeren, Scheiben, Blüten, Streusel.
+    - Toppings wie Kirsche, Limettenscheibe oder Blüte sind ins Bild gemalt statt modelliert, sonst bräuchte jede Sorte einen FBX-Import.
+    - Ähnliche Sorten sind in Ton, Helligkeit und Muster auseinandergeschoben (Liste im Vault-Bericht).
+    - Vorschauen: `assets/TowerScoops/preview_rarities.py`, Bilder in `renders/` und im Vault `Sorten Vorschau`.
+  - **In Studio:** Die 55 Bilder sind über das Studio-MCP hochgeladen, die IDs stehen in `Config/ScoopPictures`. `assets/TowerScoops/studio_rarities.luau` hat die 41 Vorlagen in `ReplicatedStorage.TowerScoops` angelegt (Vanilla-Meshes plus eigenes Bild). **Der Place muss noch gespeichert werden**, sonst sind die Vorlagen nach dem Schließen weg.
+  - **Werte:** Grundwert 5 mal Seltenheits-Faktor (`Config/Flavors.valueFactors`: ×1, ×2, ×4, ×10, ×30, Mythic ×100, Secret ×500, Divine ×1.500), also Uncommon 10, Rare 20, Epic 50, Legendary 150 Coins vor dem Höhenfaktor.
+  - **Drop-Chancen:** Der Big Swirl würfelt erst die Seltenheit (`Config/Flavors.rarityChances`: 50,94 / 25 / 12 / 7 / 3,5 / 1,5 / 0,05 / 0,01 %), dann gleich verteilt eine Sorte darin (`FlavorOdds`, mit Tests). Seltenheiten ohne Sorten geben ihren Anteil an Common, das liegt bis dahin bei 52,5 %. Das Feld `weight` je Sorte zählt für den Big Swirl nicht mehr, nur noch für den Luck-Wechsel der Truhe (innerhalb einer Seltenheit).
+  - **Truhe:**
+    - Die Platzhalter Blue Moon, Galaxy Grape und Sunset Mango werden nicht mehr geschossen (`Features.placeholderRares = false`). Sie bleiben als Sorten bekannt, damit alte Spielstände nicht brechen.
+    - Rare, Epic und Legendary landen automatisch in der Truhe.
+    - Obergrenzen: Luck 25 % (vorher 15), Catch 15 % (vorher 20), Coins bleibt bei 25 %.
+    - Verkaufen: `sell.byRarity` ist jetzt überall 1, weil der Wert die Seltenheit schon enthält (vorher bis ×10 auf die flachen Platzhalter-Werte).
+    - Passiv-Platzhalter für die leeren Seltenheiten: Mythic 15 %, Secret 20 %, Divine 25 %.
+    - Jede neue Sorte hat ein Passiv: Frucht gibt Luck, Desserts geben Coins, Kaltes und Zuckerwatte geben Catch.
+  - **Legendary-Partikel** (`ScoopAura`, Werte in `Config/Vfx.auras`):
+    - Jede Legendary-Sorte hat eigene leichte Partikel aus den vorhandenen VFX-Texturen: Glitzer, Nachtfunkeln, Schneeflocken, rosa Bläschen, goldener Mondstaub, feiner Schnee, Funken, Blütenblätter, Dampf, blaues Funkeln.
+    - Die Partikel gibt es nur, solange die Kugel fliegt oder liegt. Beim Fangen und Aufheben verschwinden sie wie das Namensschild, im Turm also keine.
+    - Eine gemeinsame Schleife viermal pro Sekunde zeigt nur die 10 nächsten Auren bis 70 Studs. Die VFX-Qualität skaliert die Rate (hoch 1, mittel 0,5, niedrig aus).
+  - **Geprüft:**
+    - `lune run scripts/check` grün, 511 Tests.
+    - Im Playtest hat der Big Swirl in 90 s 55 Kugeln aus allen fünf Seltenheiten geschossen.
+    - Ein Turm aus 14 neuen Sorten: jede Kugel mit ihrem Bild und ihrer Farbe (per Abfrage, 15 von 15).
+    - Servieren: Commons und Uncommons wurden verkauft, Rare, Epic und Legendary landeten in der Truhe.
+    - Verschüttete Legendaries sprühen ihre Partikel, eine weit entfernte war aus.
+  - **Offen:**
+    - Das Spielbild mit eigenen Augen: Studio rendert über das MCP die Welt nur weiß, die Bilder im Vault sind Blender-Vorschauen, die Partikel dort nachgestellt.
+    - Den Place speichern.
+    - Prüfen, ob die gemalten Toppings im Spiel groß genug wirken.
+- **Handy-Fixes nach dem Test auf einem echten Handy** (17.11.2026, nicht committet, wartet auf den Test des Nutzers):
+  - **Fenster:** Ein Fenster passt jetzt in den Bereich unter Roblox' Leiste (`plan.frame`), mit 16 Designpixeln Rand. Titel-Plakette und X zählen mit, das Fenster wird in diesem Bereich zentriert. Vorher durfte es auf Touch-Geräten bis unter die Leiste reichen, und das X stand am Zahnrad. Das Zahnrad (`Settings`) und die Touch-Knöpfe (`TouchControls`) gleiten jetzt mit dem HUD weg (`Config/Ui.hudAway.guis`). **Gefunden:** Roblox wendet nur die erste UIScale eines Objekts an. Das Aufploppen über eine zweite UIScale („Anim“) hat am Fenster nie gewirkt. Jetzt laufen Größe und Aufploppen über dieselbe UIScale.
+  - **Truhe:**
+    - Die Zeile „Rare scoops … land here“ neben „STORED“ ist weg, die Erklärung steht im leeren Raster.
+    - Leere Plätze sind eine dunkle Fläche mit Plus, ohne „COMMON“.
+    - Die Boost-Spalten, die Hinweise und die Pillen in der Detailansicht haben keine feste Schriftgröße mehr. Sie werden in ihren Rahmen skaliert, mit Höchstgröße. Auf dem Handy liefen Wert und „(max …)“ ineinander („Coins +((max 25%)“).
+    - Die Handy-Anordnung ist 538 statt 600 hoch und wird dadurch etwas größer.
+  - **Kugel-Schilder** („MANGO 5“): Die Schrift ist 2,4 % der Bildschirmhöhe, zwischen 11 und 20 Pixeln (`Config/TowerScoops.label`), auf dem Handy also etwa halb so groß. Die Münze hat 5 statt 2 Pixel Abstand zur Zahl.
+  - **Coins-Pille:** Die Zahl wird in ein Feld skaliert, das mit der Zahl der Zeichen wächst (`coinsMinRow` bis `coinsMaxRow`). Sie ragt nicht mehr heraus.
+  - **Touch-Knöpfe** (`TouchControls`, `Config/TouchControls`, Regeln in `TouchLayout` mit Tests):
+    - Runde Knöpfe im Stil des Kits für Jump, Throw (nur im Kampfmodus), Dash, Sprint, Combat und Steady. Sie haben eine Glanzkante, ein Icon (wo es eines gibt) und ein Wort in Luckiest Guy, das in den Knopf skaliert wird.
+    - Sie ersetzen Roblox' graue Knöpfe. Roblox' eigener Sprungknopf ist ausgeblendet, Jump springt über den Humanoid.
+    - Die Standardplätze werden in Bildschirmhöhen von der Ecke unten rechts gemessen. So sitzen sie auf 19,5:9 und 4:3 gleich, alle im sicheren Bereich und mit Abstand zueinander (Tests für 936 × 432, 1024 × 768, 1920 × 1080).
+    - Die Controller rufen über `TouchControls.bind` dieselben Funktionen wie ihre Tasten auf. PC und Konsole bleiben unverändert.
+  - **Kamera beim Zielen:** Nur ein Finger, der rechts von 40 % der Breite und nicht auf einem Knopf aufsetzt, dreht die Kampfkamera (`Config/Combat.camera.touchFromX`). Jeder Finger wird einzeln verfolgt, Laufen und Zielen gehen also gleichzeitig. Vorher zählte jede Bewegung, die Roblox nicht als verarbeitet markiert hatte, und Roblox' Joystick tut das nicht.
+  - **Edit Controls** (Einstellungen → Controls, nur auf Touch-Geräten):
+    - Jeder Knopf lässt sich mit dem Finger verschieben, der gewählte mit einem Regler zwischen 9 % und 30 % der Höhe vergrößern oder verkleinern.
+    - Ein Knopf kann nicht auf einen anderen oder aus dem Bild geschoben werden, er gleitet an einem Hindernis entlang.
+    - Es gibt „Save“, „Reset to default“ und „Cancel“. Das übrige HUD gleitet beim Bearbeiten weg.
+    - Gespeichert wird in den Einstellungen als `touchLayout`: je Knopf die Mitte als Anteil von Breite und Höhe und die Größe in Bildschirmhöhen. Client und Server prüfen das mit `SettingsRules` (`Config/Settings.layouts`).
+    - Ein gespeicherter Platz, der auf einem anderen Bildschirm nicht passt, fällt auf den Standard zurück.
+    - Die Liste in den Einstellungen scrollt jetzt (Controls hat 7 Zeilen).
+  - **Studio-Hilfen:**
+    - Das Workspace-Attribut `ScreenPreview` (Vector2, z. B. 750 × 346 für 19,5:9) lässt das ganze UI-Kit wie auf so einem Touch-Bildschirm rechnen, oben links.
+    - `StudioEditControls` öffnet Edit Controls bzw. schließt es mit false. Klicks des MCP kommen im Geräte-Emulator nicht an.
+  - **Geprüft** im Studio-Emulator 750 × 381 und mit `ScreenPreview` 750 × 346 (19,5:9):
+    - Knöpfe komplett im Bild, Roblox' Sprungknopf weg.
+    - Das Fenster unter der Leiste, Zahnrad und Knöpfe beim Öffnen weg, Boost-Texte passen, leerer Platz mit Plus.
+    - Edit Controls öffnet sich mit allen 6 Knöpfen und dem Bedienfeld.
+    - Die Kugel-Schilder sind auf 55 % skaliert (nachgemessen, die Welt rendert über das MCP weiß).
+    - Screenshots: `UI Vorschau/Handy 19,5zu9 HUD und Touch-Knöpfe|Scoop Chest 2026-11-17.jpg`, `Handy Edit Controls 2026-11-17.jpg`, `Handy Scoop Chest leerer Platz 2026-11-17.jpg`.
+  - **Offen** (nur auf einem echten Handy prüfbar):
+    - Kamera mit zwei Fingern (Multitouch geht über das MCP nicht).
+    - Knöpfe ziehen und Regler bedienen, Speichern und Rejoin.
+    - Die Kugel-Schilder mit eigenen Augen.
+    - Eigene Icons für Jump und Sprint (jetzt nur das Wort). Dash nutzt die Sternchen.
 ---
 
 ## 8. Reihenfolge

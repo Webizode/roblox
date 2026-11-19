@@ -1,4 +1,4 @@
--- Serves the PNG and JPG files of one folder on http://localhost:<port>/<name>, so the Studio MCP's upload_image can
+-- Serves the PNG, JPG and JSON files of one folder on http://localhost:<port>/<name>, so the Studio MCP's upload_image can
 -- fetch them and upload them to Roblox (see docs/live-sync.md, "Bilder hochladen"). Stops with Ctrl+C.
 --   lune run scripts/serve-images "<folder>" [port, default 8765]
 local fs = require("@lune/fs")
@@ -9,7 +9,7 @@ local dir = process.args[1]
 local port = tonumber(process.args[2]) or 8765
 assert(dir and fs.isDir(dir), "usage: lune run scripts/serve-images <folder> [port]")
 
-local types = { png = "image/png", jpg = "image/jpeg", jpeg = "image/jpeg" }
+local types = { png = "image/png", jpg = "image/jpeg", jpeg = "image/jpeg", json = "application/json" } -- json: mesh data (studio_proto.luau)
 
 net.serve(port, function(request)
 	local name = string.match(request.path, "^/([%w_%-%.]+)$")

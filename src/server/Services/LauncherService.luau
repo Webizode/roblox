@@ -20,6 +20,7 @@ local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local CatchRules = require(Shared:WaitForChild("CatchRules"))
 local LaunchArms = require(Shared:WaitForChild("LaunchArms"))
 local TargetRules = require(Shared:WaitForChild("TargetRules"))
+local FlavorOdds = require(Shared:WaitForChild("FlavorOdds"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local Tuning = require(Config:WaitForChild("Launcher"))
 local ArmConfig = require(Config:WaitForChild("BigSwirl"))
@@ -60,25 +61,14 @@ local rng = Random.new()
 type Arms = { root: BasePart, count: number, freeAt: { number } }
 local arms: Arms? = nil
 
--- what the Big Swirl fires: every flavor, the placeholder rares only with Features.placeholderRares
-local firing = {}
-local totalWeight = 0
-for _, flavor in Flavors.list do
-	if not flavor.placeholder or Features.placeholderRares then
-		table.insert(firing, flavor)
-		totalWeight += flavor.weight
-	end
-end
+-- what the Big Swirl fires: a rarity by Config/Flavors.rarityChances, then one of its flavors (FlavorOdds); the
+-- placeholder rares only with Features.placeholderRares
+local pools = FlavorOdds.pools(Flavors.list, function(flavor)
+	return not flavor.placeholder or Features.placeholderRares
+end)
 
 local function pickFlavor(): string
-	local roll = rng:NextNumber() * totalWeight
-	for _, flavor in firing do
-		roll -= flavor.weight
-		if roll <= 0 then
-			return flavor.id
-		end
-	end
-	return firing[#firing].id
+	return FlavorOdds.pick(rng:NextNumber(), rng:NextNumber(), Flavors, pools)
 end
 
 local function rootOf(player: Player): BasePart?

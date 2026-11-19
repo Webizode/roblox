@@ -99,4 +99,25 @@ function ScoopFlight.useFar(distance: number, wasFar: boolean, config: any): boo
 	return distance >= config.farDistance
 end
 
+-- A number in [0, 1) that is always the same for the same place and salt (no Random: the pose must not change
+-- between two frames or two clients).
+local function hash(index: number, salt: number): number
+	local x = math.sin(index * 12.9898 + salt * 78.233) * 43758.5453
+	return x - math.floor(x)
+end
+
+-- How the scoop in place `index` (1 = bottom) sits on a tower (Config/TowerScoops stack): turned about its own axis by
+-- a random yaw, tilted a little (radians about X and Z) and a little bigger or smaller, so a stack looks hand-made,
+-- not like stacked discs. The same for the same place.
+function ScoopFlight.stackPose(index: number, config: any): (number, number, number, number)
+	local stack = config.stack
+	-- the golden angle from place to place plus up to 30 degrees either way: random-looking, but never two neighbours
+	-- turned alike (they would line their drips up)
+	local yaw = (index * math.rad(137.5) + (hash(index, 1) - 0.5) * math.rad(60)) % (2 * math.pi)
+	local tiltX = (hash(index, 2) * 2 - 1) * stack.tilt
+	local tiltZ = (hash(index, 3) * 2 - 1) * stack.tilt
+	local scale = stack.scaleMin + hash(index, 4) * (stack.scaleMax - stack.scaleMin)
+	return yaw, tiltX, tiltZ, scale
+end
+
 return ScoopFlight

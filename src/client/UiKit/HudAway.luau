@@ -21,6 +21,7 @@ local player = Players.LocalPlayer
 type Piece = { home: UDim2, away: UDim2, tween: Tween? }
 
 local pushes = 0
+local keep: { [string]: boolean } = {} -- guis that stay this time (the first push decides)
 local pieces: { [GuiObject]: Piece } = {}
 
 local function playerGui(): Instance?
@@ -65,7 +66,7 @@ local function each(callback: (GuiObject, ScreenGui) -> ())
 		return
 	end
 	for _, name in LOOK.guis do
-		local gui = root:FindFirstChild(name)
+		local gui = if keep[name] then nil else root:FindFirstChild(name)
 		if gui and gui:IsA("ScreenGui") and gui.Enabled then
 			for _, child in gui:GetChildren() do
 				if child:IsA("GuiObject") and child.Visible then
@@ -114,10 +115,15 @@ local function comeBack()
 	end
 end
 
--- The HUD glides away; returns the function that ends this push.
-function HudAway.push(): () -> ()
+-- The HUD glides away; returns the function that ends this push. `stay` names guis of Config/Ui.hudAway.guis that
+-- stay this time (Edit Controls keeps the touch buttons it edits).
+function HudAway.push(stay: { string }?): () -> ()
 	pushes += 1
 	if pushes == 1 then
+		keep = {}
+		for _, name in stay or {} do
+			keep[name] = true
+		end
 		goAway(false)
 	end
 	local released = false

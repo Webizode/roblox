@@ -329,10 +329,30 @@ function CombatCamera.stop()
 	handBack()
 end
 
--- A finger dragging over the screen turns the camera in combat mode; a touch that started on a button or the move
--- stick (processed by the game) does not.
-UserInputService.InputChanged:Connect(function(input, processed)
-	if active and not processed and input.UserInputType == Enum.UserInputType.Touch then
+-- A finger dragging over the screen turns the camera in combat mode, but only one that started in the free part of
+-- the screen right of the move stick (Config/Combat camera.touchFromX of the width) and not on a button. Each finger
+-- is followed by its own InputObject from the moment it touches down, so one finger walks with the stick while another
+-- aims. Before (phone test 17.11.2026) every unprocessed move counted, and Roblox's stick does not mark its finger as
+-- processed: walking turned the camera.
+local cameraFingers: { [InputObject]: boolean } = {}
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if input.UserInputType ~= Enum.UserInputType.Touch or processed then
+		return
+	end
+	local camera = workspace.CurrentCamera
+	local width = if camera then camera.ViewportSize.X else 0
+	if input.Position.X >= width * Look.touchFromX then
+		cameraFingers[input] = true
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	cameraFingers[input] = nil
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if active and cameraFingers[input] then
 		touchDelta += Vector2.new(input.Delta.X, input.Delta.Y)
 	end
 end)

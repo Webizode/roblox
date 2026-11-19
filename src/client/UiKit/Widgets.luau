@@ -136,26 +136,29 @@ function Widgets.pillNumber(row: Frame, name: string, size: number, order: numbe
 end
 
 -- The coin counter: the gold coin on the info pill and the amount centred after it; the pill grows and shrinks with the
--- amount, and an amount longer than Config/Ui.infoPill.maxChars gets smaller instead. `animate` counts up or down to a
+-- amount, and an amount wider than Config/Ui.infoPill.coinsMaxRow gets smaller instead. `animate` counts up or down to a
 -- new value and pops the pill.
 function Widgets.coins(): CoinCounter
 	local L = Theme.config.infoPill
 	local pill = Widgets.infoPill("Coins", Theme.icons.coin)
 	local amount = Widgets.pillNumber(pill.row, "Amount", L.text, 1)
-	-- as wide as the number reads, at least coinsMinRow (a small amount sits centred in it): sized from TextBounds, as
-	-- a UISizeConstraint on an automatically sized row kept the pill from ever getting shorter again
+	-- The box is as wide as its characters need (coinsMinRow to coinsMaxRow, a small amount sits centred in it) and the
+	-- number is scaled into it. No fixed text size and no width from TextBounds: on a phone the number was drawn
+	-- bigger than measured and stood out of the pill (phone test 17.11.2026). The pill grows with the box.
 	amount.AutomaticSize = Enum.AutomaticSize.None
 	amount.TextXAlignment = Enum.TextXAlignment.Center
-	local function fit()
-		amount.Size = UDim2.fromOffset(math.max(amount.TextBounds.X + 2, L.coinsMinRow), L.text + 4)
-	end
-	amount:GetPropertyChangedSignal("TextBounds"):Connect(fit)
-	amount.Text = "0"
-	fit()
-	local counter = Widgets.counter(function(value)
-		local text = withCommas(value)
+	amount.TextScaled = true
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MaxTextSize = L.text
+	limit.Parent = amount
+	local function show(text: string)
 		amount.Text = text
-		amount.TextSize = math.floor(L.text * math.min(1, L.maxChars / math.max(#text, 1)))
+		local width = math.clamp(#text * L.text * L.charWidth + 4, L.coinsMinRow, L.coinsMaxRow)
+		amount.Size = UDim2.fromOffset(width, L.text + 4)
+	end
+	show("0")
+	local counter = Widgets.counter(function(value)
+		show(withCommas(value))
 	end, pill.frame)
 	return { frame = pill.frame, set = counter.set }
 end

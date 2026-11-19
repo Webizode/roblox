@@ -41,7 +41,7 @@ local DETAIL = { pad = 18, cardScale = 1.6 } -- the details: margin, the big car
 local ART = ChestConfig.art
 -- the bonus rows on the boost panel (210 high): their middle between the title (down to 66) and the inner rim (190),
 -- row height and gap, the columns (icon, gap, "Coins +1.5%", "(max 25%)") and the text size
-local BOOSTS = { middle = 130, rowHeight = 32, rowGap = 6, icon = 38, gap = 10, value = 132, cap = 110, textSize = 26 }
+local BOOSTS = { middle = 130, rowHeight = 32, rowGap = 6, icon = 38, gap = 10, value = 140, cap = 118, textSize = 26 }
 
 -- Two arrangements of the same parts (rectangles in design pixels of the window's content). "tall" follows the
 -- reference (PC, tablet, console). "wide" is for phones in landscape: there the tall window is held small by the
@@ -56,7 +56,6 @@ type Layout = {
 	slots: Rect,
 	bonuses: Rect,
 	storedLabel: UDim2,
-	hint: Rect, -- anchored at its top right
 	grid: Rect,
 	detail: {
 		name: number,
@@ -78,7 +77,6 @@ local LAYOUTS: { [string]: Layout } = {
 		slots = { pos = UDim2.fromOffset(0, 24), size = UDim2.fromOffset(400, 186) },
 		bonuses = { pos = UDim2.fromOffset(418, 6), size = UDim2.new(1, -418, 0, 210) },
 		storedLabel = UDim2.fromOffset(6, 224),
-		hint = { pos = UDim2.new(1, -4, 0, 232), size = UDim2.new(1, -230, 0, 24) },
 		grid = { pos = UDim2.fromOffset(0, 266), size = UDim2.new(1, 0, 1, -266) },
 		detail = {
 			name = 14,
@@ -94,12 +92,11 @@ local LAYOUTS: { [string]: Layout } = {
 	},
 	wide = {
 		width = 1180,
-		height = 600,
+		height = 538, -- content 440: the left column (slots and bonuses) exactly, two rows of cards on the right
 		equippedLabel = UDim2.fromOffset(6, 0),
 		slots = { pos = UDim2.fromOffset(0, 24), size = UDim2.fromOffset(400, 186) },
 		bonuses = { pos = UDim2.fromOffset(0, 230), size = UDim2.fromOffset(400, 210) },
 		storedLabel = UDim2.fromOffset(424, 0),
-		hint = { pos = UDim2.new(1, -4, 0, 6), size = UDim2.new(1, -650, 0, 24) },
 		grid = { pos = UDim2.fromOffset(418, 24), size = UDim2.new(1, -418, 1, -24) },
 		detail = {
 			name = 8,
@@ -398,28 +395,27 @@ local function pill(
 	height: number,
 	font: Font?
 )
+	-- Its width comes from the number of letters, the word is scaled into it: no fixed text size, so the word never
+	-- runs out of the pill whatever size a device draws text at (phone test 17.11.2026).
+	local width = math.max(height * 2.4, #text * height * 0.42 + height * 1.1)
 	local frame = Theme.frame({
 		Name = name,
 		BackgroundTransparency = 0,
 		BackgroundColor3 = color,
 		Position = position,
-		Size = UDim2.fromOffset(0, height),
-		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(width, height),
 		ZIndex = 24,
 		Parent = parent,
 	})
 	Theme.corner(frame, UDim.new(0.5, 0))
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, height * 0.55)
-	padding.PaddingRight = UDim.new(0, height * 0.55)
-	padding.Parent = frame
 	local label = Theme.text({
 		Name = "Label",
 		Text = text,
 		FontFace = font or Theme.fontMain,
-		TextSize = math.floor(height * 0.62),
-		Size = UDim2.fromOffset(0, height),
-		AutomaticSize = Enum.AutomaticSize.X,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(1, -height * 0.9, 0.62, 0),
+		TextScaled = true,
 		ZIndex = 25,
 		Parent = frame,
 	})
@@ -687,14 +683,16 @@ local function showDetail(key: string?)
 		Name = "Hint",
 		Text = "Equipped scoops add up. Each bonus has a cap.",
 		FontFace = Theme.fontText,
-		TextSize = 18,
-		Size = UDim2.fromOffset(0, 24),
-		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.new(0.8, 0, 0, 22),
+		TextScaled = true,
 		LayoutOrder = 2,
 		ZIndex = 24,
 		Parent = hintRow,
 	})
 	hint.TextColor3 = Theme.color("hint")
+	local hintLimit = Instance.new("UITextSizeConstraint")
+	hintLimit.MaxTextSize = 18
+	hintLimit.Parent = hint
 
 	local row = Theme.frame({
 		Name = "Buttons",
@@ -813,14 +811,17 @@ local function render()
 				showDetail(item.key)
 			end)
 		else
-			-- an empty slot: the empty card, dark and faint, with a plus
-			cell = picture(ART.cardEmpty, {
+			-- an empty slot: a dark rounded place with a cream rim and a plus, no rarity (the empty card picture has
+			-- "COMMON" drawn in, phone test 17.11.2026)
+			cell = Theme.frame({
 				Name = "EmptySlot",
+				BackgroundTransparency = 0.35,
+				BackgroundColor3 = Theme.color("chocolate"),
 				Size = UDim2.fromOffset(CARD_W * SLOT_SCALE, CARD_H * SLOT_SCALE),
-				ImageColor3 = Color3.fromRGB(110, 80, 70),
-				ImageTransparency = 0.35,
 				ZIndex = 4,
 			})
+			Theme.corner(cell, UDim.new(0, 18))
+			Theme.outline(cell, 3, Theme.color("creamDark")).Transparency = 0.35
 			Theme.text({
 				Text = "+",
 				AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1005,19 +1006,25 @@ local function buildWindow()
 			Theme.corner(dot, UDim.new(0.5, 0))
 			Theme.outline(dot, 3)
 		end
+		-- scaled into its column (at most BOOSTS.textSize), never a fixed text size: on a phone the value and the cap
+		-- ran into each other ("Coins +((max 25%)", phone test 17.11.2026)
 		local function column(name: string, x: number, width: number): TextLabel
-			return Theme.text({
+			local label = Theme.text({
 				Name = name,
 				Text = "",
 				FontFace = Theme.fontText,
-				TextSize = BOOSTS.textSize,
 				AnchorPoint = Vector2.new(0, 0.5),
 				Position = UDim2.new(0, x, 0.5, 0),
-				Size = UDim2.new(0, width, 1, 0),
+				Size = UDim2.new(0, width - 4, 0.82, 0),
+				TextScaled = true,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				ZIndex = 5,
 				Parent = row,
 			})
+			local limit = Instance.new("UITextSizeConstraint")
+			limit.MaxTextSize = BOOSTS.textSize
+			limit.Parent = label
+			return label
 		end
 		bonusRows[kind] = {
 			value = column("Value", BOOSTS.icon + BOOSTS.gap, BOOSTS.value),
@@ -1025,39 +1032,9 @@ local function buildWindow()
 		}
 	end
 
-	-- the stored scoops: the waffle label with the count, the hint on the right, the grid in its panel
+	-- the stored scoops: the waffle label with the count and the grid in its panel (how rare scoops get in is said in
+	-- the empty grid; the line beside the label ran through it on a phone)
 	fillLabel = waffleLabel(content, "StoredLabel", L.storedLabel, 214, 42)
-	local hintRow = Theme.frame({
-		Name = "HintRow",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = L.hint.pos,
-		Size = L.hint.size,
-		ZIndex = 4,
-		Parent = content,
-	})
-	local hintList = Instance.new("UIListLayout")
-	hintList.FillDirection = Enum.FillDirection.Horizontal
-	hintList.HorizontalAlignment = Enum.HorizontalAlignment.Right
-	hintList.VerticalAlignment = Enum.VerticalAlignment.Center
-	hintList.Padding = UDim.new(0, 8)
-	hintList.SortOrder = Enum.SortOrder.LayoutOrder
-	hintList.Parent = hintRow
-	local hint = Theme.text({
-		Name = "Hint",
-		Text = `{rarityLabel(ChestConfig.minRarity)} scoops and better land here when you serve`,
-		FontFace = Theme.fontText,
-		TextSize = 18,
-		Size = UDim2.fromOffset(0, 24),
-		AutomaticSize = Enum.AutomaticSize.X,
-		LayoutOrder = 2,
-		ZIndex = 4,
-		Parent = hintRow,
-	})
-	hint.TextColor3 = Theme.color("hint")
-	for _, order in { 1, 3 } do
-		local star = sparkle(hintRow, UDim2.new(), 22, 4)
-		star.LayoutOrder = order
-	end
 
 	local gridPanel = panel({
 		Name = "GridPanel",

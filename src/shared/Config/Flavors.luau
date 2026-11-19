@@ -1,14 +1,14 @@
 --!strict
 -- Every flavor in the game. Values and physics modifiers live here so a new family is a data change, not a code change.
--- Since 29.10.2026 only the eleven common classics; the rarer flavors (uncommon to legendary) are new designs that
--- come later. The families heavy, sticky and wild stay for them. Until then three placeholders (Rare, Epic,
--- Legendary, `placeholder = true`) stand in for the Scoop Chest; the Big Swirl only fires them with
--- Features.placeholderRares, but they stay known here, so stored ones in a save never break.
+-- The eleven common classics (29.10.2026) and since 18.11.2026 the rarer flavors from the user's designs: uncommon 11,
+-- rare, epic and legendary 10 each; Mythic, Secret and Divine come later. The families heavy, sticky and wild stay for
+-- later. The three placeholders of the Scoop Chest (17.11.2026, `placeholder = true`) are not fired any more
+-- (Features.placeholderRares is off) but stay known here, so stored ones in a save never break.
 
 export type Family = "classic" | "heavy" | "sticky" | "wild"
--- how rare a flavor is for the player (trail, Scoop Chest, later the collection book); the launcher odds are `weight`.
--- A new rarity (Mythic, Secret and Divine are planned, in that order after Legendary) needs: its name in `rarities`
--- at the end of this file (the order is the rank), a colour in `rarityColors`, and its values in Config/Chest
+-- how rare a flavor is for the player (trail, Scoop Chest, later the collection book); the launcher odds are
+-- `rarityChances`. A rarity (Mythic, Secret and Divine have no flavors yet) needs: its name in `rarities` at the end
+-- of this file (the order is the rank), a colour in `rarityColors`, and its values in Config/Chest
 -- (passives.byRarity, sell.byRarity); the UI kit's card uses the neutral card until it has its own picture (Config/Ui).
 export type Rarity = string
 
@@ -29,6 +29,40 @@ export type Flavor = {
 	passive: string?, -- what it gives equipped in the Scoop Chest (Config/Chest.passives); default defaultPassive there
 	placeholder: boolean?, -- a stand-in until the real designs: fired only with Features.placeholderRares
 }
+
+-- What a scoop is worth: BASE_VALUE coins times its rarity's factor (Sorten-Katalog, decided 18.11.2026); mutations
+-- (Golden, Rainbow, later the World Events) multiply on top.
+local BASE_VALUE = 5
+local VALUE_FACTORS: { [string]: number } = {
+	common = 1,
+	uncommon = 2,
+	rare = 4,
+	epic = 10,
+	legendary = 30,
+	mythic = 100,
+	secret = 500,
+	divine = 1500,
+}
+
+-- The rarer flavors (18.11.2026) all share the commons' physics and the base scoop shape; they differ in colour,
+-- picture (assets/TowerScoops/build_rarities.py, which holds the same colours) and what they give in the Scoop Chest.
+local function scoop(id: string, name: string, rarity: string, color: string, passive: string): Flavor
+	return {
+		id = id,
+		name = name,
+		family = "classic",
+		rarity = rarity,
+		value = BASE_VALUE * VALUE_FACTORS[rarity],
+		mass = 1,
+		stiffness = 0,
+		damping = 0,
+		jerk = 0,
+		weight = 1, -- within its rarity every flavor is as likely as the others (FlavorOdds)
+		color = color,
+		material = "SmoothPlastic",
+		passive = passive,
+	}
+end
 
 local list: { Flavor } = {
 	{
@@ -242,6 +276,56 @@ local list: { Flavor } = {
 	},
 }
 
+-- Uncommon 11, rare, epic and legendary 10 each (18.11.2026, designs from the vault; Lime and Red Velvet too).
+-- Passives: fruit gives Luck, cream and desserts Coins, the cold and candy ones Catch.
+for _, flavor in
+	{
+		scoop("blueberry", "Blueberry", "uncommon", "#8E92EE", "luck"),
+		scoop("raspberry", "Raspberry", "uncommon", "#E8557E", "luck"),
+		scoop("peach", "Peach", "uncommon", "#FFBE8A", "luck"),
+		scoop("grape", "Grape", "uncommon", "#A65BE0", "luck"),
+		scoop("coconut", "Coconut", "uncommon", "#F3E6D6", "catch"),
+		scoop("cherry", "Cherry", "uncommon", "#FAC6CE", "luck"),
+		scoop("pineapple", "Pineapple", "uncommon", "#FFEAA0", "luck"),
+		scoop("orange", "Orange", "uncommon", "#FF7F30", "luck"),
+		scoop("lime", "Lime", "uncommon", "#A9DE3E", "catch"),
+		scoop("caramel", "Caramel", "uncommon", "#E8933C", "coins"),
+		scoop("blue_raspberry", "Blue Raspberry", "uncommon", "#33B5F2", "catch"),
+		scoop("cotton_candy", "Cotton Candy", "rare", "#96D6FF", "catch"),
+		scoop("red_velvet", "Red Velvet", "rare", "#B0243E", "coins"),
+		scoop("birthday_cake", "Birthday Cake", "rare", "#FFF3DE", "coins"),
+		scoop("brownie", "Brownie", "rare", "#A3744E", "coins"),
+		scoop("cookies_cream", "Cookies and Cream", "rare", "#EEE8E1", "coins"),
+		scoop("coffee", "Coffee", "rare", "#D6B089", "catch"),
+		scoop("dragon_fruit", "Dragon Fruit", "rare", "#E62E9E", "luck"),
+		scoop("pomegranate", "Pomegranate", "rare", "#E86F90", "luck"),
+		scoop("honey", "Honey", "rare", "#FFCC66", "coins"),
+		scoop("maple_syrup", "Maple Syrup", "rare", "#F5D5A2", "coins"),
+		scoop("tiramisu", "Tiramisu", "epic", "#E8CCA4", "coins"),
+		scoop("white_chocolate", "White Chocolate", "epic", "#FFF3D8", "coins"),
+		scoop("black_cherry", "Black Cherry", "epic", "#B83D6A", "luck"),
+		scoop("pistachio_cream", "Pistachio Cream", "epic", "#D2E69A", "catch"),
+		scoop("salted_caramel", "Salted Caramel", "epic", "#F3C58E", "coins"),
+		scoop("marzipan", "Marzipan", "epic", "#F2CBB2", "coins"),
+		scoop("cinnamon_roll", "Cinnamon Roll", "epic", "#E8B87C", "coins"),
+		scoop("cheesecake", "Cheesecake", "epic", "#FFF0C6", "coins"),
+		scoop("mocha", "Mocha", "epic", "#9A6A4C", "catch"),
+		scoop("passion_fruit", "Passion Fruit", "epic", "#FFB830", "luck"),
+		scoop("royal_cream", "Royal Cream", "legendary", "#F6DFB8", "coins"),
+		scoop("midnight_berry", "Midnight Berry", "legendary", "#6A2FA0", "luck"),
+		scoop("frosted_melon", "Frosted Melon", "legendary", "#FFA766", "catch"),
+		scoop("velvet_dream", "Velvet Dream", "legendary", "#C23A64", "coins"),
+		scoop("mystic_plum", "Mystic Plum", "legendary", "#C25AB8", "luck"),
+		scoop("arctic_coconut", "Arctic Coconut", "legendary", "#F0F7FF", "catch"),
+		scoop("crimson_velvet", "Crimson Velvet", "legendary", "#7E0F24", "coins"),
+		scoop("honey_blossom", "Honey Blossom", "legendary", "#FFEBC2", "luck"),
+		scoop("velvet_mocha", "Velvet Mocha", "legendary", "#5E3422", "catch"),
+		scoop("sapphire_cream", "Sapphire Cream", "legendary", "#F4F6FF", "catch"),
+	}
+do
+	table.insert(list, flavor)
+end
+
 local byId: { [string]: Flavor } = {}
 for _, flavor in list do
 	byId[flavor.id] = flavor
@@ -251,8 +335,8 @@ return {
 	list = list,
 	byId = byId,
 	-- every rarity from the most common up; the place in this list is its rank (the Scoop Chest's threshold, sorting).
-	-- Mythic, Secret and Divine come later, in that order after legendary.
-	rarities = { "common", "uncommon", "rare", "epic", "legendary" },
+	-- Mythic, Secret and Divine have no flavors yet (they come one by one with auras and effects).
+	rarities = { "common", "uncommon", "rare", "epic", "legendary", "mythic", "secret", "divine" },
 	-- the colour of a rarity, e.g. for the name over a scoop in flight or on the ground (ScoopLabel); golden its own
 	rarityColors = {
 		common = "#FFFFFF",
@@ -260,6 +344,24 @@ return {
 		rare = "#5DB4FF",
 		epic = "#C77DFF",
 		legendary = "#FF9F1C",
+		mythic = "#FF4F9A",
+		secret = "#B8F5FF",
+		divine = "#FFF1A6",
 		golden = "#FFD23F",
 	},
+	-- How often the Big Swirl fires each rarity, in percent (Sorten-Katalog, 18.11.2026; together 100). Within a
+	-- rarity every flavor is as likely as the others. A rarity without flavors gives its share to common
+	-- (FlavorOdds), so until Mythic, Secret and Divine exist common fires 52.5 %.
+	rarityChances = {
+		common = 50.94,
+		uncommon = 25,
+		rare = 12,
+		epic = 7,
+		legendary = 3.5,
+		mythic = 1.5,
+		secret = 0.05,
+		divine = 0.01,
+	},
+	baseValue = BASE_VALUE,
+	valueFactors = VALUE_FACTORS,
 }

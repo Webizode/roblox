@@ -145,12 +145,15 @@ function TowerVisual:update(baseCFrame: CFrame, tiltX: number, tiltZ: number)
 				self.landedAt[index] = nil
 			end
 		end
-		scoop:setScale(Vector3.new(widen, squashY, widen))
+		local yaw, poseX, poseZ, size = ScoopFlight.stackPose(index, Look)
+		scoop:setScale(Vector3.new(widen * size, squashY * size, widen * size))
 		table.insert(parts, scoop:updateLod(distance))
 		table.insert(
 			cframes,
 			scoop:at(
-				CFrame.new(base.X + ox, base.Y + oy + drop, base.Z + oz) * CFrame.Angles(0, index * Look.stackTwist, 0)
+				CFrame.new(base.X + ox, base.Y + oy + drop, base.Z + oz)
+					* CFrame.Angles(poseX, 0, poseZ)
+					* CFrame.Angles(0, yaw, 0)
 			)
 		)
 	end

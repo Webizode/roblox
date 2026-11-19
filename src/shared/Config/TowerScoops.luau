@@ -11,13 +11,29 @@ return {
 	-- the client draws LOD1 from farDistance studs on (from the camera) and LOD0 again below farDistance - hysteresis
 	farDistance = 40,
 	hysteresis = 4,
-	-- every scoop on a tower is turned a little further about its own axis than the one below it, so the lobes of a
-	-- stack do not line up into stripes
-	stackTwist = math.rad(37),
+	-- every scoop on a tower sits a little differently (ScoopFlight.stackPose, since prototype 2 of 18.11.2026): a random
+	-- turn about its own axis, tilted up to `tilt` either way, scaleMin to scaleMax of its size; the same for the same
+	-- place, so a stack does not line up into stripes and looks wobbly and hand-made
+	stack = {
+		tilt = math.rad(3),
+		scaleMin = 0.95,
+		scaleMax = 1.05,
+	},
 
 	-- The name and value over a scoop in flight or lying on the ground (not on a tower): readable up to maxDistance
 	-- studs, a fixed size on screen, so it stays readable on a phone. height: studs above the scoop's centre.
-	label = { maxDistance = 40, height = 1.7, textSize = 20, iconSize = 18, coinGap = 2 }, -- "Mint 5[coin]"
+	-- "Mint 5[coin]": the design is drawn at textSize; on screen the text is screenShare of the screen's height, between
+	-- minText and textSize pixels (a phone about 11, a PC 20; phone test 17.11.2026: 20 px stood big in the middle of
+	-- the picture). The coin keeps coinGap pixels after the number.
+	label = {
+		maxDistance = 40,
+		height = 1.7,
+		textSize = 20,
+		iconSize = 18,
+		coinGap = 5,
+		screenShare = 0.024,
+		minText = 11,
+	},
 	-- the landing circle (ShotRenderer): a Neon disc in the flavour colour, shrinking to 40 % as the scoop comes down.
 	-- On the light arena floor (04.11.2026) it needs an outline: a ring picture as a Decal on its top, in Berry; a
 	-- Decal stays opaque on a see-through part and shrinks with it. The disc is a little less see-through than before

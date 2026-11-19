@@ -35,3 +35,11 @@ assets/ShopKit/fbx/
 assets/ShopKit/previews/
 # arena kit 2 FBX: made by assets/ArenaKit2/run_arenakit2.py, previews go straight to the vault (Arena Kit 2 Vorschau)
 assets/ArenaKit2/fbx/
+
+# tower scoops prototype 2 and rollout: made by assets/TowerScoops/build_proto.py / build_rollout.py (Blender); the maps
+# are uploaded to Roblox (ids in proto2/uploaded.json), the previews are copied to the vault (Sorten Vorschau/Prototyp 2)
+assets/TowerScoops/proto2/renders/
+assets/TowerScoops/proto2/meshes/
+assets/TowerScoops/proto2/textures/
+assets/TowerScoops/renders/close_*.png
+assets/TowerScoops/proto2/rollout_*.json

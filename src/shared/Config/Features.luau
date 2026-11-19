@@ -11,7 +11,7 @@ return {
 	scoopChest = true,
 	-- the three placeholder rare flavors (Config/Flavors, placeholder = true) come out of the Big Swirl; off once the
 	-- real rare flavors are in
-	placeholderRares = true,
+	placeholderRares = false, -- off since the real rare flavors are in (18.11.2026)
 	-- the tower scoops' flight looks (Config/TowerScoops): turning and tipping in flight, the swing back upright when
 	-- caught, the trail. Off: a scoop flies upright without a trail (the model and the plop onto the tower stay)
 	towerScoopFlight = false,

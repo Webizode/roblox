@@ -24,6 +24,15 @@ return {
 		-- the controls overview at the right edge in combat mode: off by default (the tutorial teaches the controls), for
 		-- whoever wants it
 		controlsHint = false,
+		-- the touch action buttons' own places from Edit Controls (TouchControls, TouchLayout): per button its centre as
+		-- shares of the screen and its size in screen heights; empty = the default places
+		touchLayout = {},
+	},
+
+	-- layouts: settings that hold a table of button spots (TouchLayout). Only these buttons, each { x, y, size } with x and
+	-- y within 0..1 and size within minSize..maxSize (the same as Config/TouchControls, which the client uses)
+	layouts = {
+		touchLayout = { ids = { "jump", "throw", "dash", "sprint", "combat", "steady" }, minSize = 0.09, maxSize = 0.3 },
 	},
 
 	-- numbers: { min, max, step }; the menu's - and + buttons move by one step

@@ -8,7 +8,8 @@
 -- (nil for a flavor without a picture) and ROUGHNESS. The imported copies are removed from the Workspace afterwards.
 -- A flavor with exactly the base shape needs no import: SHAPE = "vanilla" takes the meshes from that template
 -- (Roblox keeps one mesh asset for the same geometry anyway). Only a flavor with its own shape (lemon: the slice) is
--- imported.
+-- imported. The rarer flavors (18.11.2026, all of the base shape) are built by studio_rarities.luau from
+-- Config/ScoopPictures instead, their pictures come from build_rarities.py.
 -- Picture ids so far: vanilla rbxassetid://72113851695295, lemon rbxassetid://138934234671661, pistachio
 -- rbxassetid://124468234134547 (roughness rbxassetid://107037254055453), watermelon rbxassetid://100281607998297,
 -- chocolate rbxassetid://137837397247322 (roughness rbxassetid://75455599601348), strawberry

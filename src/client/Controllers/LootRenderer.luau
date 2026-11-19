@@ -22,6 +22,8 @@ local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local ScoopModel = require(client:WaitForChild("ScoopModel"))
 local ScoopSign = require(client:WaitForChild("ScoopSign"))
+local ScoopAura = require(client:WaitForChild("ScoopAura"))
+local ScoopBeacon = require(client:WaitForChild("ScoopBeacon"))
 local UiKit = require(client:WaitForChild("UiKit"))
 local PickupVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Pickup"))
 local LootFade = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("LootFade"))
@@ -177,6 +179,8 @@ local function add(wire: Wire)
 	part.Name = "FreeScoop"
 	part.CastShadow = false
 	model:setSign(ScoopSign.new(wire.flavorId, false))
+	model:setAura(ScoopAura.new(wire.flavorId)) -- a legendary one glitters where it lies
+	model:setBeacon(ScoopBeacon.new(wire.flavorId)) -- from rare on, a light column in its rarity's colour
 	local scoop: Drawn = {
 		wire = wire,
 		path = {
@@ -278,6 +282,8 @@ local function onRemoved(id: number, catcher: Player?, reason: string)
 	end
 	drop(scoop)
 	scoop.model:setSign(nil)
+	scoop.model:setAura(nil)
+	scoop.model:setBeacon(nil)
 	local part = scoop.part
 	if catcher then
 		local ground = groundAt(scoop, workspace:GetServerTimeNow() - scoop.wire.t0)

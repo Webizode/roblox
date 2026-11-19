@@ -30,7 +30,8 @@ local WINDOW_WIDTH = 600
 local WINDOW_HEIGHT = 470
 local BUTTON = 48 -- square buttons, big enough for a thumb
 
-type Row = { key: string, label: string }
+-- `action`: a button that does something instead of a value (Edit Controls); `touchOnly`: shown on touch screens only
+type Row = { key: string, label: string, action: string?, touchOnly: boolean? }
 
 local TABS: { { title: string, rows: { Row } } } = {
 	{
@@ -65,6 +66,7 @@ local TABS: { { title: string, rows: { Row } } } = {
 			{ key = "touchSensitivity", label = "Touch sensitivity" },
 			{ key = "gamepadSensitivity", label = "Controller sensitivity" },
 			{ key = "controlsHint", label = "Show controls in combat" },
+			{ key = "editControls", label = "Edit Controls", action = "editControls", touchOnly = true },
 		},
 	},
 }
@@ -102,11 +104,12 @@ local player = Players.LocalPlayer
 local gui: ScreenGui
 local window: any -- UiKit.Window
 local tabs: any -- UiKit.Window.tabs
-local content: Frame
+local content: ScrollingFrame
 local refreshers: { () -> () } = {}
 local hint: Frame
 local hintLines: TextLabel
 local currentTab = 1
+local registry: any = nil
 local originalLighting: { shadows: boolean, effects: { [Instance]: boolean } }? = nil
 
 local function display(key: string, value: any): string
@@ -183,6 +186,24 @@ local function makeRow(row: Row, order: number): Frame
 	list.SortOrder = Enum.SortOrder.LayoutOrder
 	list.Parent = control
 
+	if row.action == "editControls" then
+		-- closes the settings and lays the touch buttons out for moving and sizing (TouchControls)
+		local edit = Buttons.wide({
+			name = "Edit",
+			text = "EDIT",
+			color = Theme.color("sky"),
+			width = 120,
+			height = BUTTON,
+			textSize = 24,
+		})
+		edit.button.Parent = control
+		edit.button.Activated:Connect(function()
+			window.close()
+			registry.TouchControls.edit()
+		end)
+		return frame
+	end
+
 	local isToggle = type(SettingsConfig.defaults[row.key]) == "boolean"
 	if isToggle then
 		local toggle = Buttons.wide({
@@ -241,7 +262,9 @@ local function showTab(index: number)
 	end
 	table.clear(refreshers)
 	for order, row in TABS[index].rows do
-		makeRow(row, order).Parent = content
+		if not row.touchOnly or Screen.input() == "touch" then
+			makeRow(row, order).Parent = content
+		end
 	end
 	refresh()
 end
@@ -301,13 +324,22 @@ local function build()
 	end
 	tabs = Window.tabs(window.content, names, Theme.color("sky"), showTab)
 
-	content = Theme.frame({
-		Name = "Rows",
-		Position = UDim2.fromOffset(0, 58),
-		Size = UDim2.new(1, 0, 1, -58),
-		ZIndex = 4,
-		Parent = window.content,
-	})
+	-- the rows scroll when a tab has more than fit (Controls: the last row stood over the window's edge)
+	local scroller = Instance.new("ScrollingFrame")
+	scroller.Name = "Rows"
+	scroller.BackgroundTransparency = 1
+	scroller.BorderSizePixel = 0
+	scroller.Position = UDim2.fromOffset(0, 58)
+	scroller.Size = UDim2.new(1, 0, 1, -58)
+	scroller.CanvasSize = UDim2.new()
+	scroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroller.ScrollingDirection = Enum.ScrollingDirection.Y
+	scroller.ScrollBarThickness = 6
+	scroller.ScrollBarImageColor3 = Theme.color("creamDark")
+	scroller.Selectable = false
+	scroller.ZIndex = 4
+	scroller.Parent = window.content
+	content = scroller
 	local rows = Instance.new("UIListLayout")
 	rows.FillDirection = Enum.FillDirection.Vertical
 	rows.Padding = UDim.new(0, 4)
@@ -378,6 +410,10 @@ local function applyLighting()
 	for effect, enabled in saved.effects do
 		(effect :: any).Enabled = enabled and effects.postEffects
 	end
+end
+
+function SettingsController.Init(reg)
+	registry = reg
 end
 
 function SettingsController.Start()

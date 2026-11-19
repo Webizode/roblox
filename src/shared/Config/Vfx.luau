@@ -74,6 +74,151 @@ return {
 	-- player's own still play)
 	maxLive = 400,
 
+	-- The light, lasting particles round a legendary scoop while it flies or lies on the ground (ScoopAura; never on a
+	-- tower, 18.11.2026), each legendary flavor its own. Only within `maxDistance` studs of the camera and only the
+	-- `maxShown` nearest at once; the VFX quality scales the rate (`quality`, low: none). Per flavor: a texture of
+	-- `textures`, two colours (a gradient over the life), particles per second, size and life (min, max), speed (min,
+	-- max, studs per second, in all directions, from the whole scoop), `rise` (studs per second squared, negative falls:
+	-- snow, petals), `spin` (degrees per second) and `light` (LightEmission).
+	-- The rarity beacon (ScoopBeacon, 18.11.2026): a soft light column in the rarity's colour (Config/Flavors
+	-- rarityColors) over a scoop lying on the ground, so its rarity reads from far away. Only from rare on; the rarer,
+	-- the higher and wider. A Beam facing the camera, see-through towards its top. Budget like the auras: only the
+	-- maxShown nearest within maxDistance show (low VFX quality: half as many), checked every `check` seconds.
+	beacons = {
+		maxDistance = 260,
+		maxShown = 16,
+		check = 0.3,
+		quality = { high = 1, medium = 1, low = 0.5 },
+		-- height and width in studs, `transparency` at its foot (its top is fully see-through)
+		byRarity = {
+			rare = { height = 7, width = 0.9, transparency = 0.55 },
+			epic = { height = 10, width = 1.2, transparency = 0.45 },
+			legendary = { height = 14, width = 1.6, transparency = 0.35 },
+			mythic = { height = 17, width = 1.9, transparency = 0.3 },
+			secret = { height = 19, width = 2.1, transparency = 0.25 },
+			divine = { height = 22, width = 2.4, transparency = 0.2 },
+		},
+	},
+
+	auras = {
+		maxDistance = 70,
+		maxShown = 10,
+		check = 0.25, -- seconds between looks at distance and quality
+		quality = { high = 1, medium = 0.5, low = 0 },
+		kinds = {
+			royal_cream = {
+				texture = "star",
+				colors = { "#FFD54A", "#B57BFF" },
+				rate = 5,
+				size = { 0.18, 0.32 },
+				life = { 0.8, 1.4 },
+				speed = { 0.4, 1.0 },
+				rise = 0.6,
+				spin = 90,
+				light = 0.6,
+			}, -- gold and purple glitter
+			midnight_berry = {
+				texture = "star",
+				colors = { "#D63FA8", "#6A2FA0" },
+				rate = 4,
+				size = { 0.15, 0.28 },
+				life = { 1.0, 1.6 },
+				speed = { 0.2, 0.6 },
+				rise = 0.3,
+				spin = 60,
+				light = 0.5,
+			}, -- night sparkles
+			frosted_melon = {
+				texture = "star",
+				colors = { "#FFFFFF", "#BFEFFF" },
+				rate = 5,
+				size = { 0.14, 0.26 },
+				life = { 1.2, 1.8 },
+				speed = { 0.2, 0.5 },
+				rise = -0.8,
+				spin = 45,
+				light = 0.3,
+			}, -- snowflakes
+			velvet_dream = {
+				texture = "blob",
+				colors = { "#FFD0DC", "#F08AA8" },
+				rate = 4,
+				size = { 0.16, 0.3 },
+				life = { 0.8, 1.3 },
+				speed = { 0.3, 0.7 },
+				rise = 0.7,
+				spin = 0,
+				light = 0.4,
+			}, -- soft pink bubbles
+			mystic_plum = {
+				texture = "star",
+				colors = { "#FFD24A", "#E6B8F2" },
+				rate = 4,
+				size = { 0.16, 0.3 },
+				life = { 1.0, 1.5 },
+				speed = { 0.3, 0.6 },
+				rise = 0.2,
+				spin = 120,
+				light = 0.7,
+			}, -- golden moon dust
+			arctic_coconut = {
+				texture = "star",
+				colors = { "#FFFFFF", "#7FD4FF" },
+				rate = 6,
+				size = { 0.12, 0.22 },
+				life = { 1.2, 1.8 },
+				speed = { 0.2, 0.4 },
+				rise = -1.0,
+				spin = 30,
+				light = 0.3,
+			}, -- fine snow
+			crimson_velvet = {
+				texture = "flash",
+				colors = { "#FFC24A", "#E0182E" },
+				rate = 6,
+				size = { 0.1, 0.2 },
+				life = { 0.5, 0.9 },
+				speed = { 0.6, 1.4 },
+				rise = 1.6,
+				spin = 0,
+				light = 0.9,
+			}, -- small sparks
+			honey_blossom = {
+				texture = "drop",
+				colors = { "#FFFFFF", "#FFD6B8" },
+				rate = 3,
+				size = { 0.2, 0.32 },
+				life = { 1.4, 2.0 },
+				speed = { 0.3, 0.6 },
+				rise = -0.6,
+				spin = 140,
+				light = 0.1,
+			}, -- petals
+			velvet_mocha = {
+				texture = "cloud",
+				colors = { "#FFF0DC", "#C8A080" },
+				rate = 3,
+				size = { 0.3, 0.5 },
+				life = { 1.0, 1.6 },
+				speed = { 0.1, 0.3 },
+				rise = 0.8,
+				spin = 20,
+				light = 0.0,
+			}, -- warm steam
+			sapphire_cream = {
+				texture = "star",
+				colors = { "#9EB0FF", "#1E3FBF" },
+				rate = 5,
+				size = { 0.16, 0.3 },
+				life = { 0.8, 1.3 },
+				speed = { 0.3, 0.8 },
+				rise = 0.4,
+				spin = 100,
+				light = 0.8,
+			}, -- blue sparkle
+		},
+	},
+
 	-- camera jolts (Vfx.Camera); the camera shake setting switches all of them off. The victim's shakes are in
 	-- Config/Movement (hitShake, landShake).
 	camera = {

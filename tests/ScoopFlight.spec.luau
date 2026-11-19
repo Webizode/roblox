@@ -168,14 +168,14 @@ describe("Flavors: the commons", function()
 		end
 	end)
 
-	it("only the commons (and the chest placeholders) are in the game until the new rarer flavors come", function()
-		local real = 0
+	it("the eleven commons are the common flavors (the rarer ones came 18.11.2026)", function()
+		local commons = 0
 		for _, flavor in Flavors.list do
-			if not flavor.placeholder then
-				real += 1
+			if not flavor.placeholder and flavor.rarity == "common" then
+				commons += 1
 			end
 		end
-		expect(real).toBe(#COMMONS)
+		expect(commons).toBe(#COMMONS)
 		for _, id in { "rocky_road", "cookie_dough", "mochi", "jelly", "chili_lava", "cursed_pickle" } do
 			expect(Flavors.byId[id]).toBeNil()
 		end
@@ -188,5 +188,45 @@ describe("Flavors: the commons", function()
 			expect(colors[flavor.color]).toBeNil()
 			ids[flavor.id], colors[flavor.color] = true, true
 		end
+	end)
+end)
+
+describe("Tower scoops: the stack pose", function()
+	it("is the same every time for the same place", function()
+		for index = 1, 30 do
+			local a, b, c, d = ScoopFlight.stackPose(index, Config)
+			local e, f, g, h = ScoopFlight.stackPose(index, Config)
+			expect(a).toBe(e)
+			expect(b).toBe(f)
+			expect(c).toBe(g)
+			expect(d).toBe(h)
+		end
+	end)
+
+	it("stays within the tilt and the size range, a full turn of yaw", function()
+		for index = 1, 200 do
+			local yaw, tiltX, tiltZ, scale = ScoopFlight.stackPose(index, Config)
+			expect(yaw >= 0 and yaw < 2 * math.pi).toBe(true)
+			expect(math.abs(tiltX) <= Config.stack.tilt).toBe(true)
+			expect(math.abs(tiltZ) <= Config.stack.tilt).toBe(true)
+			expect(scale >= Config.stack.scaleMin and scale <= Config.stack.scaleMax).toBe(true)
+		end
+	end)
+
+	it("differs from place to place: no two neighbours turned alike", function()
+		local sizes = {}
+		for index = 1, 30 do
+			local yaw = ScoopFlight.stackPose(index, Config)
+			local next = ScoopFlight.stackPose(index + 1, Config)
+			local apart = math.abs(yaw - next) % (2 * math.pi)
+			expect(math.min(apart, 2 * math.pi - apart) > math.rad(3)).toBe(true)
+			local _, _, _, scale = ScoopFlight.stackPose(index, Config)
+			sizes[math.floor((scale - Config.stack.scaleMin) / 0.025)] = true
+		end
+		local spread = 0
+		for _ in sizes do
+			spread += 1
+		end
+		expect(spread >= 3).toBe(true)
 	end)
 end)
