@@ -7,9 +7,13 @@
 -- with Begin and End) and say when it shows (TouchControls.setShown: Throw only in combat mode).
 --
 -- Where the buttons sit: TouchLayout from the defaults and the player's own layout (Settings touchLayout), always on
--- the screen, under Roblox's top bar and apart from each other. Edit Controls (TouchControls.edit, from the settings)
--- lets a finger move each button and a slider size the picked one; Save stores it, Reset to default goes back to the
--- default places, Cancel throws the changes away.
+-- the screen, under Roblox's top bar and apart from each other. The same layout also places three displays of the HUD
+-- (since 20.11.2026: the dash bar, the ice balls, the balance gauge; Config/TouchControls panels): Hud asks
+-- TouchControls.panel where they go. Edit Controls (TouchControls.edit, from the settings) lets a finger move each
+-- button and display (the displays show as named boxes then) and a slider size the picked one; nothing can leave the
+-- screen, cover another element, the HUD's fixed buttons or the move stick's zone. Save stores only what was moved
+-- and says whether the server really stored it, Reset puts everything back to its default, Cancel throws the changes
+-- away.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -36,35 +40,69 @@ type Button = {
 	shown: boolean,
 	input: InputObject?, -- the finger holding it
 }
+type Proxy = { button: TextButton, stroke: UIStroke } -- a display's stand-in while editing
+
+local PANELS = TouchConfig.panels
 
 local player = Players.LocalPlayer
 local gui: ScreenGui
 local editorGui: ScreenGui
 local buttons: { [string]: Button } = {}
+local proxies: { [string]: Proxy } = {}
 local spots: TouchLayout.Layout = {}
 local jumpHeld = false
+local jumpQueued = false -- a tap shorter than a frame still jumps once
+local layoutListeners: { () -> () } = {}
 
 -- Edit Controls
 local editing = false
 local working: TouchLayout.Layout = {}
+local moved: { [string]: boolean } = {} -- what Save stores (moved or sized now, or already saved before)
 local selected: string? = nil
-local drag: { id: string, input: InputObject, from: Vector3, start: TouchLayout.Spot }? = nil
+local drag: { id: string, input: InputObject, from: Vector3, start: any }? = nil
 local sliderInput: InputObject? = nil
 local releaseHud: (() -> ())? = nil -- the rest of the HUD is out of the way while editing
 local knob: Frame
 local track: Frame
 local sizeLabel: TextLabel
+local editorPanel: Frame? = nil
+local EDITOR_SHARE = 0.56 -- the Edit Controls panel takes at most this share of the width, top left
 
 local function touchScreen(): boolean
 	return Screen.input() == "touch"
 end
 
--- The screen in GUI pixels and the top bar's height (no button reaches up there).
+-- The screen in GUI pixels and the top bar's height (nothing reaches up there).
 local function screen(): (number, number, number)
 	local size = Screen.size()
 	local plan = Screen.plan()
 	local top = if plan and plan.topbar then plan.topbar.height else 0
 	return size.X, size.Y, top
+end
+
+-- The displays' default rectangles from the HUD's plan (the gauge at its combat-mode place: in Edit Controls the ice
+-- balls show too), and what a moved element must keep clear of: the HUD's fixed buttons and the move stick's zone.
+local function planned(): (TouchLayout.Panels?, { TouchLayout.Rect })
+	local plan = Screen.plan()
+	if not plan or not plan.dash then
+		return nil, {}
+	end
+	local blocked = { plan.top, plan.quick, plan.column, plan.settings, plan.coins, plan.bottom }
+	if plan.touch and plan.zones and plan.zones[1] then
+		table.insert(blocked, plan.zones[1]) -- the move stick
+	end
+	if editing and editorPanel then
+		-- in the ScreenGuis' own pixels (what Position uses), not the screen's: their origin sits under the top bar inset
+		local at, size = editorPanel.AbsolutePosition - editorGui.AbsolutePosition, editorPanel.AbsoluteSize
+		table.insert(blocked, { x = at.X, y = at.Y, w = size.X, h = size.Y })
+	end
+	return { dashBar = plan.dash, ammo = plan.ammo, balance = plan.balance }, blocked
+end
+
+local function resolved(saved: TouchLayout.Layout?): TouchLayout.Layout
+	local width, height, top = screen()
+	local panels, blocked = planned()
+	return TouchLayout.resolve(saved, width, height, top, TouchConfig, panels, blocked)
 end
 
 local function place(entry: Button, spot: TouchLayout.Spot)
@@ -75,20 +113,33 @@ local function place(entry: Button, spot: TouchLayout.Spot)
 end
 
 local function layout()
-	local width, height, top = screen()
+	local width, height = screen()
 	if width <= 0 or height <= 0 then
 		return
 	end
 	if editing then
 		spots = working
 	else
-		spots = TouchLayout.resolve(Settings.get().touchLayout, width, height, top, TouchConfig)
+		spots = resolved(Settings.get().touchLayout)
 	end
 	for id, entry in buttons do
 		local spot = spots[id]
 		if spot then
 			place(entry, spot)
 		end
+	end
+	local panels = planned()
+	for id, proxy in proxies do
+		local spot = spots[id]
+		local default = panels and panels[id]
+		if spot and default then
+			local rect = TouchLayout.panelRect(spot, default, width, height)
+			proxy.button.Position = UDim2.fromOffset(math.round(rect.x), math.round(rect.y))
+			proxy.button.Size = UDim2.fromOffset(math.round(rect.w), math.round(rect.h))
+		end
+	end
+	for _, listener in layoutListeners do
+		task.spawn(listener)
 	end
 end
 
@@ -100,6 +151,12 @@ local function refresh()
 		local picked = editing and id == selected
 		entry.stroke.Color = if picked then Theme.color("select") else Theme.color("outline")
 		entry.stroke.Thickness = if picked then 5 else 3
+	end
+	for id, proxy in proxies do
+		proxy.button.Visible = editing
+		local picked = editing and id == selected
+		proxy.stroke.Color = if picked then Theme.color("select") else Theme.color("outline")
+		proxy.stroke.Thickness = if picked then 5 else 3
 	end
 end
 
@@ -120,6 +177,11 @@ local function startDrag(id: string, input: InputObject)
 	drag = { id = id, input = input, from = input.Position, start = working[id] }
 	refresh()
 	TouchControls.updateSlider()
+end
+
+local function pointer(input: InputObject): boolean
+	local kind = input.UserInputType
+	return kind == Enum.UserInputType.Touch or kind == Enum.UserInputType.MouseButton1
 end
 
 local function makeButton(id: string)
@@ -174,8 +236,7 @@ local function makeButton(id: string)
 
 	local entry: Button = { id = id, button = button, stroke = stroke, shown = true }
 	button.InputBegan:Connect(function(input)
-		local kind = input.UserInputType
-		if kind ~= Enum.UserInputType.Touch and kind ~= Enum.UserInputType.MouseButton1 then
+		if not pointer(input) then
 			return
 		end
 		if editing then
@@ -197,14 +258,52 @@ local function makeButton(id: string)
 	buttons[id] = entry
 end
 
--- Jump: held, the character keeps jumping like with Roblox's own button.
+-- A display's stand-in in Edit Controls: a box of the display's size with its name, moved and sized like a button.
+local function makeProxy(id: string)
+	local color = Theme.color(PANELS.colors[id])
+	local box = Instance.new("TextButton")
+	box.Name = "Panel_" .. id
+	box.Text = ""
+	box.AutoButtonColor = false
+	box.BackgroundColor3 = color
+	box.BackgroundTransparency = 0.2
+	box.ZIndex = 2
+	box.Selectable = false
+	box.Visible = false
+	Theme.corner(box, UDim.new(0, 12))
+	local stroke = Theme.outline(box, 3)
+	Theme.text({
+		Name = "Label",
+		Text = PANELS.labels[id],
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.9, 0.6),
+		TextScaled = true,
+		ZIndex = 3,
+		Parent = box,
+	})
+	box.InputBegan:Connect(function(input)
+		if editing and pointer(input) then
+			startDrag(id, input)
+		end
+	end)
+	box.Parent = gui
+	proxies[id] = { button = box, stroke = stroke }
+end
+
+-- Jump: held, the character keeps jumping like with Roblox's own button. The jump is asked for right before the
+-- physics step (PreSimulation): Roblox's controls write Humanoid.Jump every frame before it, so a jump set anywhere
+-- else can be overwritten before the physics sees it. Not while knocked down.
 local function jump(state: Enum.UserInputState)
 	jumpHeld = state == Enum.UserInputState.Begin
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if humanoid and jumpHeld then
-		humanoid.Jump = true
+	if jumpHeld then
+		jumpQueued = true
 	end
+end
+
+local function knockedDown(): boolean
+	local downUntil = player:GetAttribute("DownUntil")
+	return type(downUntil) == "number" and workspace:GetServerTimeNow() < downUntil
 end
 
 -- Roblox's jump button stays hidden while ours are up (it comes back with every new TouchGui).
@@ -223,32 +322,32 @@ end
 
 -- ============================================================================================== Edit Controls ===
 
-local function copy(layout: TouchLayout.Layout): TouchLayout.Layout
+local function copy(from: TouchLayout.Layout): TouchLayout.Layout
 	local made: TouchLayout.Layout = {}
-	for id, spot in layout do
-		made[id] = { x = spot.x, y = spot.y, size = spot.size }
+	for id, spot in from do
+		made[id] = table.clone(spot)
 	end
 	return made
 end
 
--- Moves the dragged button where the finger is, as far as it stays on the screen and clear of the others (sliding
--- along a button in the way rather than stopping).
+-- Moves the dragged element where the finger is, as far as it stays on the screen and clear of the others, the
+-- HUD's buttons and the move stick (sliding along something in the way rather than stopping).
 local function onDrag(position: Vector3)
 	local current = drag
 	if not current then
 		return
 	end
 	local width, height, top = screen()
+	local panels, blocked = planned()
 	local delta = position - current.from
 	local start = current.start
 	local function try(dx: number, dy: number): boolean
-		local spot = TouchLayout.inside({
-			x = start.x + dx / width,
-			y = start.y + dy / height,
-			size = working[current.id].size,
-		}, width, height, top)
-		if TouchLayout.free(working, current.id, spot, width, height, TouchConfig) then
+		local candidate = table.clone(working[current.id])
+		candidate.x, candidate.y = start.x + dx / width, start.y + dy / height
+		local spot = TouchLayout.inside(candidate, width, height, top, current.id, TouchConfig, panels)
+		if TouchLayout.free(working, current.id, spot, width, height, TouchConfig, panels, blocked) then
 			working[current.id] = spot
+			moved[current.id] = true
 			return true
 		end
 		return false
@@ -259,31 +358,53 @@ local function onDrag(position: Vector3)
 	layout()
 end
 
--- The slider sizes the picked button; a size that would touch another button is not taken.
+-- The slider's range for the picked element: a button's diameter or a display's scale.
+local function range(id: string): (number, number, string)
+	if TouchLayout.isPanel(id, TouchConfig) then
+		return PANELS.minScale, PANELS.maxScale, "scale"
+	end
+	return TouchConfig.minSize, TouchConfig.maxSize, "size"
+end
+
+-- The slider sizes the picked element; a size that would leave the screen or touch something is not taken.
 local function onSlide(input: InputObject)
-	if not selected then
+	local id = selected
+	if not id then
 		return
 	end
 	local share = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-	local size = TouchConfig.minSize + share * (TouchConfig.maxSize - TouchConfig.minSize)
+	local min, max, field = range(id)
 	local width, height, top = screen()
-	local old = working[selected]
-	local spot = TouchLayout.inside({ x = old.x, y = old.y, size = size }, width, height, top)
-	if TouchLayout.free(working, selected, spot, width, height, TouchConfig) then
-		working[selected] = spot
+	local panels, blocked = planned()
+	local candidate = table.clone(working[id])
+	candidate[field] = min + share * (max - min)
+	local spot = TouchLayout.inside(candidate, width, height, top, id, TouchConfig, panels)
+	if TouchLayout.free(working, id, spot, width, height, TouchConfig, panels, blocked) then
+		working[id] = spot
+		moved[id] = true
 		layout()
 	end
 	TouchControls.updateSlider()
+end
+
+local function labelOf(id: string): string
+	local button = TouchConfig.buttons[id]
+	return if button then button.label else PANELS.labels[id]
 end
 
 function TouchControls.updateSlider()
 	if not knob then
 		return
 	end
-	local spot = selected and working[selected]
-	local share = if spot then (spot.size - TouchConfig.minSize) / (TouchConfig.maxSize - TouchConfig.minSize) else 0
+	local id = selected
+	local spot = id and working[id]
+	local share = 0
+	if id and spot then
+		local min, max, field = range(id)
+		share = (spot[field] - min) / (max - min)
+	end
 	knob.Position = UDim2.fromScale(math.clamp(share, 0, 1), 0.5)
-	sizeLabel.Text = if selected then `SIZE: {TouchConfig.buttons[selected].label}` else "SIZE"
+	sizeLabel.Text = if id then `SIZE: {labelOf(id)}` else "SIZE"
 end
 
 local function stopEditing()
@@ -300,23 +421,26 @@ end
 local function buildEditor()
 	editorGui = Screen.gui("TouchEditor", 25) -- over the whole HUD
 	editorGui.Enabled = false
+	-- top left, at most EDITOR_SHARE of the width: the displays and buttons sit on the right, and nothing may be dragged
+	-- under it (planned: it is in the way while editing)
 	local panel = Theme.frame({
 		Name = "Panel",
 		BackgroundTransparency = 0.15,
 		BackgroundColor3 = Theme.color("chocolate"),
-		AnchorPoint = Vector2.new(0.5, 0),
+		AnchorPoint = Vector2.new(0, 0),
 		Size = UDim2.fromOffset(640, 196),
 		Active = true,
 		Parent = editorGui,
 	})
+	editorPanel = panel
 	Theme.corner(panel, UDim.new(0, 22))
 	Theme.outline(panel, 3, Theme.color("rim"))
 	local scale = Instance.new("UIScale")
 	scale.Parent = panel
 	Screen.onChanged(function(plan)
 		local width = Screen.size().X
-		scale.Scale = math.min(plan.scale, (width - 2 * plan.frame.x) / 660)
-		panel.Position = UDim2.fromOffset(math.round(width / 2), math.round(plan.frame.y))
+		scale.Scale = math.min(plan.scale, (width * EDITOR_SHARE - plan.frame.x) / 640)
+		panel.Position = UDim2.fromOffset(math.round(plan.frame.x), math.round(plan.frame.y))
 	end)
 
 	Theme.text({
@@ -330,7 +454,7 @@ local function buildEditor()
 	})
 	local hint = Theme.text({
 		Name = "Hint",
-		Text = "Drag a button to move it. Tap one, then use the slider to resize it.",
+		Text = "Drag a button or display to move it. Tap one, then use the slider to resize it.",
 		FontFace = Theme.fontText,
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 46),
@@ -385,14 +509,13 @@ local function buildEditor()
 	grab.Selectable = false
 	grab.Parent = track
 	grab.InputBegan:Connect(function(input)
-		local kind = input.UserInputType
-		if kind == Enum.UserInputType.Touch or kind == Enum.UserInputType.MouseButton1 then
+		if pointer(input) then
 			sliderInput = input
 			onSlide(input)
 		end
 	end)
 
-	-- Save, Reset to default, Cancel
+	-- Save, Reset, Cancel
 	local row = Theme.frame({
 		Name = "Buttons",
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -413,13 +536,21 @@ local function buildEditor()
 		made.button.Activated:Connect(callback)
 	end
 	wide("Save", "SAVE", Theme.color("mint"), 1, function()
-		Settings.set("touchLayout", copy(working))
+		-- only what was moved is stored (the rest keeps following the defaults); the toast waits for the server
+		local stored = TouchLayout.toSave(working, moved)
 		stopEditing()
-		UiKit.Toast.show("CONTROLS SAVED", "good")
+		Settings.saveNow("touchLayout", stored, function(ok)
+			if ok then
+				UiKit.Toast.show("CONTROLS SAVED", "good")
+			else
+				UiKit.Toast.show("NOT SAVED - TRY AGAIN", "bad")
+			end
+		end)
 	end)
-	wide("Reset", "RESET TO DEFAULT", Theme.color("yellow"), 2, function()
-		local width, height, top = screen()
-		working = TouchLayout.resolve(nil, width, height, top, TouchConfig)
+	wide("Reset", "RESET", Theme.color("yellow"), 2, function()
+		-- everything back to its default; Save stores that (an empty layout)
+		working = copy(resolved(nil))
+		table.clear(moved)
 		layout()
 		TouchControls.updateSlider()
 	end)
@@ -431,8 +562,12 @@ function TouchControls.edit()
 	if editing or not touchScreen() then
 		return
 	end
-	local width, height, top = screen()
-	working = copy(TouchLayout.resolve(Settings.get().touchLayout, width, height, top, TouchConfig))
+	local saved = Settings.get().touchLayout
+	working = copy(resolved(saved))
+	table.clear(moved)
+	for id in saved do
+		moved[id] = true
+	end
 	editing = true
 	selected = TouchConfig.order[1]
 	releaseHud = UiKit.HudAway.push({ "TouchControls" })
@@ -468,11 +603,35 @@ function TouchControls.setShown(id: string, shown: boolean)
 	end
 end
 
+-- Where a display goes on this touch screen (Hud): its rectangle in the ScreenGui's pixels, its scale against the
+-- plan's size, and whether the player moved it. nil: not a touch screen or not laid out yet (the plan's place holds).
+function TouchControls.panel(id: string): (TouchLayout.Rect?, number, boolean)
+	if not touchScreen() or editing then
+		return nil, 1, false
+	end
+	local spot = spots[id]
+	local panels = planned()
+	local default = panels and panels[id]
+	if not spot or not default then
+		return nil, 1, false
+	end
+	local width, height = screen()
+	return TouchLayout.panelRect(spot, default, width, height), spot.scale, Settings.get().touchLayout[id] ~= nil
+end
+
+-- Calls `listener()` after every new layout (a new screen, a saved or loaded layout, Edit Controls closing).
+function TouchControls.onLayout(listener: () -> ())
+	table.insert(layoutListeners, listener)
+end
+
 function TouchControls.Init()
 	gui = Screen.gui("TouchControls", 6)
 	buildEditor()
 	for _, id in TouchConfig.order do
 		makeButton(id)
+	end
+	for _, id in PANELS.order do
+		makeProxy(id)
 	end
 	buttons.throw.shown = false -- only in combat mode
 	TouchControls.bind("jump", function(state)
@@ -517,13 +676,16 @@ function TouchControls.Start()
 			end
 		end
 	end)
-	RunService.Heartbeat:Connect(function()
-		if jumpHeld and not editing then
-			local character = player.Character
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-			if humanoid then
-				humanoid.Jump = true
-			end
+	RunService.PreSimulation:Connect(function()
+		local wanted = jumpHeld or jumpQueued
+		jumpQueued = false
+		if not wanted or editing or knockedDown() then
+			return
+		end
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
+			humanoid.Jump = true
 		end
 	end)
 	-- Studio only: the Workspace attribute StudioEditControls opens Edit Controls, false cancels it (playtests through

@@ -46,7 +46,8 @@ function SettingsRules.value(key: string, raw: any, config: any): any
 	end
 	local layout = config.layouts and config.layouts[key]
 	if layout then
-		-- button spots (TouchLayout): known buttons with finite numbers only, clamped; anything else is left out
+		-- spots (TouchLayout): known buttons and displays with finite numbers only, clamped; anything else is left out,
+		-- so a save from before the displays, a broken or a hand-made one loads as far as it is good
 		local clean = {}
 		if type(raw) == "table" then
 			for _, id in layout.ids do
@@ -59,6 +60,16 @@ function SettingsRules.value(key: string, raw: any, config: any): any
 					}
 				end
 			end
+			for _, id in layout.panels or {} do
+				local spot = raw[id]
+				if type(spot) == "table" and isFinite(spot.x) and isFinite(spot.y) and isFinite(spot.scale) then
+					clean[id] = {
+						x = math.clamp(spot.x, 0, 1),
+						y = math.clamp(spot.y, 0, 1),
+						scale = math.clamp(spot.scale, layout.minScale, layout.maxScale),
+					}
+				end
+			end
 		end
 		return clean
 	end
@@ -66,6 +77,28 @@ function SettingsRules.value(key: string, raw: any, config: any): any
 		return if type(raw) == "boolean" then raw else default
 	end
 	return default
+end
+
+-- Whether two setting values are the same: plain values equal, tables (layouts) with the same keys and the same values
+-- (numbers within 1e-6, since they go through JSON on the way to the server and back).
+function SettingsRules.same(a: any, b: any): boolean
+	if type(a) == "number" and type(b) == "number" then
+		return math.abs(a - b) <= 1e-6
+	end
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return a == b
+	end
+	for key, value in a do
+		if not SettingsRules.same(value, b[key]) then
+			return false
+		end
+	end
+	for key in b do
+		if a[key] == nil then
+			return false
+		end
+	end
+	return true
 end
 
 -- A complete, valid settings table from anything (a save, a client's message): every known key, nothing else.

@@ -177,6 +177,11 @@ local function placeGauge(slide: boolean)
 	end
 	local rect = if gaugeHigh then plan.balance else plan.balanceLow
 	local scale = if gaugeHigh then plan.balanceScale else plan.balanceLowScale
+	-- moved by the player in Edit Controls (touch screens): it stays where they put it, in and out of combat mode
+	local own, ownScale, moved = registry.TouchControls.panel("balance")
+	if own and moved then
+		rect, scale, slide = own, plan.balanceScale * ownScale, false
+	end
 	local holder = gauge.frame
 	if gaugeSlide then
 		gaugeSlide:Cancel()
@@ -312,8 +317,11 @@ local function layout(plan)
 	local scale = plan.scale
 	Screen.place(coinsFrame, plan.coins, scale)
 	Screen.place(bottom, plan.bottom, scale)
-	Screen.place(ammoGroup, plan.ammo, plan.groupScale)
-	Screen.place(dashBar.frame, plan.dash, plan.groupScale)
+	-- the ice balls and the dash bar where Edit Controls put them on touch screens (TouchControls.panel), else the plan's
+	local ammoRect, ammoScale = registry.TouchControls.panel("ammo")
+	local dashRect, dashScale = registry.TouchControls.panel("dashBar")
+	Screen.place(ammoGroup, ammoRect or plan.ammo, plan.groupScale * ammoScale)
+	Screen.place(dashBar.frame, dashRect or plan.dash, plan.groupScale * dashScale)
 	touchScreen = plan.touch
 	-- on phones the steady bonus is left out of the tower pill
 	if plan.touch then
@@ -337,6 +345,12 @@ function Hud.Init(reg)
 	gauge.set(0, false, false, 0, 0, 0, "ready")
 	dashBar = ArenaHud.dash(gui)
 	Screen.onChanged(layout)
+	-- a new touch layout (saved, loaded, Edit Controls closed) moves the displays too
+	registry.TouchControls.onLayout(function()
+		if currentPlan then
+			layout(currentPlan)
+		end
+	end)
 end
 
 function Hud.Start()

@@ -29,10 +29,18 @@ return {
 		touchLayout = {},
 	},
 
-	-- layouts: settings that hold a table of button spots (TouchLayout). Only these buttons, each { x, y, size } with x and
-	-- y within 0..1 and size within minSize..maxSize (the same as Config/TouchControls, which the client uses)
+	-- layouts: settings that hold a table of spots (TouchLayout). Only these buttons, each { x, y, size } with x and y
+	-- within 0..1 and size within minSize..maxSize, and these displays (panels), each { x, y, scale } with scale within
+	-- minScale..maxScale (the same as Config/TouchControls, which the client uses; tests/TouchLayout.spec checks it)
 	layouts = {
-		touchLayout = { ids = { "jump", "throw", "dash", "sprint", "combat", "steady" }, minSize = 0.09, maxSize = 0.3 },
+		touchLayout = {
+			ids = { "jump", "throw", "dash", "sprint", "combat", "steady" },
+			minSize = 0.09,
+			maxSize = 0.3,
+			panels = { "dashBar", "ammo", "balance" },
+			minScale = 0.6,
+			maxScale = 1.6,
+		},
 	},
 
 	-- numbers: { min, max, step }; the menu's - and + buttons move by one step
@@ -75,5 +83,7 @@ return {
 	},
 
 	saveDelay = 1, -- seconds after the last change before the client sends its settings
+	-- seconds Save in Edit Controls waits for the server to echo the stored layout before it says "NOT SAVED"
+	confirmTimeout = 6,
 	serverInterval = 1, -- the server takes at most one settings update per this many seconds per player
 }

@@ -28,4 +28,17 @@ return {
 	-- the word under the icon, of the button's height; the icon above it
 	labelHeight = 0.22,
 	iconSize = 0.56,
+
+	-- Displays that Edit Controls also moves and sizes (since 20.11.2026), after the buttons: the dash bar, the ice
+	-- balls and the balance gauge. Their default place and size come from the HUD's plan (UiLayout: dash, ammo, balance);
+	-- a moved one stores its centre and its scale against that size (minScale..maxScale). A balance gauge that was never
+	-- moved keeps its two places (over the ice balls in combat mode, in their place without); a moved one stays put.
+	-- In Edit Controls each shows as a box with its name in `color`.
+	panels = {
+		order = { "dashBar", "ammo", "balance" },
+		minScale = 0.6,
+		maxScale = 1.6,
+		labels = { dashBar = "DASH BAR", ammo = "AMMO", balance = "BALANCE" },
+		colors = { dashBar = "mint", ammo = "pink", balance = "sky" },
+	},
 }
