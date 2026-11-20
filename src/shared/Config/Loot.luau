@@ -40,7 +40,11 @@ return {
 	-- the server's check adds what differs between client and server, like the catch check (Config/Launcher)
 	serverTolerance = 1.5,
 	serverSpeedLead = 0.15, -- seconds of root speed (capped at 1.25 x WalkSpeed)
-	maxClaimsPerSecond = 20, -- per player; more are dropped unread (a spam guard, walking through a heap needs a few)
+	maxClaimsPerSecond = 45, -- per player; more are dropped unread (a spam guard: a sweep claims a whole heap at once)
+	-- walking over one of the own spilled scoops picks up every own spilled scoop within this many studs of the root
+	-- at once (on the ground plane, pickupHeight still counts). Test of 20.11.2026: gathering a spilled tower one by
+	-- one was slow stop-and-go walking. Others and Big Swirl scoops still need pickupRadius.
+	ownSweepRadius = 6,
 
 	scoopRadius = 1, -- drawn scoop, a little smaller than one on a tower
 	ringSize = 3.2, -- the owner's glow under a reserved scoop

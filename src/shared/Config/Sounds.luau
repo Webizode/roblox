@@ -7,6 +7,8 @@ return {
 	catch = "rbxasset://sounds/electronicpingshort.wav",
 	serve = "rbxasset://sounds/button.wav",
 	groan = "rbxasset://sounds/snap.wav",
+	-- the warning beep that repeats while the tower groans (Config/Tower warning), rising in pitch; placeholder
+	tipWarn = "rbxasset://sounds/electronicpingshort.wav",
 	topple = "rbxasset://sounds/splat.wav",
 	saved = "rbxassetid://127438224839678", -- "zapsplat cartoon whoosh whip away", 0.33 s
 	dash = "rbxassetid://127438224839678",

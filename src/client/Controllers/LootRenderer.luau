@@ -317,8 +317,8 @@ local function onRejected(id: number)
 	end
 end
 
--- Whether the local player stands on a scoop they may take now.
-local function onScoop(scoop: Drawn, now: number, root: BasePart, humanoid: Humanoid): boolean
+-- Whether the local player stands on a scoop they may take now (within `radius`, pickupRadius when omitted).
+local function onScoop(scoop: Drawn, now: number, root: BasePart, humanoid: Humanoid, radius: number?): boolean
 	if not Loot.canCollect(scoop.rule, player.UserId, now) then
 		return false
 	end
@@ -326,15 +326,32 @@ local function onScoop(scoop: Drawn, now: number, root: BasePart, humanoid: Huma
 	local feet = root.Position.Y - humanoid.HipHeight - root.Size.Y / 2
 	local ground = groundAt(scoop, now - scoop.wire.t0)
 	local dx, dy, dz = root.Position.X - position.X, feet - ground, root.Position.Z - position.Z
-	return Loot.inReach(dx, dy, dz, 0, false, LootConfig)
+	return Loot.inReach(dx, dy, dz, 0, false, LootConfig, radius)
 end
 
--- The local player walks over a scoop they may take: claim it and let it fly to the tower.
-local function tryClaim(scoop: Drawn, now: number, root: BasePart, humanoid: Humanoid)
+-- Whether the local player walks over one of their own spilled scoops right now: then every own spilled scoop within
+-- ownSweepRadius comes along at once (Loot.sweepRadius; the server allows that radius for own scoops).
+local function sweeping(now: number, root: BasePart, humanoid: Humanoid): boolean
+	for _, scoop in drawn do
+		if
+			not scoop.claimedAt
+			and Loot.sweepRadius(scoop.rule, player.UserId, LootConfig) > LootConfig.pickupRadius
+			and onScoop(scoop, now, root, humanoid)
+		then
+			return true
+		end
+	end
+	return false
+end
+
+-- The local player walks over a scoop they may take: claim it and let it fly to the tower. `sweep`: they walk over one
+-- of their own, so their own within ownSweepRadius come too.
+local function tryClaim(scoop: Drawn, now: number, root: BasePart, humanoid: Humanoid, sweep: boolean)
 	if scoop.claimedAt or os.clock() < scoop.retryAt then
 		return
 	end
-	if onScoop(scoop, now, root, humanoid) then
+	local radius = if sweep then Loot.sweepRadius(scoop.rule, player.UserId, LootConfig) else nil
+	if onScoop(scoop, now, root, humanoid, radius) then
 		scoop.claimedAt = os.clock()
 		Remotes.LootClaim:FireServer(scoop.wire.id)
 	end
@@ -398,6 +415,7 @@ local function onRenderStep(dt: number)
 	local canTake = alive and registry.TowerController.canTake()
 	local full = alive and not canTake and registry.TowerController.isFull()
 	local top = registry.TowerController.topPosition()
+	local sweep = canTake and root ~= nil and humanoid ~= nil and sweeping(now, root :: BasePart, humanoid :: Humanoid)
 
 	for id, scoop in drawn do
 		if now >= scoop.wire.endAt + LootConfig.expireGrace then
@@ -439,7 +457,7 @@ local function onRenderStep(dt: number)
 		end
 
 		if canTake and root and humanoid then
-			tryClaim(scoop, now, root, humanoid)
+			tryClaim(scoop, now, root, humanoid, sweep)
 		elseif full and root and humanoid then
 			noteFull(scoop, now, root, humanoid)
 		end

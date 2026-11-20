@@ -28,6 +28,7 @@ export type Config = {
 	serverTolerance: number,
 	serverSpeedLead: number,
 	maxClaimsPerSecond: number,
+	ownSweepRadius: number,
 	scoopRadius: number,
 	ringSize: number,
 	safeRadius: number,
@@ -241,15 +242,34 @@ end
 
 -- Whether a character at (dx, dy, dz) from the scoop (dy: root height above the scoop's ground point) reaches it.
 -- `speed` is the root's horizontal speed, already capped by the caller; the client passes 0 and no tolerance.
-function Loot.inReach(dx: any, dy: any, dz: any, speed: number, tolerant: boolean, config: Config): boolean
+-- `radius` replaces pickupRadius (the own sweep, Loot.sweepRadius).
+function Loot.inReach(
+	dx: any,
+	dy: any,
+	dz: any,
+	speed: number,
+	tolerant: boolean,
+	config: Config,
+	radius: number?
+): boolean
 	if not isFinite(dx) or not isFinite(dy) or not isFinite(dz) then
 		return false
 	end
-	local radius = config.pickupRadius
+	local radius = radius or config.pickupRadius
 	if tolerant then
 		radius += config.serverTolerance + math.max(0, speed) * config.serverSpeedLead
 	end
 	return dx * dx + dz * dz <= radius * radius and math.abs(dy) <= config.pickupHeight
+end
+
+-- How far `userId` reaches a free scoop: the own sweep (ownSweepRadius) for one of their own spilled scoops (a
+-- landed Big Swirl scoop has owner 0), else pickupRadius. The client sweeps only once the player walks over one of
+-- their own scoops; the server accepts the sweep radius for own scoops either way (nothing to gain from more).
+function Loot.sweepRadius(scoop: Scoop, userId: number, config: Config): number
+	if scoop.owner ~= 0 and scoop.owner == userId then
+		return math.max(config.pickupRadius, config.ownSweepRadius)
+	end
+	return config.pickupRadius
 end
 
 export type Landed = {

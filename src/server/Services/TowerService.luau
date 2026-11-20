@@ -613,8 +613,9 @@ function TowerService.count(player: Player): number
 	return state and #state.scoops or 0
 end
 
--- Adds a caught scoop. Returns false when the cone is full or the player has no state.
-function TowerService.addScoop(player: Player, flavorId: string): boolean
+-- Adds a caught scoop, or with reason "pickup" one picked up from the ground (the client starts its grace then).
+-- Returns false when the cone is full or the player has no state.
+function TowerService.addScoop(player: Player, flavorId: string, reason: ("catch" | "pickup")?): boolean
 	local state = states[player]
 	if not state or #state.scoops >= Economy.capacity(state.coneLevel, EconomyConfig) then
 		return false
@@ -623,7 +624,7 @@ function TowerService.addScoop(player: Player, flavorId: string): boolean
 		state.carryStartedAt = now()
 	end
 	table.insert(state.scoops, flavorId)
-	publish(player, state, "catch")
+	publish(player, state, reason or "catch")
 	return true
 end
 

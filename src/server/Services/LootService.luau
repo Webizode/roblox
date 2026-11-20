@@ -170,13 +170,14 @@ local function onClaim(player: Player, id: any)
 			position.Z - (scoop.baseZ + z),
 			speed,
 			true,
-			LootConfig
+			LootConfig,
+			Loot.sweepRadius(scoop, player.UserId, LootConfig)
 		)
 	then
 		return reject(player, id, "too far away")
 	end
 
-	if not registry.TowerService.addScoop(player, scoop.path.flavorId) then
+	if not registry.TowerService.addScoop(player, scoop.path.flavorId, "pickup") then
 		return reject(player, id, "cone is full")
 	end
 	if not scoop.landed then

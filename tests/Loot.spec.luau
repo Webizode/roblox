@@ -256,6 +256,24 @@ describe("Spilled scoops: who may pick up", function()
 		expect(Loot.inReach(30, 0, 30, 0, true, Config)).toBe(false)
 	end)
 
+	it("sweeps the own spilled scoops within ownSweepRadius at once, never others' or Big Swirl scoops", function()
+		local own = { owner = 7, landedAt = 0, ownerFrom = 0, ownerUntil = 0.5, expiresAt = 10 }
+		local landed = { owner = 0, landedAt = 0, ownerFrom = 0, ownerUntil = 0, expiresAt = 3 }
+		expect(Config.ownSweepRadius > Config.pickupRadius).toBe(true)
+		expect(Loot.sweepRadius(own, 7, Config)).toBe(Config.ownSweepRadius)
+		expect(Loot.sweepRadius(own, 8, Config)).toBe(Config.pickupRadius) -- somebody else's spilled scoop
+		expect(Loot.sweepRadius(landed, 7, Config)).toBe(Config.pickupRadius)
+		expect(Loot.sweepRadius(landed, 0, Config)).toBe(Config.pickupRadius)
+		-- the sweep reaches as far as it says, the height limit still counts, the server keeps its tolerance on top
+		local radius = Loot.sweepRadius(own, 7, Config)
+		expect(Loot.inReach(radius, 0, 0, 0, false, Config, radius)).toBe(true)
+		expect(Loot.inReach(radius + 0.1, 0, 0, 0, false, Config, radius)).toBe(false)
+		expect(Loot.inReach(radius + 1, 0, 0, 0, true, Config, radius)).toBe(true)
+		expect(Loot.inReach(0, Config.pickupHeight + 1, 0, 0, true, Config, radius)).toBe(false)
+		-- a whole spill of the largest cone fits the claim budget in one second
+		expect(Config.maxClaimsPerSecond >= math.floor(65 * EconomyConfig.spillShare + 0.5)).toBe(true)
+	end)
+
 	it("never trusts NaN or infinite offsets", function()
 		local nan = 0 / 0
 		expect(Loot.inReach(nan, 0, 0, 0, true, Config)).toBe(false)

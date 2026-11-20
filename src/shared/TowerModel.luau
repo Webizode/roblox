@@ -35,7 +35,13 @@ export type Tuning = {
 	safeTiltFraction: number?, -- in the safe zone the lean stops at this share of tipAngle (below groanFraction)
 	safeEaseTime: number?, -- seconds (time constant) a lean past the safe limit takes to ease back to it
 	safeGravity: number?, -- share of the gravity term that still acts in the safe zone (0: none, the tower rights itself)
-	groanDuration: number,
+	groanDuration: number, -- after an ice-ball hit or a dash (within forcedWindow)
+	calmGroanDuration: number?, -- on its own: the longer warning (groanDuration when omitted)
+	forcedWindow: number?, -- seconds a hit or a dash counts as the cause of a groan
+	-- seconds after a pickup and after getting up in which the tower cannot topple on its own (startGrace)
+	graceSeconds: number?,
+	-- scoops from which walking starts to tip the tower harder (accelAuthority); the "Stability" upgrade raises it
+	walkHeavyFrom: number?,
 	gravityGain: number,
 	baseStiffness: number,
 	baseDamping: number,
@@ -64,6 +70,8 @@ export type Params = {
 	damping: number,
 	drift: number,
 	jerk: number,
+	-- the instability walking feels (accelAuthority): gravity - stiffness, shifted by walkHeavyFrom
+	walkInstability: number,
 }
 
 export type State = {
@@ -87,6 +95,8 @@ export type State = {
 	seenVx: number,
 	seenVz: number,
 	stance: boolean, -- the steady stance is held: the stabiliser works on the real lean at full strength
+	graceUntil: number, -- state.t until which the tower cannot topple on its own (startGrace)
+	forcedAt: number, -- state.t of the last ice-ball hit or dash (TowerModel.forced)
 }
 
 export type Input = {
@@ -128,6 +138,8 @@ function TowerModel.newState(seed: number): State
 		seenVx = 0,
 		seenVz = 0,
 		stance = false,
+		graceUntil = 0,
+		forcedAt = -math.huge,
 	}
 end
 
@@ -145,6 +157,7 @@ function TowerModel.reset(state: State)
 	state.shake = 0
 	state.seenX, state.seenZ, state.seenVx, state.seenVz = 0, 0, 0, 0
 	state.stance = false
+	-- graceUntil stays: a knockdown's grace (startGrace) must survive the reset its spill brings
 end
 
 -- flavorIds are bottom to top. stiffnessMultiplier comes from the cone upgrade.
@@ -179,13 +192,21 @@ function TowerModel.params(
 		drift = tuning.driftPerScoop * (count - tuning.driftStartScoops + 1)
 	end
 
+	local gravity = tuning.gravityGain * centreOfMass
+	-- Walking feels the instability above that of a tower of walkHeavyFrom plain scoops on the starter cone (whose
+	-- gravity is gravityGain * (n + 1) / 2). At the default (where gravity meets baseStiffness) that shift is zero,
+	-- so walking feels exactly gravity - stiffness; every scoop more of walkHeavyFrom takes half a unit off it.
+	local heavyFrom = tuning.walkHeavyFrom
+	local shift = if heavyFrom then tuning.gravityGain * (heavyFrom + 1) / 2 - tuning.baseStiffness else 0
+
 	return {
 		count = count,
-		gravity = tuning.gravityGain * centreOfMass,
+		gravity = gravity,
 		stiffness = stiffness,
 		damping = math.max(tuning.minDamping, damping),
 		drift = drift,
 		jerk = jerk,
+		walkInstability = math.max(0, gravity - stiffness - shift),
 	}
 end
 
@@ -231,18 +252,26 @@ export type StanceTuning = {
 	kd: number,
 }
 
+export type RescueTuning = {
+	authority: number, -- rad/s^2 of pad the rescue may use at most
+	kp: number,
+	kd: number,
+}
+
 -- The automatic stabiliser, fed into step() as pad input (so the pad authority and the full-strength-only-
 -- against-the-lean rule apply to it). It is deliberately imperfect: it sees the lean late (smoothed over
 -- assist.lag), gives up between fadeFrom and fadeTo of the tip angle, and gets weaker on taller towers. Small
 -- wobbles go away by themselves; a big lean, fast turns and tall towers need the steady stance. While the stance
 -- is held it works on the real lean without the delay, with its own gains and at most stance.authority rad/s^2.
+-- `still`: the carrier stands still (no move input); a groaning tower is then rescued.
 -- Call once per step, before step().
 function TowerModel.assist(
 	state: State,
 	params: Params,
 	variant: Variant,
-	tuning: Tuning & { assist: AssistTuning, stance: StanceTuning },
-	dt: number
+	tuning: Tuning & { assist: AssistTuning, stance: StanceTuning, rescue: RescueTuning? },
+	dt: number,
+	still: boolean?
 ): (number, number)
 	local assist = tuning.assist
 	local tipAngle = tuning.tipAngle
@@ -255,11 +284,19 @@ function TowerModel.assist(
 		return 0, 0
 	end
 
-	if state.stance then
-		local stance = tuning.stance
-		local limit = math.min(1, stance.authority / TowerModel.padAuthority(params, variant, tuning))
-		return math.clamp(-(stance.kp * state.x + stance.kd * state.vx), -limit, limit),
-			math.clamp(-(stance.kp * state.z + stance.kd * state.vz), -limit, limit)
+	-- The rescue: a groaning tower whose carrier stands still is caught like in the stance (its own gains and
+	-- authority), unless a hit or a dash caused it (TowerModel.forced): those keep their full danger.
+	local rescue = tuning.rescue
+	local rescuing = rescue ~= nil
+		and still == true
+		and state.groan > 0
+		and not state.stance
+		and not TowerModel.forced(state, tuning)
+	if state.stance or rescuing then
+		local gains = if state.stance then tuning.stance else rescue :: RescueTuning
+		local limit = math.min(1, gains.authority / TowerModel.padAuthority(params, variant, tuning))
+		return math.clamp(-(gains.kp * state.x + gains.kd * state.vx), -limit, limit),
+			math.clamp(-(gains.kp * state.z + gains.kd * state.vz), -limit, limit)
 	end
 
 	local seen = math.sqrt(state.seenX * state.seenX + state.seenZ * state.seenZ) / tipAngle
@@ -296,6 +333,8 @@ function TowerModel.dashKick(
 		return 0
 	end
 	local kick = math.min(dash.kickMax, dash.kickBase + dash.kickPerScoop * count)
+	TowerModel.endGrace(state) -- a dash is the player's own risk
+	state.forcedAt = state.t
 	TowerModel.impulse(state, -dirX / length * kick, -dirZ / length * kick)
 	state.unsteadyUntil = state.t + dash.unsteadySeconds
 	state.unsteadyFactor = dash.unsteadyFactor
@@ -336,6 +375,8 @@ function TowerModel.hitKick(
 	local kick = math.min(hit.towerKickMax, hit.towerKickBase + hit.towerKickPerScoop * count)
 		* power
 		* (1 + hit.towerShakeGain * shake)
+	TowerModel.endGrace(state) -- hits work as always, also right after a pickup or getting up
+	state.forcedAt = state.t
 	TowerModel.impulse(state, dirX / length * kick, dirZ / length * kick)
 	state.shake, state.shakeAt = shake + power, state.t
 	state.unsteadyUntil = math.max(state.unsteadyUntil, state.t + hit.unsteadySeconds * (1 + state.shake))
@@ -347,6 +388,40 @@ end
 function TowerModel.landingKick(state: State, tuning: Tuning, count: number)
 	local angle = (hash(state.seed, count * 7919) % 6283) / 1000
 	TowerModel.impulse(state, math.cos(angle) * tuning.landingKick, math.sin(angle) * tuning.landingKick)
+end
+
+-- The grace after a pickup and after getting up (Config/Tower graceSeconds): for `seconds` the tower behaves as in the
+-- safe zone (no gravity pull, lean held below the groan), so it rights itself and cannot topple on its own. A groan
+-- that was running stops quietly (no "saved"). An ice-ball hit or a dash ends it at once (endGrace): what the
+-- players do keeps its full danger.
+function TowerModel.startGrace(state: State, seconds: number)
+	if state.toppled or seconds <= 0 then
+		return
+	end
+	state.graceUntil = math.max(state.graceUntil, state.t + seconds)
+	state.groan = 0
+end
+
+function TowerModel.endGrace(state: State)
+	state.graceUntil = 0
+end
+
+function TowerModel.inGrace(state: State): boolean
+	return state.t < state.graceUntil
+end
+
+-- Whether a hit or a dash within forcedWindow seconds is behind the tower's trouble: then it groans only the short
+-- groanDuration and standing still does not rescue it. Otherwise it is toppling on its own and gets the long warning.
+function TowerModel.forced(state: State, tuning: Tuning): boolean
+	return state.t - state.forcedAt <= (tuning.forcedWindow or 0)
+end
+
+-- How long the tower groans before it topples (see forced).
+function TowerModel.groanLimit(state: State, tuning: Tuning): number
+	if TowerModel.forced(state, tuning) then
+		return tuning.groanDuration
+	end
+	return tuning.calmGroanDuration or tuning.groanDuration
 end
 
 function TowerModel.makeRigid(state: State, seconds: number)
@@ -365,10 +440,10 @@ function TowerModel.padAuthority(params: Params, variant: Variant, tuning: Tunin
 end
 
 -- How strongly base acceleration tips the tower. Walking speed is capped, so without extra leverage on
--- unstable towers a walking-only player (variant A) could never hold more than about a dozen scoops.
+-- unstable towers a walking-only player (variant A) could never hold more than about a dozen scoops. It uses the
+-- walking instability (Tuning walkHeavyFrom), so the Stability upgrade only calms walking, never hits or standing.
 function TowerModel.accelAuthority(params: Params, variant: Variant): number
-	local instability = math.max(0, params.gravity - params.stiffness)
-	return variant.accelGain * (1 + (variant.accelPerInstability or 0) * instability)
+	return variant.accelGain * (1 + (variant.accelPerInstability or 0) * params.walkInstability)
 end
 
 -- One fixed step of the movement smoothing that feeds the tower: the base velocity eases towards the target
@@ -471,7 +546,9 @@ function TowerModel.step(
 	-- In the safe zone gravity does not pull the lean further (Config/Tower safeGravity): the stiffness rights the
 	-- tower, walking and dashes still sway it, so one carried home does not park at the safe limit and topple the
 	-- moment it walks back into the arena.
-	local gravity = if input.safe then params.gravity * (tuning.safeGravity or 0) else params.gravity
+	-- The grace after a pickup or getting up (startGrace) works the same way.
+	local safe = input.safe == true or TowerModel.inGrace(state)
+	local gravity = if safe then params.gravity * (tuning.safeGravity or 0) else params.gravity
 	local accelX = gravity * math.sin(state.x)
 		- params.stiffness * state.x
 		- params.damping * state.vx
@@ -496,7 +573,7 @@ function TowerModel.step(
 	-- that enters the safe zone leaning further is not snapped back: its excess over the safe limit eases away
 	-- (Config/Tower safeEaseTime), and it can only get more upright on the way.
 	local limit = tuning.tipAngle
-	if input.safe then
+	if safe then
 		local safeLimit = math.min(tuning.tipAngle, (tuning.safeTiltFraction or 0.7) * tuning.tipAngle)
 		local excess = math.min(prevTilt, tuning.tipAngle) - safeLimit
 		limit = safeLimit
@@ -521,10 +598,10 @@ function TowerModel.step(
 	end
 
 	-- in the safe zone it never groans, even while it is still easing down from a lean past the groan
-	if not input.safe and tilt >= tuning.groanFraction * tuning.tipAngle then
+	if not safe and tilt >= tuning.groanFraction * tuning.tipAngle then
 		local wasGroaning = state.groan > 0
 		state.groan += dt
-		if state.groan >= tuning.groanDuration then
+		if state.groan >= TowerModel.groanLimit(state, tuning) then
 			state.toppled = true
 			return "toppled"
 		end

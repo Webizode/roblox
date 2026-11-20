@@ -332,6 +332,8 @@ local function onResolved(
 	CombatCamera.hit() -- the aim camera lets go at once; the charge itself goes on
 	if knockdown then
 		knockDown()
+		-- what is left on the tower cannot topple on its own while down and for a moment after getting up
+		registry.TowerController.knockedDown(CombatConfig.knockdownTime)
 		UiKit.Toast.show("KNOCKED DOWN!", "bad", "ammoEmpty")
 	end
 end

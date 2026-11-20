@@ -37,6 +37,7 @@ Kugeln fangen → Turm wächst → du wirst zum Ziel → sicher servieren **oder
    - Stillstehen: bis mindestens 40 Kugeln kippt der Turm nie von selbst.
    - Normales Gehen geradeaus: bis ca. 25 Kugeln stabil, darüber nur mit gelegentlichem Steady.
    - Sprint, Dash, scharfe Kurven und Treffer sind die echten Gefahren und wirken mit der Höhe stärker. (Der Sprung als Turm-Gefahr kommt später.)
+   - Seit 20.11.2026: Nach dem Aufheben von Kugeln und nach dem Aufstehen kann der Turm 3 s nicht von allein kippen (Schonzeit). Treffer und Dash beenden sie sofort. Kippt er von allein, warnt er vorher 1,2 s lang (rot, Wackeln, Warn-Piepen), und wer dabei stehen bleibt, rettet ihn. Nach einem Treffer oder Dash bleibt es bei 0,5 s ohne Rettung.
    - Abgesichert durch Tests in `tests/TowerModel.spec.luau` („The danger comes from players …“), Stellschrauben in `src/shared/Config/Tower.luau`.
 10. **Läuft auf allen Geräten gleich gut.** Handy, Tablet, PC und Konsole sind gleichwertig. Jede Aktion hat Touch-, Gamepad- und Tastatur/Maus-Steuerung. Große Touch-Buttons, lesbare UI auf kleinen Bildschirmen, Leistung auf schwachen Android-Handys geprüft. Zielen mit Daumen und Stick bekommt später eine leichte Zielhilfe. Kamera-Effekte dezent und abschaltbar.
 

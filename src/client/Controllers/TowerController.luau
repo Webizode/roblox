@@ -164,14 +164,20 @@ local function onTowerChanged(newScoops: { string }, reason: string)
 	scoops = newScoops
 	params = TowerModel.params(scoops, Flavors.byId, Tuning, Economy.coneStiffness(coneLevel(), EconomyConfig))
 
-	if reason == "catch" and #scoops > previous then
+	local added = (reason == "catch" or reason == "pickup") and #scoops > previous
+	if added then
 		if toppledAt then
 			-- a catch that was in flight when the tower toppled: the topple answer follows and rebuilds the tower
 			return
 		end
 		TowerModel.landingKick(state, Tuning, #scoops)
 		Sfx.catch(#scoops)
-	elseif reason ~= "catch" then
+		if reason == "pickup" then
+			-- picked up from the ground: the tower cannot topple on its own for a moment (Config/Tower graceSeconds)
+			TowerModel.startGrace(state, Tuning.graceSeconds)
+			visual:setGroan(false)
+		end
+	elseif reason ~= "catch" and reason ~= "pickup" then
 		-- topple, serve or respawn: the server's list is the new starting point
 		TowerModel.reset(state)
 		visual:setGroan(false)
@@ -201,7 +207,9 @@ local function simulate(dt: number, humanoid: Humanoid, safe: boolean)
 			Tuning.turnFactor
 		)
 
-		local padX, padZ = TowerModel.assist(state, params, Tuning.variant, Tuning, STEP)
+		-- standing still (no move input) rescues a groaning tower (Config/Tower rescue)
+		local still = target.Magnitude < 1e-3
+		local padX, padZ = TowerModel.assist(state, params, Tuning.variant, Tuning, STEP, still)
 		local event = TowerModel.step(state, params, {
 			ax = ax,
 			az = az,
@@ -341,6 +349,25 @@ local function onRenderStep(dt: number)
 	replicateTilt(dt)
 end
 
+-- The warning while the tower groans (Config/Tower warning): beeps that rise in pitch the longer it groans,
+-- and a visible wobble on top of the lean (drawn only, the physics and the other players do not see it). The red
+-- gauge comes from the HUD (groaning).
+local warning = Tuning.warning
+local nextBeepAt = 0
+local function tipWarning(): number
+	if state.groan <= 0 or state.toppled or toppledAt then
+		nextBeepAt = 0
+		return 0
+	end
+	local share = math.clamp(state.groan / TowerModel.groanLimit(state, Tuning), 0, 1)
+	local clock = os.clock()
+	if clock >= nextBeepAt then
+		nextBeepAt = clock + warning.beepInterval
+		Sfx.play("tipWarn", warning.beepPitchFrom + (warning.beepPitchTo - warning.beepPitchFrom) * share)
+	end
+	return share
+end
+
 -- Draws the tower after the movement pose (Character + 2), so it stands in the waffle as it is drawn this frame,
 -- leaning and all. The simulation and the catch column above do not depend on it.
 local function onVisualStep(dt: number)
@@ -348,7 +375,14 @@ local function onVisualStep(dt: number)
 	if not root then
 		return
 	end
-	visual:update(CFrame.new(towerBase(root)), state.x, state.z)
+	local shake = tipWarning()
+	local wobbleX, wobbleZ = 0, 0
+	if shake > 0 then
+		local phase = os.clock() * warning.wobbleRate * 2 * math.pi
+		local size = warning.wobbleAngle * (0.4 + 0.6 * shake)
+		wobbleX, wobbleZ = math.sin(phase) * size, math.cos(phase * 1.3) * size * 0.6
+	end
+	visual:update(CFrame.new(towerBase(root)), state.x + wobbleX, state.z + wobbleZ)
 	updateFade(dt)
 end
 
@@ -774,6 +808,15 @@ function TowerController.hit(dirX: number, dirZ: number, power: number)
 	end
 	if Stance.drain(meter, power * CombatConfig.stanceDrain) then
 		stanceEnded(false)
+	end
+end
+
+-- Knocked down: the tower cannot topple on its own while the carrier is down and for graceSeconds after getting up
+-- (Config/Tower). `downSeconds` is how long the knockdown lasts. A hit or a dash still ends it.
+function TowerController.knockedDown(downSeconds: number)
+	if #scoops > 0 and not state.toppled then
+		TowerModel.startGrace(state, downSeconds + Tuning.graceSeconds)
+		visual:setGroan(false)
 	end
 end
 

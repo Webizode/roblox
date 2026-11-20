@@ -24,7 +24,42 @@ return {
 	-- tipping
 	tipAngle = 0.55, -- radians at the top before the tower is clamped
 	groanFraction = 0.8, -- above this share of tipAngle the tower groans
-	groanDuration = 0.5, -- seconds of groaning before it topples
+	-- seconds of groaning before it topples, while it groans: red gauge, stronger visible wobble, warning beeps.
+	-- On its own (no ice-ball hit and no dash within forcedWindow seconds) it groans calmGroanDuration and whoever
+	-- stands still meanwhile rescues it (`rescue` below). Test of 20.11.2026: 0.5 s was too short to react. After a hit
+	-- or a dash it stays groanDuration and there is no rescue, so hits and dashes keep their full danger.
+	groanDuration = 0.5,
+	calmGroanDuration = 1.2,
+	forcedWindow = 2,
+	-- the warning while it groans (purely visual and sound, the physics do not see it): the tower is drawn wobbling
+	-- by up to wobbleAngle radians at wobbleRate per second, growing over the groan; the warning beep repeats every
+	-- beepInterval seconds, from beepPitchFrom to beepPitchTo playback speed
+	warning = {
+		wobbleAngle = 0.07,
+		wobbleRate = 9,
+		beepInterval = 0.25,
+		beepPitchFrom = 0.8,
+		beepPitchTo = 1.4,
+	},
+	-- Rescue (TowerModel.assist): while the tower groans and its carrier stands still (no move input),
+	-- the stabiliser does not give up but catches it like the stance, with these gains and up to `authority` rad/s^2
+	-- of pad. Not after a hit or a dash (forcedWindow above).
+	rescue = {
+		authority = 10,
+		kp = 2.5,
+		kd = 1.0,
+	},
+	-- Grace (TowerModel.startGrace): for this many seconds after picking up a scoop from the ground and after getting
+	-- up from a knockdown, the tower behaves as in the safe zone (rights itself, cannot groan or topple on its own).
+	-- An ice-ball hit or a dash ends it at once. Test of 20.11.2026: gathering a spilled tower of 30 is stop-and-go
+	-- walking, and it ended leaning with momentum where the stabiliser gives up, so it toppled again within 2 s in
+	-- more than half of the cases, over and over.
+	graceSeconds = 3,
+	-- From this many scoops walking tips the tower harder (TowerModel.params walkInstability, accelAuthority): the
+	-- walking leverage grows with the instability above that of a tower of this height on the starter cone. 10 is
+	-- exactly the old behaviour. Only walking: hits, dashes, standing and the stabiliser do not see it. The planned
+	-- "Stability" upgrade raises it (not in the shop yet).
+	walkHeavyFrom = 10,
 	-- outside the arena (the safe zone, ArenaZone) the tower still wobbles but its lean stops at this share of
 	-- tipAngle, below groanFraction: it never groans or topples there, and one groaning as it leaves is saved. The
 	-- server refuses a topple from a player clearly outside (Config/Map arena.serverSlack).

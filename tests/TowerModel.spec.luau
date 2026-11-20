@@ -832,7 +832,7 @@ describe("Outside the arena (safe zone): the tower wobbles but never topples", f
 		local params = paramsFor(stack("vanilla", 20))
 		state.x = Tuning.tipAngle
 		local event = nil
-		for _ = 1, math.ceil(Tuning.groanDuration / DT) + 5 do
+		for _ = 1, math.ceil(TowerModel.groanLimit(state, Tuning) / DT) + 5 do
 			event = TowerModel.step(state, params, TowerModel.NO_INPUT, PAD, Tuning, DT) or event
 			state.x = math.max(state.x, Tuning.tipAngle) -- held at the edge
 			if state.toppled then
@@ -840,5 +840,212 @@ describe("Outside the arena (safe zone): the tower wobbles but never topples", f
 			end
 		end
 		expect(state.toppled).toBe(true)
+	end)
+end)
+
+-- Test of 20.11.2026: a tower of about 30 toppled, its owner gathered the spilled scoops and it toppled again at once,
+-- over and over. Gathering is stop-and-go walking from scoop to scoop while the tower grows back; it ended leaning with
+-- momentum where the stabiliser gives up. The fix: a grace after every pickup (and after getting up), the long warning
+-- with a rescue for standing still, and the own sweep (Config/Loot ownSweepRadius).
+local Loot = require("../src/shared/Loot")
+local LootConfig = require("../src/shared/Config/Loot")
+local TowerShape = require("../src/shared/TowerShape")
+local HitConfig = require("../src/shared/Config/Combat")
+
+-- Topples a tower of `count` on cone level 2, then walks greedily to each spilled scoop (pickupRadius, no sweep, the
+-- harder case) and afterwards stands for `after` seconds. Returns whether it toppled again on its own.
+local function gatherAgain(count: number, seed: number, grace: boolean, after: number, rules: any?): boolean
+	local tuning = rules or Tuning
+	local cone = Economy.coneStiffness(2, EconomyConfig)
+	local capacity = Economy.capacity(2, EconomyConfig)
+	local keep = Economy.keepOnTopple(count, EconomyConfig)
+	local heading = (seed % 628) / 100
+	local paths = Loot.spill(
+		stack("vanilla", count),
+		keep,
+		math.cos(heading) * Tuning.tipAngle,
+		math.sin(heading) * Tuning.tipAngle,
+		seed,
+		LootConfig,
+		Tuning,
+		TowerShape
+	)
+	local left = {}
+	for _, path in paths do
+		table.insert(left, { x = path.lx + path.rx, z = path.lz + path.rz })
+	end
+	local state = TowerModel.newState(seed)
+	local held = keep
+	local params = paramsFor(stack("vanilla", held), cone)
+	local px, pz, vx, vz = 0, 0, 0, 0
+	local standing = 0
+	while standing < after do
+		local tx, tz = 0, 0
+		if #left > 0 then
+			local best, bestDistance = 1, math.huge
+			for index, scoop in left do
+				local distance = math.sqrt((scoop.x - px) ^ 2 + (scoop.z - pz) ^ 2)
+				if distance < bestDistance then
+					best, bestDistance = index, distance
+				end
+			end
+			local speed = Economy.walkSpeed(held, capacity, 0, EconomyConfig)
+			tx, tz = (left[best].x - px) / bestDistance * speed, (left[best].z - pz) / bestDistance * speed
+		else
+			standing += DT
+		end
+		local ax, az
+		vx, vz, ax, az = TowerModel.baseVelocityStep(vx, vz, tx, tz, Tuning.accelSmoothing, DT, Tuning.turnFactor)
+		px += vx * DT
+		pz += vz * DT
+		for index = #left, 1, -1 do
+			if math.sqrt((left[index].x - px) ^ 2 + (left[index].z - pz) ^ 2) <= LootConfig.pickupRadius then
+				table.remove(left, index)
+				held += 1
+				params = paramsFor(stack("vanilla", held), cone)
+				TowerModel.landingKick(state, Tuning, held)
+				if grace then
+					TowerModel.startGrace(state, Tuning.graceSeconds)
+				end
+			end
+		end
+		local padX, padZ = TowerModel.assist(state, params, PAD, tuning, DT, tx == 0 and tz == 0)
+		TowerModel.step(state, params, { ax = ax, az = az, padX = padX, padZ = padZ }, PAD, tuning, DT)
+		if state.toppled then
+			return true
+		end
+	end
+	return false
+end
+
+-- Pushes a tower of `count` (cone level `cone`) over the groan line and runs it with the stabiliser; `still` is the
+-- carrier standing still from the start, `hit` an ice-ball hit at the start. Returns whether it toppled.
+local function groaning(count: number, cone: number, still: boolean, hit: boolean?): boolean
+	local state = TowerModel.newState(5)
+	local params = paramsFor(stack("vanilla", count), Economy.coneStiffness(cone, EconomyConfig))
+	state.x, state.vx = 0.5 * Tuning.tipAngle, 1.2
+	state.seenX, state.seenVx = state.x, state.vx
+	if hit then
+		TowerModel.hitKick(state, HitConfig, count, 1, 0, 0.3)
+	end
+	for _ = 1, 10 / DT do
+		local padX, padZ = TowerModel.assist(state, params, PAD, Tuning, DT, still)
+		TowerModel.step(state, params, { ax = 0, az = 0, padX = padX, padZ = padZ }, PAD, Tuning, DT)
+		if state.toppled then
+			return true
+		end
+	end
+	return false
+end
+
+describe("Gathering a spilled tower (test of 20.11.2026)", function()
+	it("reproduces the bug: under the old rules a gathered tower of 30 often topples again on its own", function()
+		-- before 20.11.2026: no grace, no rescue, 0.5 s of groaning on its own too
+		local old = table.clone(Tuning) :: any
+		old.rescue = nil
+		old.calmGroanDuration = nil
+		local again = 0
+		for seed = 1, 20 do
+			if gatherAgain(30, seed * 977, false, 15, old) then
+				again += 1
+			end
+		end
+		expect(again).toBeGreaterThan(5)
+	end)
+
+	it("standing still after gathering is enough even without the grace now (the rescue catches it)", function()
+		for seed = 1, 20 do
+			expect(gatherAgain(30, seed * 977, false, 15)).toBe(false)
+		end
+	end)
+
+	it("with the grace a gathered tower of 28 to 34 stands: it never topples again on its own", function()
+		for _, count in { 28, 30, 34 } do
+			for seed = 1, 20 do
+				expect(gatherAgain(count, seed * 977, true, 15)).toBe(false)
+			end
+		end
+	end)
+
+	it("in the grace the tower rights itself and cannot groan; afterwards the normal rules apply", function()
+		local state = TowerModel.newState(3)
+		local params = paramsFor(stack("vanilla", 30), Economy.coneStiffness(2, EconomyConfig))
+		state.x, state.vx = 0.9 * Tuning.tipAngle, 0.5
+		TowerModel.startGrace(state, Tuning.graceSeconds)
+		local events = simulate(state, params, PAD, Tuning.graceSeconds - 0.1, nil)
+		expect(#events).toBe(0)
+		expect(state.toppled).toBe(false)
+		expect(TowerModel.tilt(state)).toBeLessThan(0.2 * Tuning.tipAngle)
+		expect(TowerModel.inGrace(state)).toBe(true)
+		simulate(state, params, PAD, 0.2, nil)
+		expect(TowerModel.inGrace(state)).toBe(false)
+	end)
+
+	it("a hit or a dash ends the grace at once: hits keep their full danger", function()
+		local state = TowerModel.newState(3)
+		TowerModel.startGrace(state, Tuning.graceSeconds)
+		TowerModel.hitKick(state, HitConfig, 20, 1, 0, 1)
+		expect(TowerModel.inGrace(state)).toBe(false)
+		TowerModel.startGrace(state, Tuning.graceSeconds)
+		TowerModel.dashKick(state, Tuning.dash, 20, 1, 0)
+		expect(TowerModel.inGrace(state)).toBe(false)
+	end)
+
+	it("the grace survives the reset a knockdown's spill brings", function()
+		local state = TowerModel.newState(3)
+		TowerModel.startGrace(state, 4)
+		TowerModel.reset(state)
+		expect(TowerModel.inGrace(state)).toBe(true)
+	end)
+
+	it("toppling on its own groans longer than after a hit or a dash", function()
+		local state = TowerModel.newState(3)
+		expect(TowerModel.groanLimit(state, Tuning)).toBe(Tuning.calmGroanDuration)
+		TowerModel.hitKick(state, HitConfig, 10, 1, 0, 0.5)
+		expect(TowerModel.groanLimit(state, Tuning)).toBe(Tuning.groanDuration)
+		state.t += Tuning.forcedWindow + 0.1
+		expect(TowerModel.groanLimit(state, Tuning)).toBe(Tuning.calmGroanDuration)
+		expect(Tuning.calmGroanDuration > Tuning.groanDuration).toBe(true)
+	end)
+
+	it("standing still rescues a groaning tower of up to 40; walking on does not", function()
+		for _, case in { { 20, 0 }, { 30, 2 }, { 40, 3 } } do
+			expect(groaning(case[1], case[2], true)).toBe(false)
+			expect(groaning(case[1], case[2], false)).toBe(true)
+		end
+	end)
+
+	it("standing still does not rescue a tower a hit has just pushed over", function()
+		expect(groaning(30, 2, true, true)).toBe(true)
+	end)
+end)
+
+describe("Walking heaviness (Config/Tower walkHeavyFrom, for the Stability upgrade)", function()
+	it("at the default walking feels exactly gravity - stiffness, on every cone", function()
+		expect(Tuning.walkHeavyFrom).toBe(10)
+		for cone = 0, 5 do
+			for count = 1, 65 do
+				local params = paramsFor(stack("vanilla", count), Economy.coneStiffness(cone, EconomyConfig))
+				expect(params.walkInstability).toBeCloseTo(math.max(0, params.gravity - params.stiffness), 1e-9)
+			end
+		end
+	end)
+
+	it("a higher value only calms walking: gravity, pad and hits stay the same", function()
+		local heavier = table.clone(Tuning) :: any
+		heavier.walkHeavyFrom = Tuning.walkHeavyFrom + 6
+		local ids = stack("vanilla", 30)
+		local base = TowerModel.params(ids, FLAVORS, Tuning, 1)
+		local calm = TowerModel.params(ids, FLAVORS, heavier, 1)
+		expect(calm.gravity).toBe(base.gravity)
+		expect(calm.stiffness).toBe(base.stiffness)
+		expect(TowerModel.padAuthority(calm, PAD, heavier)).toBe(TowerModel.padAuthority(base, PAD, Tuning))
+		expect(TowerModel.accelAuthority(calm, PAD)).toBeLessThan(TowerModel.accelAuthority(base, PAD))
+		-- six scoops more: walking with 30 feels like walking with 24 did
+		local felt = TowerModel.params(stack("vanilla", 24), FLAVORS, Tuning, 1)
+		expect(calm.walkInstability).toBeCloseTo(felt.walkInstability, 1e-9)
+		-- a hit kicks as hard either way (it does not look at params)
+		local a, b = TowerModel.newState(1), TowerModel.newState(1)
+		expect(TowerModel.hitKick(a, HitConfig, 30, 1, 0, 1)).toBe(TowerModel.hitKick(b, HitConfig, 30, 1, 0, 1))
 	end)
 end)
