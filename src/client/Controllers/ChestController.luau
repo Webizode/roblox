@@ -1269,6 +1269,8 @@ local function buildWindow()
 	sellAll.button.ZIndex = 6
 	sellAll.button.Parent = content
 	sellAll.button.Activated:Connect(function()
+		-- golden and rainbow start off every time the view opens, so nobody sells them by accident
+		sellPicks.mutations = false
 		showSell()
 	end)
 
