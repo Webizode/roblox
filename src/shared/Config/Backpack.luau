@@ -4,6 +4,10 @@
 
 return {
 	referenceTorsoHeight = 1.6,
+	-- the whole waffle (meshes, rim, the tower's seat in it) this much bigger than the measures below; it sits further
+	-- back by as much as it gets wider, the straps stay. 1.25 since the team test of 20.11.2026 (1 before: too small
+	-- for the tower scoops with their real geometry)
+	waffleScale = 1.25,
 
 	-- the cone, tip down, on the back; stepped from a few cylinders like the tower's cone
 	coneLength = 2.0,

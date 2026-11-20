@@ -45,8 +45,21 @@ type Pad = {
 }
 
 local pads: { [Model]: Pad } = {}
--- each mesh's size and place in its pad's frame at rest, taken before it is squashed for the first time
-local rest: { [BasePart]: { size: Vector3, offset: CFrame } } = setmetatable({}, { __mode = "k" }) :: any
+-- Each mesh's size and place in its pad's frame at rest, taken once, before it is squashed for the first time, and
+-- kept on the part itself (attributes REST_SIZE, REST_OFFSET; local only). Every squash is worked out from it and ends
+-- on it, however many players land at once. Team test of 20.11.2026: a bouncer stayed bigger for good. The rest pose
+-- was kept in a table with weak keys, and Roblox may drop an Instance key while the part still exists: a part dropped
+-- mid-squash was left squashed, and the next bounce took that as its rest size, so the pad grew with every bounce.
+local REST_SIZE = "BounceRestSize"
+local REST_OFFSET = "BounceRestOffset"
+
+local function restOf(part: BasePart): { size: Vector3, offset: CFrame }?
+	local size, offset = part:GetAttribute(REST_SIZE), part:GetAttribute(REST_OFFSET)
+	if typeof(size) == "Vector3" and typeof(offset) == "CFrame" then
+		return { size = size, offset = offset }
+	end
+	return nil
+end
 
 local lastBounce: number? = nil
 local settled: Pad? = nil -- the pad one came back down on after its own jump
@@ -146,24 +159,27 @@ end
 local function pose(pad: Pad, height: number, width: number)
 	for _, part in pad.model:GetDescendants() do
 		if part:IsA("MeshPart") then
-			local base = rest[part]
+			local base = restOf(part)
 			if base then
 				local p = base.offset.Position
-				part.Size = base.size * Vector3.new(width, height, width)
+				local size = base.size
+				part.Size = Vector3.new(Bounce.poseSize(size.X, size.Y, size.Z, height, width))
 				part.CFrame = pad.pivot * CFrame.new(p.X * width, p.Y * height, p.Z * width) * base.offset.Rotation
 			end
 		end
 	end
 end
 
--- Takes the rest pose of meshes not seen yet (only while the pad is not squashed).
+-- Takes the rest pose of meshes not seen yet (only while the pad is not squashed; a mesh that already has one keeps
+-- it for good).
 local function remember(pad: Pad)
 	if pad.squashFrom then
 		return
 	end
 	for _, part in pad.model:GetDescendants() do
-		if part:IsA("MeshPart") and not rest[part] then
-			rest[part] = { size = part.Size, offset = pad.pivot:ToObjectSpace(part.CFrame) }
+		if part:IsA("MeshPart") and not restOf(part) then
+			part:SetAttribute(REST_SIZE, part.Size)
+			part:SetAttribute(REST_OFFSET, pad.pivot:ToObjectSpace(part.CFrame))
 		end
 	end
 end

@@ -52,6 +52,16 @@ return {
 	-- centre, also for a flavor with something on top (the lemon slice)
 	dripDepth = 0.86,
 
+	-- The tower turns with its carrier (ScoopFlight.followYaw; team test of 20.11.2026: it stayed facing one way while
+	-- the character turned): a spring towards the character's yaw. stiffness (1/s^2) and damping (1/s) give about a
+	-- tenth of a second of lag and a small swing past the new heading (damping ratio about 0.55), so it looks carried, not
+	-- glued. Purely visual: the lean, the catch column and the physics do not turn with it.
+	turn = {
+		stiffness = 160,
+		damping = 14,
+		maxStep = 1 / 60,
+	},
+
 	flight = {
 		-- rising: the scoop turns slowly about its own axis, upright
 		spinRate = math.rad(200), -- per second

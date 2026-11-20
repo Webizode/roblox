@@ -58,7 +58,8 @@ local pop: UIScale
 local setFill: (low: number, high: number) -> ()
 local wasPerfect = false
 
--- A thin ring centred on the holder: a light line with a faint dark edge, so it reads on sky, sand and ice cream.
+-- A thin ring centred on the holder: a clean white line. Until the team test of 20.11.2026 a second ring drew a faint
+-- dark edge round it ("Edge", 1 px in the outline colour), which read as a thin black stroke; it is gone.
 local function ring(name: string): (Frame, UIStroke)
 	local frame = Instance.new("Frame")
 	frame.Name = name
@@ -67,15 +68,6 @@ local function ring(name: string): (Frame, UIStroke)
 	frame.BackgroundTransparency = 1
 	Ui.corner(frame, UDim.new(0.5, 0))
 	local line = Ui.stroke(frame, "white", Look.thickness, 0.05)
-	local edge = Instance.new("Frame")
-	edge.Name = "Edge"
-	edge.AnchorPoint = Vector2.new(0.5, 0.5)
-	edge.Position = UDim2.fromScale(0.5, 0.5)
-	edge.Size = UDim2.new(1, Look.thickness * 2, 1, Look.thickness * 2)
-	edge.BackgroundTransparency = 1
-	Ui.corner(edge, UDim.new(0.5, 0))
-	Ui.stroke(edge, "outline", 1, 0.6)
-	edge.Parent = frame
 	frame.Parent = holder
 	return frame, line
 end

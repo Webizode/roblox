@@ -8,8 +8,10 @@ return {
 	-- player's scoops before they could even get up; 13.11.2026 both were 0, before that owner 2 s, others 3 s.
 	ownerLock = 0,
 	othersLock = 0.5,
-	lifetime = 10, -- seconds from the topple until an uncollected scoop disappears with a puff
-	blinkSeconds = 1, -- it blinks for this long before it disappears
+	-- seconds from the topple until an uncollected scoop disappears with a puff. 20 since the team test of 20.11.2026
+	-- (10 before: even with two dashes one hardly got there in time)
+	lifetime = 20,
+	blinkSeconds = 3, -- it blinks for this long before it disappears, so one sees it is about to go (1 until 20.11.2026)
 	-- a client that has not heard of the removal this long after the end removes the scoop itself (it can no longer be
 	-- picked up anyway, Loot.canCollect), so no scoop stays lying around for good
 	expireGrace = 1, -- seconds

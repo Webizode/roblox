@@ -99,6 +99,12 @@ function Bounce.squashAt(t: number, depth: number, config: Config): (number, num
 	return height, width
 end
 
+-- A mesh's size at a squash (height and width shares from squashAt), always from its size at rest: never from its
+-- size of the frame before, so squashes that overlap (several players, several touches) cannot add up.
+function Bounce.poseSize(x: number, y: number, z: number, height: number, width: number): (number, number, number)
+	return x * width, y * height, z * width
+end
+
 export type Claim = {
 	now: number,
 	lastAt: number?, -- the server's last accepted bounce of that player

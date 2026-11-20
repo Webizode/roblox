@@ -163,9 +163,16 @@ local function newPack(player: Player): Pack
 end
 
 -- Sizes for one torso size.
+-- How far the over-shoulder straps run on behind the back: to the rim, which a bigger waffle moves further back
+-- (coneFrame). `body` is the torso's scale, `s` the waffle's.
+local function strapReach(body: number, s: number): number
+	return Look.strapReach * body + (s - body) * Look.coneTopDiameter / 2
+end
+
 local function resize(pack: Pack, torsoSize: Vector3)
 	pack.torsoSize = torsoSize
-	local s = torsoSize.Y / Look.referenceTorsoHeight
+	local body = torsoSize.Y / Look.referenceTorsoHeight
+	local s = body * Look.waffleScale -- the waffle; the straps follow the body
 	local segment = Look.coneLength / Look.coneSegments
 	for index, part in pack.cone do
 		local share = (index - 0.5) / Look.coneSegments
@@ -183,9 +190,9 @@ local function resize(pack: Pack, torsoSize: Vector3)
 		rimPart.Size = Vector3.new(Look.rimHeight, rim, rim) * s
 		tipPart.Size = Vector3.one * Look.coneTipDiameter * s
 	end
-	local width, thickness = Look.strapWidth * s, Look.strapThickness * s
+	local width, thickness = Look.strapWidth * body, Look.strapThickness * body
 	local front = Vector3.new(width, torsoSize.Y * 0.95, thickness)
-	local over = Vector3.new(width, thickness, torsoSize.Z + 2 * thickness + Look.strapReach * s)
+	local over = Vector3.new(width, thickness, torsoSize.Z + 2 * thickness + strapReach(body, s))
 	pack.straps[1].Size, pack.straps[2].Size = front, front
 	pack.straps[3].Size, pack.straps[4].Size = over, over
 end
@@ -213,15 +220,17 @@ local function torsoOf(character: Model): BasePart?
 	return if torso and torso:IsA("BasePart") then torso else nil
 end
 
--- The waffle's frame on a torso (centre on the cone axis, +Y towards the opening) and its scale. The one place the
--- waffle's position comes from: the backpack parts and the scoop tower standing in it (Backpacks.seat) both use
--- it, so the two can never drift apart.
+-- The waffle's frame on a torso (centre on the cone axis, +Y towards the opening) and its scale (the body's times
+-- Look.waffleScale). The one place the waffle's position comes from: the backpack parts and the scoop tower standing
+-- in it (Backpacks.seat) both use it, so the two can never drift apart. A bigger waffle sits further back by as much
+-- as it got wider, so its near side still runs along the back instead of into it.
 local function coneFrame(torso: BasePart): (CFrame, number)
 	local torsoSize = torso.Size
-	local s = torsoSize.Y / Look.referenceTorsoHeight
+	local body = torsoSize.Y / Look.referenceTorsoHeight
+	local s = body * Look.waffleScale
 	-- back is +Z in the torso's frame
-	local back = torsoSize.Z / 2 + AXIS_BACK * s
-	return torso.CFrame * CFrame.new(0, Look.coneUp * s, back) * CFrame.Angles(Look.coneTilt, 0, 0), s
+	local back = torsoSize.Z / 2 + AXIS_BACK * body + (s - body) * Look.coneTopDiameter / 2
+	return torso.CFrame * CFrame.new(0, Look.coneUp * body, back) * CFrame.Angles(Look.coneTilt, 0, 0), s
 end
 
 -- Moves every part and returns the opening's position and the scale, for the local camera fade.
@@ -258,10 +267,11 @@ local function place(pack: Pack, torso: BasePart): (Vector3, number)
 	end
 
 	local strapX = torsoSize.X * 0.25
-	local thickness = Look.strapThickness * s
+	local body = torsoSize.Y / Look.referenceTorsoHeight
+	local thickness = Look.strapThickness * body
 	local frontZ = -(torsoSize.Z / 2 + thickness / 2)
 	local overY = torsoSize.Y / 2 + thickness / 2
-	local overZ = Look.strapReach * s / 2 -- the over-shoulder straps reach back to the rim
+	local overZ = strapReach(body, s) / 2 -- the over-shoulder straps reach back to the rim
 	cframes[count + 1] = torsoCFrame * CFrame.new(-strapX, 0, frontZ)
 	cframes[count + 2] = torsoCFrame * CFrame.new(strapX, 0, frontZ)
 	cframes[count + 3] = torsoCFrame * CFrame.new(-strapX, overY, overZ)

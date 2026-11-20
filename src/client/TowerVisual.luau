@@ -93,6 +93,9 @@ function TowerVisual.new(name: string)
 		base = Vector3.zero,
 		tiltX = 0,
 		tiltZ = 0,
+		yaw = 0, -- the way the stack faces (radians about +Y), following its carrier (update)
+		yawSpeed = 0,
+		turnAt = nil :: number?, -- os.clock of the last update; nil until the first
 	}, TowerVisual)
 end
 
@@ -121,6 +124,8 @@ function TowerVisual:setFlavors(ids: { string })
 	end
 end
 
+-- baseCFrame: where the tower stands and, by its look vector, the way its carrier faces; the stack turns after that
+-- on a spring (Config/TowerScoops turn). The lean stays in world space.
 function TowerVisual:update(baseCFrame: CFrame, tiltX: number, tiltZ: number)
 	local base = baseCFrame.Position
 	self.base = base
@@ -130,11 +135,21 @@ function TowerVisual:update(baseCFrame: CFrame, tiltX: number, tiltZ: number)
 	local distance = if camera then (camera.CFrame.Position - base).Magnitude else 0
 	local now = os.clock()
 
+	local look = baseCFrame.LookVector
+	local target = ScoopFlight.yawOf(look.X, look.Z)
+	if self.turnAt == nil then
+		self.yaw, self.yawSpeed = target, 0 -- a new tower starts facing the right way
+	else
+		self.yaw, self.yawSpeed = ScoopFlight.followYaw(self.yaw, self.yawSpeed, target, now - self.turnAt, Look)
+	end
+	self.turnAt = now
+	local turn = CFrame.Angles(0, self.yaw, 0)
+
 	local count = #self.scoops
 	local parts = table.create(count + 1)
 	local cframes = table.create(count + 1)
 	table.insert(parts, self.cone)
-	table.insert(cframes, CFrame.new(base + Vector3.new(0, Tuning.coneHeight / 2, 0)) * CONE_ROTATION)
+	table.insert(cframes, CFrame.new(base + Vector3.new(0, Tuning.coneHeight / 2, 0)) * turn * CONE_ROTATION)
 	for index, scoop in self.scoops do
 		local ox, oy, oz = TowerShape.offset(index, count, tiltX, tiltZ, Tuning)
 		local drop, squashY, widen = 0, 1, 1
@@ -152,6 +167,7 @@ function TowerVisual:update(baseCFrame: CFrame, tiltX: number, tiltZ: number)
 			cframes,
 			scoop:at(
 				CFrame.new(base.X + ox, base.Y + oy + drop, base.Z + oz)
+					* turn
 					* CFrame.Angles(poseX, 0, poseZ)
 					* CFrame.Angles(0, yaw, 0)
 			)

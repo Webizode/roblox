@@ -1521,5 +1521,6 @@ return {
 
 	-- a lying scoop's last moment (Config/Loot blinkSeconds, landedBlinkSeconds): it blinks `from` times a second
 	-- at the start, `to` at the end, and glints each time it lights up (blinkGlint, only close by)
-	lootBlink = { from = 6, to = 14, see = 0.65, glintLift = 0.6 },
+	-- (from 6 to 3 on 20.11.2026: spilled scoops blink for 3 s now, and 6 a second from the start was hectic)
+	lootBlink = { from = 3, to = 14, see = 0.65, glintLift = 0.6 },
 }

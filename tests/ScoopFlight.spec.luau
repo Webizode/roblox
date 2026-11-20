@@ -182,3 +182,72 @@ describe("Tower scoops: the stack pose", function()
 		expect(spread >= 3).toBe(true)
 	end)
 end)
+
+-- Team test of 20.11.2026: the tower did not turn with its carrier. It follows on a spring (Config/TowerScoops turn).
+describe("The tower turns with its carrier", function()
+	local Look = require("../src/shared/Config/TowerScoops")
+	local DT = 1 / 60
+
+	local function follow(from: number, target: number, seconds: number)
+		local yaw, speed = from, 0
+		local peak = 0 -- the furthest it swings past the target (radians, in the turning direction)
+		local lagAt = nil -- seconds until it is within 10 % of the turn
+		local total = math.abs(ScoopFlight.angleTo(from, target))
+		for step = 1, math.floor(seconds / DT) do
+			yaw, speed = ScoopFlight.followYaw(yaw, speed, target, DT, Look)
+			local left = ScoopFlight.angleTo(yaw, target)
+			if lagAt == nil and math.abs(left) <= 0.1 * total then
+				lagAt = step * DT
+			end
+			-- past the target: the remaining angle points back the other way
+			if ScoopFlight.angleTo(from, target) * left < 0 then
+				peak = math.max(peak, math.abs(left))
+			end
+		end
+		return yaw, peak, lagAt
+	end
+
+	it("ends facing the way the character faces", function()
+		for _, case in { { 0, math.pi / 2 }, { 1, -2 }, { 3, 0.2 } } do
+			local yaw = follow(case[1], case[2], 2)
+			expect(math.abs(ScoopFlight.angleTo(yaw, case[2])) < 1e-3).toBe(true)
+		end
+	end)
+
+	it("follows a moment late and swings a little past (carried, not glued), never wildly", function()
+		local _, peak, lagAt = follow(0, math.pi / 2, 2)
+		expect(lagAt ~= nil and lagAt > 0.05 and lagAt < 0.35).toBe(true)
+		expect(peak > 0).toBe(true) -- a little wobble
+		expect(peak < 0.15 * math.pi / 2).toBe(true) -- under 15 % of the turn
+	end)
+
+	it("takes the short way round (a turn across 180 degrees does not spin the long way)", function()
+		local from, target = math.rad(170), math.rad(-170)
+		local yaw, speed = from, 0
+		local furthest = 0
+		for _ = 1, 120 do
+			yaw, speed = ScoopFlight.followYaw(yaw, speed, target, DT, Look)
+			furthest = math.max(furthest, math.abs(ScoopFlight.angleTo(from, yaw)))
+		end
+		expect(furthest < math.rad(30)).toBe(true) -- the short way is 20 degrees
+		expect(math.abs(ScoopFlight.angleTo(yaw, target)) < 1e-3).toBe(true)
+	end)
+
+	it("a slow frame does not throw it off (it steps at most maxStep at a time)", function()
+		local yaw = ScoopFlight.followYaw(0, 0, 1, 0.5, Look)
+		local fine = 0
+		local speed = 0
+		for _ = 1, 30 do
+			fine, speed = ScoopFlight.followYaw(fine, speed, 1, 0.5 / 30, Look)
+		end
+		expect(math.abs(yaw - fine) < 1e-6).toBe(true)
+	end)
+
+	it("reads the yaw the way CFrame.Angles(0, yaw, 0) turns", function()
+		for _, yaw in { 0, 0.5, -1.2, 2.8 } do
+			-- CFrame.Angles(0, yaw, 0).LookVector = (-sin yaw, 0, -cos yaw)
+			local got = ScoopFlight.yawOf(-math.sin(yaw), -math.cos(yaw))
+			expect(math.abs(ScoopFlight.angleTo(got, yaw)) < 1e-9).toBe(true)
+		end
+	end)
+end)

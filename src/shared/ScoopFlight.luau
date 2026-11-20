@@ -89,4 +89,32 @@ function ScoopFlight.stackPose(index: number, config: any): (number, number, num
 	return yaw, tiltX, tiltZ, scale
 end
 
+-- The angle from `from` to `to` the short way round, in (-pi, pi].
+function ScoopFlight.angleTo(from: number, to: number): number
+	local diff = (to - from) % (2 * math.pi)
+	return if diff > math.pi then diff - 2 * math.pi else diff
+end
+
+-- The tower turning with its carrier (Config/TowerScoops turn, since the team test of 20.11.2026: before, it never
+-- turned and the scoops looked glued to the world): its yaw follows the character's on a spring, the short way round,
+-- a moment late and swinging a little past before it settles. Returns the new yaw and turn speed (rad, rad/s). Steps
+-- of at most maxStep seconds, so a slow frame cannot throw the spring off.
+function ScoopFlight.followYaw(yaw: number, speed: number, target: number, dt: number, config: any): (number, number)
+	local turn = config.turn
+	local left = math.max(0, dt)
+	while left > 1e-9 do
+		local step = math.min(left, turn.maxStep)
+		left -= step
+		local accel = turn.stiffness * ScoopFlight.angleTo(yaw, target) - turn.damping * speed
+		speed += accel * step
+		yaw += speed * step
+	end
+	return yaw % (2 * math.pi), speed
+end
+
+-- The yaw (about +Y) a CFrame's look vector faces, in the convention of CFrame.Angles(0, yaw, 0).
+function ScoopFlight.yawOf(lookX: number, lookZ: number): number
+	return math.atan2(-lookX, -lookZ)
+end
+
 return ScoopFlight

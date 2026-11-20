@@ -382,7 +382,8 @@ local function onVisualStep(dt: number)
 		local size = warning.wobbleAngle * (0.4 + 0.6 * shake)
 		wobbleX, wobbleZ = math.sin(phase) * size, math.cos(phase * 1.3) * size * 0.6
 	end
-	visual:update(CFrame.new(towerBase(root)), state.x + wobbleX, state.z + wobbleZ)
+	-- the base with the character's facing: the stack turns after it (TowerVisual, Config/TowerScoops turn)
+	visual:update(CFrame.new(towerBase(root)) * root.CFrame.Rotation, state.x + wobbleX, state.z + wobbleZ)
 	updateFade(dt)
 end
 

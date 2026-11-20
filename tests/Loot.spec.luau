@@ -229,15 +229,38 @@ describe("Spilled scoops: who may pick up", function()
 		expect(reason).toBe("gone")
 	end)
 
-	it("a spilled scoop lies 10 s, blinks in the last second and is gone for good after it", function()
-		expect(Config.lifetime).toBe(10)
-		expect(Config.blinkSeconds).toBe(1)
+	it("a spilled scoop lies 20 s, blinks in its last 3 s and is gone for good after it", function()
+		-- team test of 20.11.2026: 10 s was too short even with two dashes; about twice as long now
+		expect(Config.lifetime).toBe(20)
+		expect(Config.blinkSeconds).toBe(3)
+		-- it lies long enough to be reached: two dashes (12 studs each) and running 15 s at the slowest walking speed
+		expect(Config.lifetime - Config.blinkSeconds >= 15).toBe(true)
+		-- blinking is the warning at the end, not most of its life
+		expect(Config.blinkSeconds <= Config.lifetime / 4).toBe(true)
+		local endAt = 200
+		expect(Loot.blinks(endAt, endAt - Config.blinkSeconds - 0.01, false, false, Config)).toBe(false)
+		expect(Loot.blinks(endAt, endAt - Config.blinkSeconds + 0.01, false, false, Config)).toBe(true)
+		expect(Loot.blinks(endAt, endAt - 0.01, false, false, Config)).toBe(true)
+		expect(Loot.blinks(endAt, endAt, false, false, Config)).toBe(false)
+		-- and it really blinks over those seconds: lit and dark several times (VfxRules.blink with Config/Vfx.lootBlink)
+		local VfxRules = require("../src/shared/VfxRules")
+		local VfxConfig = require("../src/shared/Config/Vfx")
+		local changes, last = 0, nil
+		for step = 0, 300 do
+			local left = Config.blinkSeconds * (1 - step / 300)
+			local _, dark = VfxRules.blink(left, Config.blinkSeconds, VfxConfig.lootBlink)
+			if last ~= nil and dark ~= last then
+				changes += 1
+			end
+			last = dark
+		end
+		expect(changes >= 10).toBe(true)
 		-- the others' wait fits well inside it
 		expect(Config.fallTime + Config.othersLock < Config.lifetime - Config.blinkSeconds).toBe(true)
 		local t0 = 100
 		local endAt = t0 + Config.lifetime
-		expect(Loot.blinks(endAt, endAt - 1.1, false, false, Config)).toBe(false)
-		expect(Loot.blinks(endAt, endAt - 0.9, false, false, Config)).toBe(true)
+		expect(Loot.blinks(endAt, endAt - Config.blinkSeconds - 0.1, false, false, Config)).toBe(false)
+		expect(Loot.blinks(endAt, endAt - Config.blinkSeconds + 0.1, false, false, Config)).toBe(true)
 		-- a client that missed the removal drops it itself, by then nobody may pick it up any more
 		expect(Config.expireGrace > 0 and Config.expireGrace <= 2).toBe(true)
 		local s = scoop(1, t0 + Config.fallTime)

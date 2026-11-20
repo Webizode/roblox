@@ -191,3 +191,73 @@ describe("Bounce pads, the server's check", function()
 		expect(why).toBe("arena")
 	end)
 end)
+
+-- Team test of 20.11.2026: a bouncer stayed bigger for good after being jumped on. The client works every frame of a
+-- squash out from the mesh's size at rest (Bounce.poseSize with Bounce.squashAt), like BounceController.step does; this
+-- runs that loop with many players landing at once and in quick succession.
+describe("A bounce pad's squash always comes back to its size at rest", function()
+	local REST = { 4.2, 1.3, 4.2 }
+
+	-- BounceController's loop: a squash restarts at every landing (squashFrom), each frame poses from the rest size,
+	-- and when the squash is over it is posed at 1, 1. Returns the size after `seconds`, and the largest seen.
+	local function run(landings: { number }, seconds: number, depth: number)
+		local squashFrom: number? = nil
+		local size = { REST[1], REST[2], REST[3] }
+		local widest = 0
+		local next = 1
+		table.sort(landings)
+		local dt = 1 / 60
+		for frame = 0, math.floor(seconds / dt) do
+			local now = frame * dt
+			while landings[next] and landings[next] <= now do
+				squashFrom = landings[next] -- several in one frame: the last one counts, nothing adds up
+				next += 1
+			end
+			if squashFrom then
+				local t = now - squashFrom
+				local height, width = Bounce.squashAt(t, depth, Config)
+				size[1], size[2], size[3] = Bounce.poseSize(REST[1], REST[2], REST[3], height, width)
+				if t > Config.squashTime + Config.springTime then
+					squashFrom = nil
+					size[1], size[2], size[3] = Bounce.poseSize(REST[1], REST[2], REST[3], 1, 1)
+				end
+			end
+			widest = math.max(widest, size[1])
+		end
+		return size, widest
+	end
+
+	it("is back at exactly its rest size after 200 landings of many players, also several in one frame", function()
+		for _, kind in { "pad", "bouncer" } do
+			local depth = (Config :: any)[kind].squash
+			local landings = {}
+			local seed = 7
+			for _ = 1, 200 do
+				seed = (seed * 1103515245 + 12345) % 2147483648
+				table.insert(landings, (seed % 3000) / 100) -- 200 landings in 30 s, many overlapping
+			end
+			for _ = 1, 5 do
+				table.insert(landings, 12.5) -- five players in the same frame
+			end
+			local size, widest = run(landings, 32, depth)
+			expect(size[1]).toBe(REST[1])
+			expect(size[2]).toBe(REST[2])
+			expect(size[3]).toBe(REST[3])
+			-- and never wider than one squash makes it, however they overlap
+			expect(widest <= REST[1] * (1 + Config.spread) + 1e-9).toBe(true)
+		end
+	end)
+
+	it("a squash ends exactly at rest, and starts from it", function()
+		local height, width = Bounce.squashAt(0, 0.55, Config)
+		expect(height).toBe(1)
+		expect(width).toBe(1)
+		height, width = Bounce.squashAt(Config.squashTime + Config.springTime, 0.55, Config)
+		expect(height).toBe(1)
+		expect(width).toBe(1)
+		local x, y, z = Bounce.poseSize(2, 3, 4, 1, 1)
+		expect(x).toBe(2)
+		expect(y).toBe(3)
+		expect(z).toBe(4)
+	end)
+end)

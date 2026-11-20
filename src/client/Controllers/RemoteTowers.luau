@@ -100,7 +100,7 @@ local function onRenderStep(dt: number)
 			local base = root.CFrame * CFrame.new(0, Tuning.holdUp, -Tuning.holdForward)
 			if seat then
 				local _, bottom = TowerShape.offset(1, 1, 0, 0, Tuning)
-				base = CFrame.new(seat - Vector3.new(0, bottom, 0))
+				base = CFrame.new(seat - Vector3.new(0, bottom, 0)) * root.CFrame.Rotation -- turns with them
 			end
 			remote.visual:update(base, remote.tiltX, remote.tiltZ)
 		end
