@@ -20,8 +20,10 @@ local ServerStorage = game:GetService("ServerStorage")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Economy = require(Shared:WaitForChild("Economy"))
+local Upgrades = require(Shared:WaitForChild("Upgrades"))
 local TargetRules = require(Shared:WaitForChild("TargetRules"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
+local UpgradesConfig = require(Config:WaitForChild("Upgrades"))
 local Features = require(Config:WaitForChild("Features"))
 local Launcher = require(Config:WaitForChild("Launcher"))
 local MapConfig = require(Config:WaitForChild("Map"))
@@ -225,10 +227,13 @@ end
 
 local function measure()
 	local speeds = {
-		{ label = "no tower", speed = Economy.walkSpeed(0, Economy.capacity(0, EconomyConfig), 0, EconomyConfig) },
+		{
+			label = "no tower",
+			speed = Economy.walkSpeed(0, Upgrades.value("cone", 0, UpgradesConfig), 0, EconomyConfig),
+		},
 		{
 			label = `{TOWER} scoops`,
-			speed = Economy.walkSpeed(TOWER, Economy.capacity(0, EconomyConfig), 0, EconomyConfig),
+			speed = Economy.walkSpeed(TOWER, Upgrades.value("cone", 0, UpgradesConfig), 0, EconomyConfig),
 		},
 	}
 	-- the start spots, the same for both paces: landing spots near each set point, and some drawn like random shots
@@ -292,7 +297,7 @@ local function measure()
 	for _, pace in speeds do
 		table.insert(rounds, { label = pace.label, speed = pace.speed, counted = true, starts = starts })
 	end
-	local sprint = Economy.walkSpeed(0, Economy.capacity(0, EconomyConfig), 0, EconomyConfig, true)
+	local sprint = Economy.walkSpeed(0, Upgrades.value("cone", 0, UpgradesConfig), 0, EconomyConfig, true)
 	table.insert(rounds, { label = "sprint, no tower", speed = sprint, counted = true, starts = outbound })
 	local results = {}
 	for _, round in rounds do

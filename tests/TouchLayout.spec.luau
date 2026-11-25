@@ -130,7 +130,7 @@ end)
 local UiLayout = require("../src/shared/UiLayout")
 local UiConfig = require("../src/shared/Config/Ui")
 local SaveData = require("../src/shared/SaveData")
-local EconomyConfig = require("../src/shared/Config/Economy")
+local UpgradesConfig = require("../src/shared/Config/Upgrades")
 
 -- GUI pixels of real devices (Studio's emulator, landscape) and the same phone held upright
 local DEVICES = {
@@ -294,7 +294,7 @@ describe("Movable displays and a layout that survives (phone test 20.11.2026)", 
 		end
 		-- a whole old save (version 1, no settings) and one whose settings are garbage still load with an empty layout
 		for _, raw in { { version = 1, coins = 5 }, { version = 2, settings = "broken" } } do
-			local data = SaveData.migrate(raw, EconomyConfig)
+			local data = SaveData.migrate(raw, UpgradesConfig)
 			local settings = SettingsRules.sanitize(data.settings, SettingsConfig)
 			expect(type(settings.touchLayout)).toBe("table")
 			expect(next(settings.touchLayout)).toBe(nil)

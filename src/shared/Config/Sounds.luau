@@ -36,6 +36,8 @@ return {
 	flightLegendary = "rbxassetid://139493189032178",
 	-- luck turned a caught scoop rarer (placeholder: the "Synth Sparkle" bell of perfectHit, played higher)
 	lucky = "rbxassetid://9126073001",
+	-- an upgrade bought in the shop (UpgradeController; placeholder: the "Magic Twirling" chime of chestOpen)
+	upgradeBuy = "rbxassetid://9125644410",
 	-- a gummy pad throws a player up (Config/Bounce): free Creator Store placeholder "Pogo Stick Boing Sound City Break"
 	bounce = "rbxassetid://137750395861529",
 

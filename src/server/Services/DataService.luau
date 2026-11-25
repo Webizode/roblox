@@ -20,9 +20,8 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local SaveData = require(Shared:WaitForChild("SaveData"))
 local SettingsRules = require(Shared:WaitForChild("SettingsRules"))
 local SaveConfig = require(Config:WaitForChild("Save"))
-local EconomyConfig = require(Config:WaitForChild("Economy"))
 local SettingsConfig = require(Config:WaitForChild("Settings"))
-local ChestConfig = require(Config:WaitForChild("Chest"))
+local UpgradesConfig = require(Config:WaitForChild("Upgrades"))
 local ProfileStore = require(script.Parent.Parent:WaitForChild("Packages"):WaitForChild("ProfileStore"))
 
 local DataService = {}
@@ -39,9 +38,10 @@ end
 
 -- Display values for the client; the leaderstats (coins, best tower) are TowerService's.
 local function publish(player: Player, data: SaveData.Data)
-	player:SetAttribute("ConeLevel", data.upgrades.cone)
-	player:SetAttribute("SneakersLevel", data.upgrades.sneakers)
-	player:SetAttribute("CartLevel", data.upgrades.cart)
+	-- every upgrade's level as Upgrade_<id> (Upgrade_cone, Upgrade_stability, ...): the shop window and the tower read them
+	for id, level in data.upgrades do
+		player:SetAttribute("Upgrade_" .. id, level)
+	end
 	player:SetAttribute("ScoopsServed", data.scoopsServed)
 	player:SetAttribute("FlavorsCollected", SaveData.flavorsCollected(data))
 	-- the settings as JSON: the own client applies them (a table cannot be an attribute)
@@ -75,7 +75,7 @@ local function onPlayer(player: Player)
 
 	profile:AddUserId(player.UserId) -- GDPR: the profile can be found and erased by UserId
 	profile:Reconcile()
-	local _, repaired = SaveData.migrate(profile.Data, EconomyConfig, ChestConfig.equipSlots)
+	local _, repaired = SaveData.migrate(profile.Data, UpgradesConfig)
 	if repaired then
 		print(`[Data] {player.Name}'s save was repaired or migrated to version {SaveData.VERSION}`)
 	end
@@ -224,6 +224,31 @@ function DataService.addCoins(player: Player, coins: number): boolean
 	end
 	data.coins += coins
 	return true
+end
+
+-- The display attributes again after the save changed outside a serve (an upgrade bought or reset).
+function DataService.publish(player: Player)
+	local data = DataService.data(player)
+	if data then
+		publish(player, data)
+	end
+end
+
+-- Saves the profile within `delay` seconds: several changes in that time (quick purchases) share one save.
+-- ProfileStore also saves on its own every few minutes and when the player leaves.
+local saveQueued: { [Player]: boolean } = {}
+function DataService.saveSoon(player: Player, delay: number)
+	if saveQueued[player] then
+		return
+	end
+	saveQueued[player] = true
+	task.delay(delay, function()
+		saveQueued[player] = nil
+		local profile = profiles[player]
+		if profile and profile:IsActive() then
+			profile:Save()
+		end
+	end)
 end
 
 -- Back to the template, saved right away, and every listener hears it like a fresh load.

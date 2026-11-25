@@ -1,6 +1,7 @@
 -- Luck in one place (Config/Luck, the sums in Luck.total): every luck source registers here with a function that
--- gives a player's luck from it, and everything that rolls for luck asks here. So far only the Scoop Chest registers
--- ("chest", ChestService); friends, group, upgrade, potion, server luck and events come later the same way.
+-- gives a player's luck from it, and everything that rolls for luck asks here. So far the Scoop Chest registers
+-- ("chest", ChestService) and the Luck upgrade ("upgrade", UpgradeService, since 25.11.2026); friends, group, potion,
+-- server luck and events come later the same way.
 --   LuckService.register("potion", function(player) return 0.1 end)
 -- Luck only changes what the catcher gets: a caught scoop may turn into one of the next rarer rarity
 -- (ScoopChest.luckyFlavor). The Big Swirl fires the same for everybody.

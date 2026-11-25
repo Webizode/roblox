@@ -4,6 +4,8 @@ local describe, it, expect = harness.describe, harness.it, harness.expect
 local Economy = require("../src/shared/Economy")
 local Recipes = require("../src/shared/Recipes")
 local Config = require("../src/shared/Config/Economy")
+local Upgrades = require("../src/shared/Upgrades")
+local UpgradesConfig = require("../src/shared/Config/Upgrades")
 local Flavors = require("../src/shared/Config/Flavors")
 local RecipeConfig = require("../src/shared/Config/Recipes")
 
@@ -91,7 +93,7 @@ describe("Economy", function()
 	)
 
 	it("slows players down by how full the waffle is: a soft curve, 25 % at full, less with sneakers", function()
-		local cap = Economy.capacity(0, Config)
+		local cap = Upgrades.value("cone", 0, UpgradesConfig)
 		local empty = Economy.walkSpeed(0, cap, 0, Config)
 		expect(empty).toBe(Config.baseWalkSpeed)
 		local function slowAt(share: number): number
@@ -101,7 +103,7 @@ describe("Economy", function()
 		expect(slowAt(0.5)).toBeCloseTo(0.25 * 0.5 ^ 1.5, 1e-9) -- about 9 %
 		expect(slowAt(0.25) < 0.04).toBe(true) -- a little tower stays nimble
 		-- the same at every cone size: full is full
-		local bigCap = Economy.capacity(5, Config)
+		local bigCap = Upgrades.value("cone", UpgradesConfig.tracks.cone.maxLevel, UpgradesConfig)
 		expect(Economy.walkSpeed(bigCap, bigCap, 0, Config)).toBeCloseTo(Economy.walkSpeed(cap, cap, 0, Config), 1e-9)
 		-- more than fits counts as full, never below the minimum
 		expect(Economy.walkSpeed(500, cap, 0, Config)).toBeCloseTo(Economy.walkSpeed(cap, cap, 0, Config), 1e-9)
@@ -111,7 +113,7 @@ describe("Economy", function()
 	end)
 
 	it("speeds sprinting players up by the sprint multiplier, at every height", function()
-		local cap = Economy.capacity(0, Config)
+		local cap = Upgrades.value("cone", 0, UpgradesConfig)
 		for _, count in { 0, 10, 500 } do
 			local walk = Economy.walkSpeed(count, cap, 0, Config)
 			expect(Economy.walkSpeed(count, cap, 0, Config, true)).toBeCloseTo(walk * Config.sprintMultiplier)
@@ -120,40 +122,30 @@ describe("Economy", function()
 	end)
 
 	it("shortens the dash with the tower: up to 20 % of its distance at a full waffle", function()
-		local cap = Economy.capacity(0, Config)
+		local cap = Upgrades.value("cone", 0, UpgradesConfig)
 		expect(Economy.dashScale(0, cap, 0, Config)).toBe(1)
 		expect(Economy.dashScale(cap, cap, 0, Config)).toBeCloseTo(0.8, 1e-9)
 		expect(Economy.dashScale(cap / 2, cap, 0, Config) > 0.9).toBe(true)
 		expect(Economy.dashScale(cap, cap, 5, Config)).toBeGreaterThan(0.8)
 	end)
 
-	it("has strictly rising upgrade costs and effects", function()
-		for _, track in { "cone", "sneakers", "cart" } do
-			local costs = Config.upgrades[track].costs
-			for index = 2, #costs do
-				expect(costs[index]).toBeGreaterThan(costs[index - 1])
-			end
-			expect(Economy.upgradeCost(track, #costs, Config)).toBeNil()
-		end
-		for upgradeLevel = 1, 5 do
-			expect(Economy.capacity(upgradeLevel, Config)).toBeGreaterThan(Economy.capacity(upgradeLevel - 1, Config))
-			expect(Economy.coneStiffness(upgradeLevel, Config)).toBeGreaterThan(
-				Economy.coneStiffness(upgradeLevel - 1, Config)
-			)
-			expect(Economy.serveMultiplier(upgradeLevel, Config)).toBeGreaterThan(
-				Economy.serveMultiplier(upgradeLevel - 1, Config)
-			)
-		end
+	-- capacity and serve multiplier are shop upgrades since 25.11.2026 (tests/Upgrades.spec); the sneakers are not sold
+	it("the Coin Boost multiplies a serve like the old cart did", function()
+		local base = Economy.serveValue(stack("vanilla", 10), Flavors.byId, Config)
+		local boosted = Economy.serveValue(stack("vanilla", 10), Flavors.byId, Config, {
+			serveMultiplier = Upgrades.value("cart", 5, UpgradesConfig),
+		})
+		expect(Upgrades.value("cart", 5, UpgradesConfig)).toBe(1.2) -- +0.04 a level
+		expect(boosted).toBeCloseTo(base * 1.2)
 	end)
 
-	it("clamps out-of-range upgrade levels", function()
-		expect(Economy.capacity(-3, Config)).toBe(Config.upgrades.cone.capacity[1])
-		expect(Economy.capacity(99, Config)).toBe(Config.upgrades.cone.capacity[#Config.upgrades.cone.capacity])
-	end)
-
-	it("lets the first serve buy the first sneakers", function()
-		local firstServe = Economy.serveValue(stack("vanilla", 3), Flavors.byId, Config)
-		expect(firstServe).toBeGreaterThan(Config.upgrades.sneakers.costs[1])
+	it("one tower of ten buys the first upgrade of the shop", function()
+		local serve = Economy.serveValue(stack("vanilla", 10), Flavors.byId, Config)
+		local cheapest = math.huge
+		for _, id in Upgrades.visible(UpgradesConfig) do
+			cheapest = math.min(cheapest, Upgrades.cost(id, 0, UpgradesConfig) :: number)
+		end
+		expect(serve >= cheapest).toBe(true)
 	end)
 end)
 

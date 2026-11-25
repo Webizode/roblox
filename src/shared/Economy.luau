@@ -34,9 +34,7 @@ export type Config = {
 	minWalkSpeed: number,
 	sprintMultiplier: number,
 	upgrades: {
-		cone: { costs: { number }, capacity: { number }, stiffness: { number } },
 		sneakers: { costs: { number }, speed: { number }, penaltyScale: { number } },
-		cart: { costs: { number }, serveMultiplier: { number } },
 	},
 }
 
@@ -157,22 +155,7 @@ function Economy.jumpScale(count: number, capacity: number, config: Config): num
 	return 1 - (config.towerSlow.jump or 0) * Economy.towerLoad(count, capacity, config)
 end
 
-function Economy.capacity(coneLevel: number, config: Config): number
-	return level(config.upgrades.cone.capacity, coneLevel)
-end
-
-function Economy.coneStiffness(coneLevel: number, config: Config): number
-	return level(config.upgrades.cone.stiffness, coneLevel)
-end
-
-function Economy.serveMultiplier(cartLevel: number, config: Config): number
-	return level(config.upgrades.cart.serveMultiplier, cartLevel)
-end
-
--- Cost of the next level, or nil when the track is maxed.
-function Economy.upgradeCost(track: "cone" | "sneakers" | "cart", currentLevel: number, config: Config): number?
-	local costs = config.upgrades[track].costs
-	return costs[currentLevel + 1]
-end
+-- The cone's capacity, its stiffness and the serve multiplier are upgrades since 25.11.2026: Upgrades.value("cone"),
+-- Upgrades.stiffness and Upgrades.value("cart") with Config/Upgrades.
 
 return Economy

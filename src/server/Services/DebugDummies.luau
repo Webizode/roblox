@@ -18,9 +18,11 @@ local ServerStorage = game:GetService("ServerStorage")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Economy = require(Shared:WaitForChild("Economy"))
+local Upgrades = require(Shared:WaitForChild("Upgrades"))
 local TargetRules = require(Shared:WaitForChild("TargetRules"))
 local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
+local UpgradesConfig = require(Config:WaitForChild("Upgrades"))
 local Features = require(Config:WaitForChild("Features"))
 local Launcher = require(Config:WaitForChild("Launcher"))
 local MapConfig = require(Config:WaitForChild("Map"))
@@ -207,7 +209,7 @@ local function wanderSpot(dummy: Dummy): Vector3
 end
 
 local function step(dummy: Dummy, dt: number, now: number)
-	local speed = Economy.walkSpeed(dummy.carrying, Economy.capacity(0, EconomyConfig), 0, EconomyConfig)
+	local speed = Economy.walkSpeed(dummy.carrying, Upgrades.value("cone", 0, UpgradesConfig), 0, EconomyConfig)
 	local goal: Vector3
 
 	if not dummy.goingHome and dummy.carrying >= dummy.serveAt then

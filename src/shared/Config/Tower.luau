@@ -57,8 +57,8 @@ return {
 	graceSeconds = 3,
 	-- From this many scoops walking tips the tower harder (TowerModel.params walkInstability, accelAuthority): the
 	-- walking leverage grows with the instability above that of a tower of this height on the starter cone. 10 is
-	-- exactly the old behaviour. Only walking: hits, dashes, standing and the stabiliser do not see it. The planned
-	-- "Stability" upgrade raises it (not in the shop yet).
+	-- exactly the old behaviour. Only walking: hits, dashes, standing and the stabiliser do not see it. The
+	-- Stability upgrade starts here and raises it (Config/Upgrades tracks.stability, TowerController).
 	walkHeavyFrom = 10,
 	-- outside the arena (the safe zone, ArenaZone) the tower still wobbles but its lean stops at this share of
 	-- tipAngle, below groanFraction: it never groans or topples there, and one groaning as it leaves is saved. The

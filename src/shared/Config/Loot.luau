@@ -8,15 +8,18 @@ return {
 	-- player's scoops before they could even get up; 13.11.2026 both were 0, before that owner 2 s, others 3 s.
 	ownerLock = 0,
 	othersLock = 0.5,
-	-- seconds from the topple until an uncollected scoop disappears with a puff. 20 since the team test of 20.11.2026
-	-- (10 before: even with two dashes one hardly got there in time)
-	lifetime = 20,
+	-- seconds from the topple until an uncollected scoop disappears with a puff. 45 since 25.11.2026 (20 since the team
+	-- test of 20.11.2026, 10 before: even with two dashes one hardly got there in time)
+	lifetime = 45,
 	blinkSeconds = 3, -- it blinks for this long before it disappears, so one sees it is about to go (1 until 20.11.2026)
 	-- a client that has not heard of the removal this long after the end removes the scoop itself (it can no longer be
 	-- picked up anyway, Loot.canCollect), so no scoop stays lying around for good
 	expireGrace = 1, -- seconds
 	fullNotice = 3, -- seconds between two "cone full" notes while standing on scoops the full cone cannot take
-	maxFree = 40, -- free scoops per server; a new spill pushes the oldest ones out
+	-- free scoops per server; a new spill pushes the oldest ones out. 60 since 25.11.2026 (40 before): with the 45 s
+	-- lifetime a heavy fight on a full server reached 40 about 3 % of the time and pushed out some 285 scoops an hour,
+	-- with 60 about 20 (scripts/loot-load, estimated)
+	maxFree = 60,
 
 	-- A scoop from the Big Swirl that nobody caught lies where it landed for landedLifetime seconds and anybody may pick
 	-- it up (no owner), blinks for the last landedBlinkSeconds and goes with a puff. One that lands in the water is

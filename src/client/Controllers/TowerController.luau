@@ -17,6 +17,7 @@ local Stance = require(Shared:WaitForChild("Stance"))
 local DashCharges = require(Shared:WaitForChild("DashCharges"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local Economy = require(Shared:WaitForChild("Economy"))
+local Upgrades = require(Shared:WaitForChild("Upgrades"))
 local ScoopChest = require(Shared:WaitForChild("ScoopChest"))
 local ChestConfig = require(Config:WaitForChild("Chest"))
 local Dash = require(Shared:WaitForChild("Dash"))
@@ -24,6 +25,7 @@ local ArenaZone = require(Shared:WaitForChild("ArenaZone"))
 local Features = require(Config:WaitForChild("Features"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
+local UpgradesConfig = require(Config:WaitForChild("Upgrades"))
 local Palette = require(Config:WaitForChild("Palette"))
 local Tuning = require(Config:WaitForChild("Tower"))
 local CombatConfig = require(Config:WaitForChild("Combat"))
@@ -95,9 +97,41 @@ local function syncSprintLook()
 	registry.MovementController.setSprinting(sprinting and not meter.active)
 end
 
-local function coneLevel(): number
-	local value = player:GetAttribute("ConeLevel")
+-- The own level of an upgrade (the Upgrade_<id> attributes DataService publishes; 0 until the save is loaded).
+local function upgradeLevel(id: string): number
+	local value = player:GetAttribute("Upgrade_" .. id)
 	return if type(value) == "number" then value else 0
+end
+
+-- How many scoops the cone holds (the Big Cone upgrade, the same on the server).
+local function capacity(): number
+	return Upgrades.value("cone", upgradeLevel("cone"), UpgradesConfig)
+end
+
+-- The tower tuning with the Stability upgrade's walkHeavyFrom (Config/Upgrades tracks.stability), one copy per level.
+local stabilityTunings: { [number]: any } = {}
+local function stableTuning(): any
+	local level = upgradeLevel("stability")
+	if level == 0 then
+		return Tuning
+	end
+	local tuning = stabilityTunings[level]
+	if not tuning then
+		tuning = table.clone(Tuning)
+		tuning.walkHeavyFrom = Upgrades.value("stability", level, UpgradesConfig)
+		stabilityTunings[level] = tuning
+	end
+	return tuning
+end
+
+-- The tower's physics for the scoops on it, with the own upgrades (cone stiffness, stability).
+local function towerParams()
+	return TowerModel.params(
+		scoops,
+		Flavors.byId,
+		stableTuning(),
+		Upgrades.stiffness(upgradeLevel("cone"), UpgradesConfig)
+	)
 end
 
 local function rootPart(): BasePart?
@@ -162,7 +196,7 @@ end
 local function onTowerChanged(newScoops: { string }, reason: string)
 	local previous = #scoops
 	scoops = newScoops
-	params = TowerModel.params(scoops, Flavors.byId, Tuning, Economy.coneStiffness(coneLevel(), EconomyConfig))
+	params = towerParams()
 
 	local added = (reason == "catch" or reason == "pickup") and #scoops > previous
 	if added then
@@ -258,6 +292,7 @@ local function updateHud(root: BasePart)
 	local tower = ChestConfig.passives.kinds.tower
 	local value = Economy.serveValue(scoops, Flavors.byId, EconomyConfig, {
 		steadyBonus = steady,
+		serveMultiplier = Upgrades.value("cart", upgradeLevel("cart"), UpgradesConfig), -- the Coin Boost upgrade
 		kept = kept,
 		coinBonus = if type(coinBonus) == "number" then coinBonus else 0,
 		towerBonus = Economy.towerBonus(
@@ -267,7 +302,7 @@ local function updateHud(root: BasePart)
 			tower.full
 		),
 	})
-	registry.Hud.setTower(#scoops, Economy.capacity(coneLevel(), EconomyConfig), value, steady)
+	registry.Hud.setTower(#scoops, capacity(), value, steady)
 
 	if target and #scoops > 0 and not state.toppled then
 		if distance > EconomyConfig.serveRadius + 1 then
@@ -391,7 +426,7 @@ local function canCatch(): boolean
 	if toppledAt or state.toppled then
 		return false
 	end
-	return #scoops < Economy.capacity(coneLevel(), EconomyConfig)
+	return #scoops < capacity()
 end
 
 -- A ring that bursts out under the character, seen by everyone: lemon for a dash, mint for a steady stance.
@@ -434,13 +469,9 @@ end
 -- How fast and how long each kind of dash goes: the dash, and in combat mode the quick dash. A fuller waffle makes it
 -- shorter (Economy.dashScale, the same on the server).
 local function dashMotion(kind: string): (number, number)
-	local sneakers = player:GetAttribute("SneakersLevel")
-	local scale = Economy.dashScale(
-		#scoops,
-		Economy.capacity(coneLevel(), EconomyConfig),
-		if type(sneakers) == "number" then sneakers else 0,
-		EconomyConfig
-	)
+	local sneakers = player:GetAttribute("Upgrade_sneakers")
+	local scale =
+		Economy.dashScale(#scoops, capacity(), if type(sneakers) == "number" then sneakers else 0, EconomyConfig)
 	if kind == "quick" then
 		return Tuning.dash.quick.speed, Tuning.dash.quick.duration * scale
 	end
@@ -702,6 +733,12 @@ end
 
 function TowerController.Start()
 	Remotes.TowerChanged.OnClientEvent:Connect(onTowerChanged)
+	-- a bought (or reset) Big Cone or Stability changes the physics of the tower on the back at once
+	for _, id in { "cone", "stability" } do
+		player:GetAttributeChangedSignal("Upgrade_" .. id):Connect(function()
+			params = towerParams()
+		end)
+	end
 	Remotes.Served.OnClientEvent:Connect(function(who: Player, _count: number?, value: number?)
 		-- only the own serve shows (kill test 13.11.2026: no feed line for others any more; the server only tells
 		-- the others that someone served, PlotPins glints at their pin)
@@ -864,7 +901,7 @@ function TowerController.lastPaidServe(): number
 end
 
 function TowerController.fill(): (number, number)
-	return #scoops, Economy.capacity(coneLevel(), EconomyConfig)
+	return #scoops, capacity()
 end
 
 -- The own plot's serve point (nil while the plot is not known yet).
@@ -874,7 +911,7 @@ end
 
 -- Whether the cone holds as many scoops as its level allows (Config/Economy upgrades.cone.capacity).
 function TowerController.isFull(): boolean
-	return #scoops >= Economy.capacity(coneLevel(), EconomyConfig)
+	return #scoops >= capacity()
 end
 
 -- The free scoops of the own topple arrived (LootRenderer): the stand-ins left where the tower stood can go.

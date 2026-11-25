@@ -57,7 +57,7 @@ describe("Landed scoops from the Big Swirl", function()
 		expect(Loot.landedRoom(LootConfig.maxLanded - 1, LootConfig)).toBe(0)
 		expect(Loot.landedRoom(LootConfig.maxLanded, LootConfig)).toBe(1)
 		-- spilled scoops keep their own numbers
-		expect(LootConfig.lifetime).toBe(20)
+		expect(LootConfig.lifetime).toBe(45)
 		expect(LootConfig.blinkSeconds).toBe(3)
 		expect(LootConfig.landedLifetime).toBe(3)
 	end)

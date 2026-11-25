@@ -23,6 +23,7 @@ local ORDER = {
 	"RemoteTowers",
 	"SettingsController",
 	"ChestController",
+	"UpgradeController",
 	"Navigation",
 	"PlotGuide",
 	"PlotPins",

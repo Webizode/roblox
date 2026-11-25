@@ -29,6 +29,7 @@ local CONTENT_LESS = 98
 local TITLE_SIDE = 100 -- each side of the title stays free for the sprinkles and the close button
 local DIM = 0.45 -- the dim behind an open window
 local WINDOW_MARGIN = 16 -- design pixels kept free round a window (and its title plaque) inside the HUD's frame
+local ART_TITLE = { width = 380, height = 76 } -- the title pill of a window with own pictures but no title picture
 
 export type Window = {
 	gui: ScreenGui,
@@ -45,7 +46,7 @@ export type Window = {
 -- A window drawn from its own pictures instead of the kit's surface (e.g. the Scoop Chest, Config/Chest.art.window):
 -- `panel` is a 9-slice image (`slice` its middle in image pixels, `sliceScale` design pixels per image pixel), `title`
 -- a picture with the title in it, `titleSize` its size and `titleY` its middle (design pixels, from the window's top),
--- `inset` the content's distance from the window's edges.
+-- `inset` the content's distance from the window's edges. Without `title` the window's title stands on a pill at titleY.
 export type Art = {
 	panel: string,
 	slice: Rect,
@@ -103,7 +104,12 @@ function Window.new(props: {
 	local fit = 1
 	local popTween: Tween? = nil
 	-- what reaches out of the window's box: the title plaque over the top edge (own pictures) or the close button
-	local overTop = if art and art.titleSize then math.max(13, art.titleSize.Y / 2 - (art.titleY or 0)) else 13
+	local overTop = if art
+			and art.title
+			and art.titleSize
+		then math.max(13, art.titleSize.Y / 2 - (art.titleY or 0))
+		elseif art then math.max(13, ART_TITLE.height / 2 - (art.titleY or 0))
+		else 13
 	Screen.onChanged(function(plan)
 		-- As big as the HUD's frame allows (the safe area under Roblox's top bar, with its margins), never bigger than
 		-- the HUD's scale, with a margin all round; title plaque and close button count. Centred in that frame. Before
@@ -151,6 +157,27 @@ function Window.new(props: {
 				Parent = root,
 			})
 			title:FindFirstChildOfClass("UIAspectRatioConstraint").AspectRatio = art.titleSize.X / art.titleSize.Y
+		else
+			-- no title picture (yet): the title on a candy pill in the window's colour over the top edge
+			local plaque = Theme.frame({
+				Name = "Title",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, 0, 0, art.titleY or 0),
+				Size = UDim2.fromOffset(ART_TITLE.width, ART_TITLE.height),
+				ZIndex = 5,
+				Parent = root,
+			})
+			Theme.skin(plaque, "pill", ART_TITLE.height, props.color).image.ZIndex = 5
+			Theme.text({
+				Name = "Label",
+				Text = props.title,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, 0, 0.5, -2),
+				Size = UDim2.new(1, -ART_TITLE.height, 0.6, 0),
+				TextScaled = true,
+				ZIndex = 6,
+				Parent = plaque,
+			})
 		end
 	else
 		-- the chocolate panel with the pink glaze and its drips (one 9-slice), the faint waffle on the panel under the glaze

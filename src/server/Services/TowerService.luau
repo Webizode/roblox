@@ -14,7 +14,9 @@ local DashCharges = require(Shared:WaitForChild("DashCharges"))
 local Combat = require(Shared:WaitForChild("Combat"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 local SaveData = require(Shared:WaitForChild("SaveData"))
+local Upgrades = require(Shared:WaitForChild("Upgrades"))
 local Flavors = require(Config:WaitForChild("Flavors"))
+local UpgradesConfig = require(Config:WaitForChild("Upgrades"))
 local EconomyConfig = require(Config:WaitForChild("Economy"))
 local ChestConfig = require(Config:WaitForChild("Chest"))
 local RecipeConfig = require(Config:WaitForChild("Recipes"))
@@ -81,6 +83,11 @@ local function humanoidOf(player: Player): Humanoid?
 	return character and character:FindFirstChildOfClass("Humanoid")
 end
 
+-- How many scoops the player's cone holds (the Big Cone upgrade, Config/Upgrades tracks.cone).
+local function capacityOf(state: TowerState): number
+	return Upgrades.value("cone", state.coneLevel, UpgradesConfig)
+end
+
 local function rootOf(player: Player): BasePart?
 	local character = player.Character
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -94,7 +101,7 @@ local function applyWalkSpeed(player: Player, state: TowerState)
 		local stance = state.stance.active
 		local speed = Economy.walkSpeed(
 			#state.scoops,
-			Economy.capacity(state.coneLevel, EconomyConfig),
+			capacityOf(state),
 			state.sneakersLevel,
 			EconomyConfig,
 			state.sprinting and not stance
@@ -178,9 +185,6 @@ local function createState(player: Player): TowerState
 		joinedAt = now(),
 		leaderstats = { coins = coins, best = best },
 	}
-	if player:GetAttribute("ConeLevel") == nil then
-		player:SetAttribute("ConeLevel", state.coneLevel) -- DataService sets the saved level once it is loaded
-	end
 	return state
 end
 
@@ -257,7 +261,7 @@ local function onServe(player: Player, steadyClaim: any)
 	local stored = registry.ChestService.serve(player, state.scoops, nil)
 	local value = Economy.serveValue(state.scoops, Flavors.byId, EconomyConfig, {
 		steadyBonus = steady,
-		serveMultiplier = Economy.serveMultiplier(state.cartLevel, EconomyConfig),
+		serveMultiplier = Upgrades.value("cart", state.cartLevel, UpgradesConfig),
 		stacks = stacks,
 		kept = stored and stored.kept,
 		coinBonus = registry.ChestService.bonus(player, "coins"),
@@ -352,12 +356,7 @@ local function onDash(player: Player, dirX: any, dirZ: any)
 		)
 	end
 	local duration = (if kind == "quick" then TowerTuning.dash.quick.duration else TowerTuning.dash.duration)
-		* Economy.dashScale(
-			#state.scoops,
-			Economy.capacity(state.coneLevel, EconomyConfig),
-			state.sneakersLevel,
-			EconomyConfig
-		)
+		* Economy.dashScale(#state.scoops, capacityOf(state), state.sneakersLevel, EconomyConfig)
 	-- a little short of the burst, so network jitter never blocks the next dash the client already allows
 	state.dashUntil = time + duration * 0.8
 	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length, kind)
@@ -419,7 +418,7 @@ function TowerService.Init(reg)
 	registry = reg
 end
 
--- The player's save is loaded (or was reset): coins, record and upgrade levels come from it.
+-- The player's save is loaded (or was reset, or an upgrade was bought): coins, record and upgrade levels come from it.
 local function applySave(player: Player, data: SaveData.Data)
 	local state = states[player]
 	if not state then
@@ -427,9 +426,9 @@ local function applySave(player: Player, data: SaveData.Data)
 	end
 	state.coins = data.coins
 	state.best = data.bestTower
-	state.coneLevel = data.upgrades.cone
-	state.sneakersLevel = data.upgrades.sneakers
-	state.cartLevel = data.upgrades.cart
+	state.coneLevel = Upgrades.levelOf(data.upgrades, "cone", UpgradesConfig)
+	state.sneakersLevel = Upgrades.levelOf(data.upgrades, "sneakers", UpgradesConfig)
+	state.cartLevel = Upgrades.levelOf(data.upgrades, "cart", UpgradesConfig)
 	-- the tower itself is untouched, so no TowerChanged: that would restart the client's tower simulation
 	state.leaderstats.coins.Value = math.floor(state.coins)
 	state.leaderstats.best.Value = state.best
@@ -608,6 +607,15 @@ function TowerService.addCoins(player: Player, coins: number)
 	end
 end
 
+-- Takes coins, levels and record from the save again (after an upgrade was bought or reset): leaderstats, capacity,
+-- serve multiplier and walking speed follow. The tower itself is untouched.
+function TowerService.refresh(player: Player)
+	local data = registry.DataService.data(player)
+	if data then
+		applySave(player, data)
+	end
+end
+
 function TowerService.count(player: Player): number
 	local state = states[player]
 	return state and #state.scoops or 0
@@ -617,7 +625,7 @@ end
 -- Returns false when the cone is full or the player has no state.
 function TowerService.addScoop(player: Player, flavorId: string, reason: ("catch" | "pickup")?): boolean
 	local state = states[player]
-	if not state or #state.scoops >= Economy.capacity(state.coneLevel, EconomyConfig) then
+	if not state or #state.scoops >= capacityOf(state) then
 		return false
 	end
 	if #state.scoops == 0 then

@@ -57,6 +57,11 @@ local DEFINITIONS = {
 	ChestAction = "RemoteEvent",
 	-- server -> catcher: fromFlavor, toFlavor (the luck passive turned a caught scoop into a rarer one)
 	LuckyCatch = "RemoteEvent",
+	-- client -> server: id (Config/Upgrades), fromLevel (the level the window showed; a double click finds it raised)
+	UpgradeBuy = "RemoteEvent",
+	-- server -> buyer: id, ok, then the new level and the price, or why not ("coins", "max", "stale", "hidden",
+	-- "unknown", "loading", "far", "cap"); the levels themselves come as the Upgrade_<id> attributes
+	UpgradeResult = "RemoteEvent",
 }
 
 local remotes = {}

@@ -156,6 +156,11 @@ local function findShopTargets()
 	end
 end
 
+-- The target parts of a shop ("upgrades", ...), found at the start (empty when the map lacks them).
+function ArenaService.shopParts(where: string): { BasePart }
+	return shopTargets[where] or {}
+end
+
 function ArenaService.Init(reg)
 	registry = reg
 	local center = reg.MapService.center

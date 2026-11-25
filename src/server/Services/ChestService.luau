@@ -20,7 +20,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local ScoopChest = require(Shared:WaitForChild("ScoopChest"))
+local SaveData = require(Shared:WaitForChild("SaveData"))
 local ChestConfig = require(Config:WaitForChild("Chest"))
+local UpgradesConfig = require(Config:WaitForChild("Upgrades"))
 local Flavors = require(Config:WaitForChild("Flavors"))
 local Features = require(Config:WaitForChild("Features"))
 
@@ -42,6 +44,29 @@ local bonuses: { [Player]: { [string]: number } } = {}
 local function chestData(player: Player): ScoopChest.Chest?
 	local data = registry.DataService.data(player)
 	return data and data.chest
+end
+
+-- How many scoops the player may equip: Config/Chest.equipSlots at the start, more with the Equip Slots upgrade
+-- (Config/Upgrades tracks.slots, SaveData.equipSlots).
+local function slotsOf(player: Player): number
+	local data = registry.DataService.data(player)
+	return if data then SaveData.equipSlots(data, UpgradesConfig) else ChestConfig.equipSlots
+end
+
+-- Config/Chest with the player's own number of slots (one copy per slot count).
+local slotConfigs: { [number]: any } = {}
+local function configFor(player: Player): any
+	local slots = slotsOf(player)
+	if slots == ChestConfig.equipSlots then
+		return ChestConfig
+	end
+	local config = slotConfigs[slots]
+	if not config then
+		config = table.clone(ChestConfig)
+		config.equipSlots = slots
+		slotConfigs[slots] = config
+	end
+	return config
 end
 
 -- The chest as the window shows it: the stacks in display order with everything the window prints, the equipped keys,
@@ -75,15 +100,15 @@ function ChestService.snapshot(player: Player): { [string]: any }?
 		equipped = table.clone(chest.equipped),
 		used = ScoopChest.used(chest),
 		capacity = ChestConfig.capacity,
-		slots = ChestConfig.equipSlots,
-		bonuses = ScoopChest.bonuses(chest, Flavors.byId, ChestConfig),
+		slots = slotsOf(player),
+		bonuses = ScoopChest.bonuses(chest, Flavors.byId, configFor(player)),
 		minRarity = ChestConfig.minRarity,
 	}
 end
 
 local function publishBonuses(player: Player)
 	local chest = chestData(player)
-	local totals = if chest then ScoopChest.bonuses(chest, Flavors.byId, ChestConfig) else {}
+	local totals = if chest then ScoopChest.bonuses(chest, Flavors.byId, configFor(player)) else {}
 	bonuses[player] = totals
 	for kind, attribute in ATTRIBUTES do
 		player:SetAttribute(attribute, totals[kind] or 0)
@@ -176,7 +201,7 @@ local function onAction(player: Player, action: any, key: any, amount: any)
 	end
 
 	if action == "equip" then
-		local ok, reason = ScoopChest.equip(chest, key, ChestConfig)
+		local ok, reason = ScoopChest.equip(chest, key, configFor(player))
 		if ok then
 			publishBonuses(player)
 		end
@@ -239,6 +264,12 @@ function ChestService.serve(
 		send(player, { kind = "stored", stored = result.stored, overflow = result.overflow, capped = result.capped })
 	end
 	return result
+end
+
+-- The player's slots changed (Equip Slots bought or reset): bonuses and the window again.
+function ChestService.refresh(player: Player)
+	publishBonuses(player)
+	send(player, nil)
 end
 
 -- The player's bonus of a passive kind ("coins", "luck", "tower"), 0..its cap.

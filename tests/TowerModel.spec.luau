@@ -69,16 +69,21 @@ local function padPlayer(kp: number, kd: number)
 	end
 end
 
+-- Bigger and stiffer cones for the physics below: the six cone levels as they were before the upgrade shop
+-- (Config/Economy until 25.11.2026). The shop's Big Cone grows in other steps and no longer stiffens the tower
+-- (Config/Upgrades cone.stiffnessPerLevel = 0); these only test the model with such cones.
+local CONE_CAPACITY = { 20, 28, 36, 45, 55, 65 }
+local CONE_STIFFNESS = { 1, 1.1, 1.2, 1.3, 1.45, 1.6 }
+
 -- The smallest waffle that holds `count` scoops (the cone a player carrying them has at least), for the game's walking
 -- speed (Economy.walkSpeed goes by how full the waffle is)
 local function capacityFor(count: number): number
-	for coneLevel = 0, #EconomyConfig.upgrades.cone.capacity - 1 do
-		local capacity = Economy.capacity(coneLevel, EconomyConfig)
+	for _, capacity in CONE_CAPACITY do
 		if capacity >= count then
 			return capacity
 		end
 	end
-	return Economy.capacity(#EconomyConfig.upgrades.cone.capacity - 1, EconomyConfig)
+	return CONE_CAPACITY[#CONE_CAPACITY]
 end
 
 -- Running at full speed and flipping the stick to the opposite direction, through the real input path.
@@ -856,8 +861,8 @@ local HitConfig = require("../src/shared/Config/Combat")
 -- harder case) and afterwards stands for `after` seconds. Returns whether it toppled again on its own.
 local function gatherAgain(count: number, seed: number, grace: boolean, after: number, rules: any?): boolean
 	local tuning = rules or Tuning
-	local cone = Economy.coneStiffness(2, EconomyConfig)
-	local capacity = Economy.capacity(2, EconomyConfig)
+	local cone = CONE_STIFFNESS[3]
+	local capacity = CONE_CAPACITY[3]
 	local keep = Economy.keepOnTopple(count, EconomyConfig)
 	local heading = (seed % 628) / 100
 	local paths = Loot.spill(
@@ -922,7 +927,7 @@ end
 -- carrier standing still from the start, `hit` an ice-ball hit at the start. Returns whether it toppled.
 local function groaning(count: number, cone: number, still: boolean, hit: boolean?): boolean
 	local state = TowerModel.newState(5)
-	local params = paramsFor(stack("vanilla", count), Economy.coneStiffness(cone, EconomyConfig))
+	local params = paramsFor(stack("vanilla", count), CONE_STIFFNESS[cone + 1])
 	state.x, state.vx = 0.5 * Tuning.tipAngle, 1.2
 	state.seenX, state.seenVx = state.x, state.vx
 	if hit then
@@ -969,7 +974,7 @@ describe("Gathering a spilled tower (test of 20.11.2026)", function()
 
 	it("in the grace the tower rights itself and cannot groan; afterwards the normal rules apply", function()
 		local state = TowerModel.newState(3)
-		local params = paramsFor(stack("vanilla", 30), Economy.coneStiffness(2, EconomyConfig))
+		local params = paramsFor(stack("vanilla", 30), CONE_STIFFNESS[3])
 		state.x, state.vx = 0.9 * Tuning.tipAngle, 0.5
 		TowerModel.startGrace(state, Tuning.graceSeconds)
 		local events = simulate(state, params, PAD, Tuning.graceSeconds - 0.1, nil)
@@ -1025,7 +1030,7 @@ describe("Walking heaviness (Config/Tower walkHeavyFrom, for the Stability upgra
 		expect(Tuning.walkHeavyFrom).toBe(10)
 		for cone = 0, 5 do
 			for count = 1, 65 do
-				local params = paramsFor(stack("vanilla", count), Economy.coneStiffness(cone, EconomyConfig))
+				local params = paramsFor(stack("vanilla", count), CONE_STIFFNESS[cone + 1])
 				expect(params.walkInstability).toBeCloseTo(math.max(0, params.gravity - params.stiffness), 1e-9)
 			end
 		end
