@@ -11,17 +11,17 @@ describe("Landed scoops from the Big Swirl", function()
 	local landedAt = 100
 	local scoop = Loot.landed("vanilla", landedAt, 6, LootConfig)
 
-	it("lie three seconds, set in the config", function()
-		expect(LootConfig.landedLifetime).toBe(3)
-		expect(scoop.endAt).toBe(landedAt + 3)
-		expect(scoop.rule.expiresAt).toBe(landedAt + 3)
+	it("lie five seconds (3 until 25.11.2026), set in the config", function()
+		expect(LootConfig.landedLifetime).toBe(5)
+		expect(scoop.endAt).toBe(landedAt + 5)
+		expect(scoop.rule.expiresAt).toBe(landedAt + 5)
 	end)
 
 	it("anybody may pick one up as soon as it lies there, until it is gone", function()
 		for _, userId in { 1, 42, 999 } do
 			expect((Loot.canCollect(scoop.rule, userId, landedAt))).toBe(true)
-			expect((Loot.canCollect(scoop.rule, userId, landedAt + 2.9))).toBe(true)
-			local ok, reason = Loot.canCollect(scoop.rule, userId, landedAt + 3)
+			expect((Loot.canCollect(scoop.rule, userId, landedAt + 4.9))).toBe(true)
+			local ok, reason = Loot.canCollect(scoop.rule, userId, landedAt + 5)
 			expect(ok).toBe(false)
 			expect(reason).toBe("gone")
 		end
@@ -29,7 +29,7 @@ describe("Landed scoops from the Big Swirl", function()
 	end)
 
 	it("stay where they came down: no fall, no roll, on the ground", function()
-		for _, elapsed in { 0, LootConfig.fallTime, 1, 2.5 } do
+		for _, elapsed in { 0, LootConfig.fallTime, 1, 4.5 } do
 			-- elapsed since its path starts (t0): it is down at fallTime and stays put after that
 			local x, y, z = Loot.position(scoop.path, LootConfig.fallTime + elapsed, LootConfig)
 			expect(x).toBe(0)
@@ -41,9 +41,10 @@ describe("Landed scoops from the Big Swirl", function()
 	end)
 
 	it("blink only in the last second, then go", function()
-		expect(Loot.blinks(scoop.endAt, landedAt + 1.9, true, false, LootConfig)).toBe(false)
-		expect(Loot.blinks(scoop.endAt, landedAt + 2.1, true, false, LootConfig)).toBe(true)
-		expect(Loot.blinks(scoop.endAt, landedAt + 3, true, false, LootConfig)).toBe(false)
+		expect(LootConfig.landedBlinkSeconds).toBe(1)
+		expect(Loot.blinks(scoop.endAt, landedAt + 3.9, true, false, LootConfig)).toBe(false)
+		expect(Loot.blinks(scoop.endAt, landedAt + 4.1, true, false, LootConfig)).toBe(true)
+		expect(Loot.blinks(scoop.endAt, landedAt + 5, true, false, LootConfig)).toBe(false)
 	end)
 
 	it("spilled scoops blink in their last seconds too, sinking ones not at all", function()
@@ -59,7 +60,7 @@ describe("Landed scoops from the Big Swirl", function()
 		-- spilled scoops keep their own numbers
 		expect(LootConfig.lifetime).toBe(45)
 		expect(LootConfig.blinkSeconds).toBe(3)
-		expect(LootConfig.landedLifetime).toBe(3)
+		expect(LootConfig.landedLifetime).toBe(5)
 	end)
 end)
 

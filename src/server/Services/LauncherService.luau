@@ -18,6 +18,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local ShotMath = require(Shared:WaitForChild("ShotMath"))
 local TowerShape = require(Shared:WaitForChild("TowerShape"))
 local CatchRules = require(Shared:WaitForChild("CatchRules"))
+local Loot = require(Shared:WaitForChild("Loot"))
 local LaunchArms = require(Shared:WaitForChild("LaunchArms"))
 local TargetRules = require(Shared:WaitForChild("TargetRules"))
 local FlavorOdds = require(Shared:WaitForChild("FlavorOdds"))
@@ -299,13 +300,33 @@ local function onCatchClaim(player: Player, id: any, claimTime: any, tiltX: any,
 
 	local velocity = root.AssemblyLinearVelocity
 	local humanoid = root.Parent and root.Parent:FindFirstChildOfClass("Humanoid")
-	local result = CatchRules.check({ claimTime = claimTime, tiltX = tiltX, tiltZ = tiltZ }, shot, {
+	local claim = { claimTime = claimTime, tiltX = tiltX, tiltZ = tiltZ }
+	local tower = {
 		baseX = base.X,
 		baseY = base.Y,
 		baseZ = base.Z,
 		count = registry.TowerService.count(player),
 		speed = CatchRules.cappedSpeed(velocity.X, velocity.Z, if humanoid then humanoid.WalkSpeed else 0),
-	}, workspace:GetServerTimeNow(), Tuning, TowerTuning, ShotMath, TowerShape)
+	}
+	local serverNow = workspace:GetServerTimeNow()
+	local result = CatchRules.check(claim, shot, tower, serverNow, Tuning, TowerTuning, ShotMath, TowerShape)
+	local from, to = nil, nil
+	if not result.ok and result.reason == "too far from the tower" then
+		from, to = registry.TowerService.dashTrail(player)
+	end
+	if from and to then
+		-- caught during a dash: the tower where the dash's way (TowerService.dashTrail) passed the scoop closest, at
+		-- the moment of the claim, counts too
+		local alpha = math.clamp((claimTime - shot.t0) / shot.flight, 0, 1)
+		local sx, _, sz = ShotMath.position(shot.fx, shot.fy, shot.fz, shot.tx, shot.ty, shot.tz, shot.apex, alpha)
+		local offset = base - root.Position
+		local wx, wz = Loot.nearestOnWay(from.X + offset.X, from.Z + offset.Z, to.X + offset.X, to.Z + offset.Z, sx, sz)
+		tower.baseX, tower.baseZ = wx, wz
+		local along = CatchRules.check(claim, shot, tower, serverNow, Tuning, TowerTuning, ShotMath, TowerShape)
+		if along.ok then
+			result = along
+		end
+	end
 	if not result.ok then
 		reject(player, id, result.reason, result.distance)
 		return

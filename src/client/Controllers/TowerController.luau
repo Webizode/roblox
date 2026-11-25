@@ -273,15 +273,25 @@ local function updateHud(root: BasePart)
 	local distance = if target then (root.Position - target.Position).Magnitude else math.huge
 
 	local steady = TowerModel.steadyBonus(state, Tuning)
-	-- a preview: the scoops the Scoop Chest will keep pay nothing (if it has room and holds fewer than maxPerFlavor
-	-- of that flavor: worked out on a copy of the chest as the window last showed it), its coins passive counts
+	-- a preview: the scoops the Scoop Chest will keep pay nothing (by the player's Auto Sell, if it has room and
+	-- holds fewer than the per-flavor limit: worked out on a copy of the chest as the window last showed it), its coins
+	-- passive counts
 	local kept = {}
 	if Features.scoopChest then
 		local version = registry.ChestController.version()
 		if keptFor.scoops ~= scoops or keptFor.version ~= version then
 			local copy = registry.ChestController.chestCopy()
 			keptFor.kept = if copy
-				then ScoopChest.store(copy, scoops, nil, Flavors.byId, Flavors.rarities, ChestConfig).kept
+				then ScoopChest.store(
+					copy,
+					scoops,
+					nil,
+					Flavors.byId,
+					Flavors.rarities,
+					ChestConfig,
+					registry.ChestController.seen(),
+					registry.ChestController.autoSell()
+				).kept
 				else {}
 			keptFor.scoops, keptFor.version = scoops, version
 		end
@@ -739,16 +749,26 @@ function TowerController.Start()
 			params = towerParams()
 		end)
 	end
-	Remotes.Served.OnClientEvent:Connect(function(who: Player, _count: number?, value: number?)
-		-- only the own serve shows (kill test 13.11.2026: no feed line for others any more; the server only tells
-		-- the others that someone served, PlotPins glints at their pin)
-		-- a serve that only filled the Scoop Chest pays nothing: no "+0", the chest's message says what happened
-		if who == player and type(value) == "number" and value > 0 then
-			Sfx.play("serve")
-			UiKit.Toast.show(string.format("SERVE! +%d", value), "good", "coin")
-			lastPaidServeAt = os.clock()
+	Remotes.Served.OnClientEvent:Connect(
+		function(who: Player, count: number?, value: number?, _steady: any, sold: number?)
+			-- only the own serve shows (kill test 13.11.2026: no feed line for others any more; the server only tells
+			-- the others that someone served, PlotPins glints at their pin)
+			-- a serve that only filled the Scoop Chest pays nothing: no "+0", the chest's message says what happened
+			if who == player and type(value) == "number" and value > 0 then
+				Sfx.play("serve")
+				-- some went into the Scoop Chest (Auto Sell): the message says how many were sold, the chest's says the rest
+				local partly = type(count) == "number" and type(sold) == "number" and sold < count
+				UiKit.Toast.show(
+					if partly
+						then string.format("SOLD %d %s! +%d", sold, if sold == 1 then "SCOOP" else "SCOOPS", value)
+						else string.format("SERVE! +%d", value),
+					"good",
+					"coin"
+				)
+				lastPaidServeAt = os.clock()
+			end
 		end
-	end)
+	)
 	Remotes.Dash.OnClientEvent:Connect(onDash)
 	ContextActionService:BindActionAtPriority(
 		DASH_ACTION,

@@ -262,6 +262,18 @@ function Loot.inReach(
 	return dx * dx + dz * dz <= radius * radius and math.abs(dy) <= config.pickupHeight
 end
 
+-- The point on the way from (ax, az) to (bx, bz) nearest to (px, pz), on the ground plane: where a dashing character
+-- passed a scoop closest (TowerService.dashTrail). A way of no length gives its start.
+function Loot.nearestOnWay(ax: number, az: number, bx: number, bz: number, px: number, pz: number): (number, number)
+	local wx, wz = bx - ax, bz - az
+	local length2 = wx * wx + wz * wz
+	if length2 < 1e-9 then
+		return ax, az
+	end
+	local share = math.clamp(((px - ax) * wx + (pz - az) * wz) / length2, 0, 1)
+	return ax + wx * share, az + wz * share
+end
+
 -- How far `userId` reaches a free scoop: the own sweep (ownSweepRadius) for one of their own spilled scoops (a
 -- landed Big Swirl scoop has owner 0), else pickupRadius. The client sweeps only once the player walks over one of
 -- their own scoops; the server accepts the sweep radius for own scoops either way (nothing to gain from more).

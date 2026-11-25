@@ -18,6 +18,9 @@ export type Data = {
 	scoopsServed: number, -- all scoops ever served, the base of the Cone Rank
 	bestTower: number, -- the tallest tower ever served
 	settings: { [string]: any }, -- the settings menu (since version 2); checked against Config/Settings by DataService
+	-- the chest window's AUTO SELL (since 25.11.2026, no version step): {} or missing means the defaults; always read
+	-- through ScoopChest.readAutoSell, which fills and checks every field
+	autoSell: { [string]: any },
 	-- the Scoop Chest (since version 3, ScoopChest): stacks of stored scoops and the keys of the equipped ones
 	chest: {
 		items: { { flavor: string, rarity: string, mutation: string, count: number } },
@@ -115,6 +118,7 @@ function SaveData.template(): Data
 		scoopsServed = 0,
 		bestTower = 0,
 		settings = {},
+		autoSell = {},
 		chest = { items = {}, equipped = {} },
 	}
 end
@@ -275,6 +279,11 @@ function SaveData.migrate(raw: any, upgrades: UpgradesConfig): (Data, boolean)
 
 	if type(data.settings) ~= "table" then
 		data.settings = {}
+		changed = true
+	end
+	-- an old save has none: {} means the defaults (ScoopChest.readAutoSell checks the fields when it is read)
+	if type(data.autoSell) ~= "table" then
+		data.autoSell = {}
 		changed = true
 	end
 

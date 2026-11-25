@@ -181,5 +181,11 @@ return {
 		-- In combat mode Q is the quick dash: a harder push of the same dash, same charges. No dash starts while
 		-- another one still runs. Same burst as above (wall stop, speed back to walking at the end).
 		quick = { speed = 100, duration = 0.12 }, -- 12 studs
+		-- Catching and picking up during a dash (25.11.2026: with 120 ms ping the server turned down every scoop dashed
+		-- through, "too far away"). For the dash's duration plus trailGrace seconds the server also checks the way from
+		-- where the dash started to where the character is now (TowerService.dashTrail), as long as that way is no
+		-- longer than the dash plus trailSlack studs. trailGrace covers a round trip of about 0.5 s.
+		trailGrace = 0.6, -- seconds
+		trailSlack = 4, -- studs
 	},
 }

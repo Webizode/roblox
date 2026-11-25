@@ -33,7 +33,7 @@ local ATTRIBUTES: { [string]: string } = {}
 for kind in ChestConfig.passives.kinds do
 	ATTRIBUTES[kind] = "Passive" .. string.upper(string.sub(kind, 1, 1)) .. string.sub(kind, 2)
 end
-local ACTIONS = { sync = true, equip = true, unequip = true, sell = true, sellMany = true }
+local ACTIONS = { sync = true, equip = true, unequip = true, sell = true, sellMany = true, autoSell = true }
 local MAX_KEY_LENGTH = 80
 local MAX_SELL = 1000
 
@@ -67,6 +67,22 @@ local function configFor(player: Player): any
 		slotConfigs[slots] = config
 	end
 	return config
+end
+
+-- The player's AUTO SELL settings, checked and complete (an old save without any: the defaults).
+local function autoSellOf(player: Player): ScoopChest.AutoSell
+	local data = registry.DataService.data(player)
+	return ScoopChest.readAutoSell(if data then data.autoSell else nil, Flavors.rarities, ChestConfig)
+end
+
+-- The flavors the player served at least once (the save's flavorServes), as a list.
+local function seenFlavors(player: Player): { string }
+	local data = registry.DataService.data(player)
+	local list = {}
+	for flavorId in if data then data.flavorServes else {} do
+		table.insert(list, flavorId)
+	end
+	return list
 end
 
 -- The chest as the window shows it: the stacks in display order with everything the window prints, the equipped keys,
@@ -103,6 +119,11 @@ function ChestService.snapshot(player: Player): { [string]: any }?
 		slots = slotsOf(player),
 		bonuses = ScoopChest.bonuses(chest, Flavors.byId, configFor(player)),
 		minRarity = ChestConfig.minRarity,
+		-- the AUTO SELL settings as the server reads them, the highest per-flavor limit, and the flavors the player
+		-- already had (served before) for the preview of a serve (TowerController: a new flavor is stored)
+		autoSell = autoSellOf(player),
+		perFlavorMax = ChestConfig.maxPerFlavor,
+		seen = seenFlavors(player),
 	}
 end
 
@@ -170,6 +191,18 @@ local function onAction(player: Player, action: any, key: any, amount: any)
 	end
 	if action == "sync" then
 		send(player, nil)
+		return
+	end
+	if action == "autoSell" then
+		-- the window's AUTO SELL: the whole settings table, read field by field (ScoopChest.readAutoSell: unknown
+		-- rarities and wrong types are dropped, perFlavor stays in 1..maxPerFlavor); saved, used from the next serve.
+		-- No distance check: it only decides what later serves keep and pays nothing.
+		local data = registry.DataService.data(player)
+		if not data or type(key) ~= "table" then
+			return
+		end
+		data.autoSell = ScoopChest.readAutoSell(key, Flavors.rarities, ChestConfig)
+		send(player, { kind = "autoSell" })
 		return
 	end
 	if action == "sellMany" then
@@ -259,9 +292,24 @@ function ChestService.serve(
 	-- the flavors served before count as had (the save's flavorServes; this serve is recorded after the chest)
 	local data = registry.DataService.data(player)
 	local seen = if data then data.flavorServes else nil
-	local result = ScoopChest.store(chest, scoops, mutations, Flavors.byId, Flavors.rarities, ChestConfig, seen)
+	local result = ScoopChest.store(
+		chest,
+		scoops,
+		mutations,
+		Flavors.byId,
+		Flavors.rarities,
+		ChestConfig,
+		seen,
+		autoSellOf(player)
+	)
 	if #result.stored > 0 or result.overflow > 0 or #result.capped > 0 then
-		send(player, { kind = "stored", stored = result.stored, overflow = result.overflow, capped = result.capped })
+		send(player, {
+			kind = "stored",
+			stored = result.stored,
+			overflow = result.overflow,
+			capped = result.capped,
+			limit = result.limit,
+		})
 	end
 	return result
 end

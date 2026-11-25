@@ -34,7 +34,9 @@ export type StoreResult = {
 	-- what went in, bottom to top; `new`: a flavor the player never had before (`seen` of store), the first of it
 	stored: { { flavor: string, mutation: string, new: boolean } },
 	overflow: number, -- scoops that would have gone in but the chest was full (sold instead)
-	capped: { string }, -- flavors sold because the chest already holds maxPerFlavor plain ones of them, bottom to top
+	-- flavors sold because the chest already holds `limit` plain ones of them, bottom to top
+	capped: { string },
+	limit: number, -- plain scoops of one flavor the chest takes (Auto Sell perFlavor)
 }
 
 local ScoopChest = {}
@@ -55,23 +57,86 @@ function ScoopChest.rarityOf(item: Item, flavors: Flavors): string
 	return if flavor then flavor.rarity else item.rarity
 end
 
--- Whether a served scoop of `flavorId` (with `mutation`) belongs in the chest rather than being sold.
+-- The player's Auto Sell settings (the chest window's AUTO SELL, saved as the save's `autoSell`): per rarity store
+-- (true) or sell (false), golden and rainbow always stored, a flavor never had always stored, and how many plain
+-- scoops of one flavor go in (1..config.maxPerFlavor).
+export type AutoSell = {
+	store: { [string]: boolean },
+	keepMutations: boolean,
+	keepNew: boolean,
+	perFlavor: number,
+}
+
+-- The settings of a player who never changed them (an old save too): from minRarity on stored, the rest sold, golden
+-- and rainbow (storeMutations) and new flavors always stored, maxPerFlavor of one flavor.
+function ScoopChest.defaultAutoSell(rarities: { string }, config: Config): AutoSell
+	local threshold = ScoopChest.rank(config.minRarity, rarities)
+	local store = {}
+	for index, rarity in rarities do
+		store[rarity] = threshold > 0 and index >= threshold
+	end
+	return {
+		store = store,
+		keepMutations = config.storeMutations,
+		keepNew = true,
+		perFlavor = config.maxPerFlavor or 3,
+	}
+end
+
+-- Settings from the save or from the client, checked: every known rarity gets a boolean (a missing or wrong one its
+-- default), the two switches booleans, perFlavor a whole number in 1..maxPerFlavor. Anything else (nil, an old save
+-- without settings, junk) falls back to the defaults field by field, so the result is always complete and safe.
+function ScoopChest.readAutoSell(raw: any, rarities: { string }, config: Config): AutoSell
+	local settings = ScoopChest.defaultAutoSell(rarities, config)
+	if type(raw) ~= "table" then
+		return settings
+	end
+	if type(raw.store) == "table" then
+		for _, rarity in rarities do
+			local value = raw.store[rarity]
+			if type(value) == "boolean" then
+				settings.store[rarity] = value
+			end
+		end
+	end
+	if type(raw.keepMutations) == "boolean" then
+		settings.keepMutations = raw.keepMutations
+	end
+	if type(raw.keepNew) == "boolean" then
+		settings.keepNew = raw.keepNew
+	end
+	local most = config.maxPerFlavor or 3
+	local per = raw.perFlavor
+	if type(per) == "number" and per == per and per >= 1 and per <= most and per == math.floor(per) then
+		settings.perFlavor = per
+	end
+	return settings
+end
+
+-- Whether a served scoop of `flavorId` (with `mutation`) belongs in the chest rather than being sold: a mutation while
+-- keepMutations is on, a flavor the player never had (`isNew`) while keepNew is on, else what its rarity is set to.
+-- `settings` nil: the defaults (ScoopChest.defaultAutoSell).
 function ScoopChest.keeps(
 	flavorId: string,
 	mutation: string?,
 	flavors: Flavors,
 	rarities: { string },
-	config: Config
+	config: Config,
+	settings: AutoSell?,
+	isNew: boolean?
 ): boolean
 	local flavor = flavors[flavorId]
 	if not flavor then
 		return false
 	end
-	if mutation and mutation ~= "" and config.storeMutations then
+	local rules = settings or ScoopChest.defaultAutoSell(rarities, config)
+	if mutation and mutation ~= "" and rules.keepMutations then
 		return true
 	end
-	local threshold = ScoopChest.rank(config.minRarity, rarities)
-	return threshold > 0 and ScoopChest.rank(flavor.rarity, rarities) >= threshold
+	if isNew and rules.keepNew then
+		return true
+	end
+	return rules.store[flavor.rarity] == true
 end
 
 -- All stored scoops, stacks counted in full.
@@ -113,10 +178,12 @@ function ScoopChest.plainCount(chest: Chest, flavorId: string): number
 	return if item then item.count else 0
 end
 
--- A served tower (`scoops` bottom to top, `mutations` by the same index or nil): the scoops the chest keeps go in
--- while there is room; what does not fit is sold with the rest. Of a plain flavor at most config.maxPerFlavor go in,
--- the next ones are sold at full value (`capped`); a mutation (Golden, Rainbow) always goes in while there is room.
--- `seen` (flavor id -> anything) holds the flavors the player already had: the first stored one of any other is `new`.
+-- A served tower (`scoops` bottom to top, `mutations` by the same index or nil): the scoops the chest keeps
+-- (ScoopChest.keeps with the player's Auto Sell `settings`, nil: the defaults) go in while there is room; what does not
+-- fit is sold with the rest. Of a plain flavor at most settings.perFlavor go in, the next ones are sold at full value
+-- (`capped`); a mutation is never limited per flavor. `seen` (flavor id -> anything) holds the flavors the player
+-- already had (served before or in the chest): any other is new, its first scoop is `new` and goes in while keepNew is
+-- on, whatever its rarity is set to.
 function ScoopChest.store(
 	chest: Chest,
 	scoops: { string },
@@ -124,9 +191,12 @@ function ScoopChest.store(
 	flavors: Flavors,
 	rarities: { string },
 	config: Config,
-	seen: { [string]: any }?
+	seen: { [string]: any }?,
+	settings: AutoSell?
 ): StoreResult
-	local result: StoreResult = { kept = {}, stored = {}, overflow = 0, capped = {} }
+	local rules = settings or ScoopChest.defaultAutoSell(rarities, config)
+	local limit = math.min(rules.perFlavor, config.maxPerFlavor or rules.perFlavor)
+	local result: StoreResult = { kept = {}, stored = {}, overflow = 0, capped = {}, limit = limit }
 	local had: { [string]: boolean } = {}
 	for flavorId in seen or {} do
 		had[flavorId] = true
@@ -136,13 +206,13 @@ function ScoopChest.store(
 	end
 	for index, flavorId in scoops do
 		local mutation = mutations and mutations[index] or ""
-		if ScoopChest.keeps(flavorId, mutation, flavors, rarities, config) then
-			local limit = config.maxPerFlavor
-			if mutation == "" and limit and ScoopChest.plainCount(chest, flavorId) >= limit then
+		local isNew = not had[flavorId]
+		if ScoopChest.keeps(flavorId, mutation, flavors, rarities, config, rules, isNew) then
+			if mutation == "" and ScoopChest.plainCount(chest, flavorId) >= limit then
 				table.insert(result.capped, flavorId)
 			elseif ScoopChest.add(chest, flavorId, mutation, flavors, config) then
 				result.kept[index] = true
-				table.insert(result.stored, { flavor = flavorId, mutation = mutation, new = not had[flavorId] })
+				table.insert(result.stored, { flavor = flavorId, mutation = mutation, new = isNew })
 				had[flavorId] = true
 			else
 				result.overflow += 1

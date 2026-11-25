@@ -24,7 +24,9 @@ return {
 	-- A scoop from the Big Swirl that nobody caught lies where it landed for landedLifetime seconds and anybody may pick
 	-- it up (no owner), blinks for the last landedBlinkSeconds and goes with a puff. One that lands in the water is
 	-- gone at once. These never push spilled scoops out: they have their own limit.
-	landedLifetime = 3,
+	-- 5 s since 25.11.2026 (3 before: gone before one got there). On a full server about 0.9 a second land uncaught
+	-- (2.2 shots a second, about 1.4 caught), so some 5 lie at a time and maxLanded is hardly ever reached.
+	landedLifetime = 5,
 	landedBlinkSeconds = 1,
 	maxLanded = 16,
 

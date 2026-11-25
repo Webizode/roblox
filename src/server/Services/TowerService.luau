@@ -11,6 +11,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Economy = require(Shared:WaitForChild("Economy"))
 local Stance = require(Shared:WaitForChild("Stance"))
 local DashCharges = require(Shared:WaitForChild("DashCharges"))
+local Dash = require(Shared:WaitForChild("Dash"))
 local Combat = require(Shared:WaitForChild("Combat"))
 local Recipes = require(Shared:WaitForChild("Recipes"))
 local SaveData = require(Shared:WaitForChild("SaveData"))
@@ -37,6 +38,11 @@ type TowerState = {
 	controls: string, -- kill-test log bucket; one control scheme since the automatic stabiliser
 	dash: DashCharges.State, -- the dash and the combat quick dash share these charges
 	dashUntil: number, -- the running dash ends; no other starts before
+	-- where the root stood (server view) when the last dash was granted, and until when catches and pickups may be
+	-- checked along the way from there (TowerService.dashTrail)
+	dashFrom: Vector3?,
+	dashTo: Vector3?, -- where that dash ends as granted (its direction and length, shortened at a wall)
+	dashTrailUntil: number,
 	stance: Stance.Meter, -- the steady stance's energy bar; the server's is the one that counts
 	lastStanceAt: number,
 	sprinting: boolean,
@@ -170,6 +176,7 @@ local function createState(player: Player): TowerState
 		controls = "auto",
 		dash = DashCharges.new(TowerTuning.dash),
 		dashUntil = 0,
+		dashTrailUntil = 0,
 		stance = Stance.new(),
 		lastStanceAt = 0,
 		sprinting = false,
@@ -287,7 +294,12 @@ local function onServe(player: Player, steadyClaim: any)
 	publish(player, state, "serve")
 	-- the serve is the player's own business (kill test 13.11.2026): only they get the count and the coins (message,
 	-- coin fountain, confetti); everybody else only hears that they served, for the glint at their plot pin
-	Remotes.Served:FireClient(player, player, count, math.floor(value), steady)
+	-- how many of them were sold (the rest went into the Scoop Chest), so the message can say both
+	local keptCount = 0
+	for _ in if stored then stored.kept else {} do
+		keptCount += 1
+	end
+	Remotes.Served:FireClient(player, player, count, math.floor(value), steady, count - keptCount)
 	for _, other in Players:GetPlayers() do
 		if other ~= player then
 			Remotes.Served:FireClient(other, player)
@@ -317,6 +329,29 @@ local function onTilt(player: Player, x: any, z: any)
 			Remotes.TowerTilt:FireClient(other, player, x, z)
 		end
 	end
+end
+
+-- Where a granted dash ends: its length (speed x duration) along (dirX, dirZ) from the root, shortened where a wall
+-- would stop it (the client's burst casts the root's box the same way and stops at what Dash.blocks), for dashTrail.
+local function dashEnd(
+	player: Player,
+	root: BasePart,
+	dirX: number,
+	dirZ: number,
+	kind: string,
+	duration: number
+): Vector3
+	local speed = if kind == "quick" then TowerTuning.dash.quick.speed else TowerTuning.dash.speed
+	local reach = Vector3.new(dirX, 0, dirZ) * speed * duration
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { player.Character :: Instance }
+	params.RespectCanCollide = true
+	local hit = workspace:Blockcast(root.CFrame, root.Size + Vector3.new(0.35, 0.1, 0.35), reach, params)
+	if hit and Dash.blocks(hit.Normal.X, hit.Normal.Y, hit.Normal.Z, dirX, dirZ) then
+		return root.Position + reach.Unit * hit.Distance
+	end
+	return root.Position + reach
 end
 
 -- A dash only moves the asker's own character and shakes their own tower; it pays nothing. The server decides
@@ -359,6 +394,10 @@ local function onDash(player: Player, dirX: any, dirZ: any)
 		* Economy.dashScale(#state.scoops, capacityOf(state), state.sneakersLevel, EconomyConfig)
 	-- a little short of the burst, so network jitter never blocks the next dash the client already allows
 	state.dashUntil = time + duration * 0.8
+	local root = rootOf(player)
+	state.dashFrom = if root then root.Position else nil
+	state.dashTo = if root then dashEnd(player, root, dirX / length, dirZ / length, kind, duration) else nil
+	state.dashTrailUntil = time + duration + TowerTuning.dash.trailGrace
 	Remotes.Dash:FireAllClients(player, dirX / length, dirZ / length, kind)
 	interruptStance(player, state) -- a dash in the steady stance ends it
 end
@@ -506,6 +545,20 @@ function TowerService.Start()
 				publish(player, state, "topple")
 			elseif action == "wanted" then
 				return registry.WantedService.isWanted(player)
+			elseif action == "drop" and ids then
+				-- a Big Swirl scoop that nobody caught, lying at the given offsets (studs ahead along the character's
+				-- look): ("drop", player, { "vanilla", 12, 16 }) drops vanilla 12 and 16 studs ahead
+				local character = player.Character
+				local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if not root then
+					return false
+				end
+				local look = root.CFrame.LookVector
+				for index = 2, #ids do
+					local distance = tonumber(ids[index]) or 0
+					local at = root.Position + Vector3.new(look.X, 0, look.Z).Unit * distance
+					registry.LootService.landed(ids[1], at, now())
+				end
 			end
 			return #state.scoops
 		end
@@ -638,6 +691,27 @@ end
 
 -- World position of the catch column's base, the same point the client checks catches from (catchUp and
 -- catchForward; the visible tower on the back is only drawn by the clients).
+-- A dash outruns the normal reach checks: the client catches or walks over a scoop mid-dash, but when its message
+-- arrives the server still sees the character where replication left it, before or past the scoop (80 studs/s; the
+-- speed tolerance only knows WalkSpeed). For a moment after a granted dash (its duration plus Config/Tower
+-- dash.trailGrace) this gives the dash's way as granted: from where it started to where it ends (dashEnd), so
+-- LootService and LauncherService also check that way. nil otherwise, or when the root is further from the start
+-- than a dash goes (plus trailSlack), so it is never a free pass.
+function TowerService.dashTrail(player: Player): (Vector3?, Vector3?)
+	local state = states[player]
+	local root = rootOf(player)
+	if not state or not root or not state.dashFrom or not state.dashTo or now() > state.dashTrailUntil then
+		return nil, nil
+	end
+	local dash = TowerTuning.dash
+	local longest = math.max(dash.speed * dash.duration, dash.quick.speed * dash.quick.duration) + dash.trailSlack
+	local moved = root.Position - state.dashFrom
+	if Vector3.new(moved.X, 0, moved.Z).Magnitude > longest then
+		return nil, nil
+	end
+	return state.dashFrom, state.dashTo
+end
+
 function TowerService.towerBase(player: Player): Vector3?
 	local root = rootOf(player)
 	if not states[player] or not root then

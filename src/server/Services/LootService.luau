@@ -163,17 +163,19 @@ local function onClaim(player: Player, id: any)
 	local position = root.Position
 	local velocity = root.AssemblyLinearVelocity
 	local speed = CatchRules.cappedSpeed(velocity.X, velocity.Z, humanoid.WalkSpeed)
-	if
-		not Loot.inReach(
-			position.X - (scoop.baseX + x),
-			position.Y - groundNow(scoop, elapsed) - humanoid.HipHeight - root.Size.Y / 2,
-			position.Z - (scoop.baseZ + z),
-			speed,
-			true,
-			LootConfig,
-			Loot.sweepRadius(scoop, player.UserId, LootConfig)
-		)
-	then
+	local scoopX, scoopZ = scoop.baseX + x, scoop.baseZ + z
+	local dy = position.Y - groundNow(scoop, elapsed) - humanoid.HipHeight - root.Size.Y / 2
+	local radius = Loot.sweepRadius(scoop, player.UserId, LootConfig)
+	local reached = Loot.inReach(position.X - scoopX, dy, position.Z - scoopZ, speed, true, LootConfig, radius)
+	if not reached then
+		-- dashed through it: the closest point of the dash's way (TowerService.dashTrail) counts too
+		local from, to = registry.TowerService.dashTrail(player)
+		if from and to then
+			local wx, wz = Loot.nearestOnWay(from.X, from.Z, to.X, to.Z, scoopX, scoopZ)
+			reached = Loot.inReach(wx - scoopX, dy, wz - scoopZ, speed, true, LootConfig, radius)
+		end
+	end
+	if not reached then
 		return reject(player, id, "too far away")
 	end
 

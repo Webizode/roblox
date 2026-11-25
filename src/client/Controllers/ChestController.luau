@@ -135,7 +135,7 @@ local entries: { [Instance]: Entry } = {}
 local latest: { [string]: any }? = nil -- the newest snapshot from the server
 local snapshotCount = 0
 local CHEST_MESSAGE_GAP = 1.8 -- seconds between the messages after a serve, so each can be read
-local chestMessages: (stored: { any }, overflow: number, capped: { any }) -> { any }
+local chestMessages: (stored: { any }, overflow: number, capped: { any }, limit: number) -> { any }
 
 -- the window and its parts
 local window: any = nil -- UiKit Window
@@ -151,6 +151,12 @@ local sellOpen = false -- the sell view shows (in the detail frame)
 local showSell: () -> ()
 -- the sell view's switches: rarity -> on, plus mutations (golden and rainbow too) and keepOne (keep one of each)
 local sellPicks: { [string]: boolean } = { keepOne = true }
+-- the AUTO SELL view: shown, the settings as picked here (sent to the server a moment after each tap), and a counter
+-- so only the last of several quick taps is sent
+local autoOpen = false
+local autoPicks: ScoopChest.AutoSell? = nil
+local autoSendToken = 0
+local showAutoSell: () -> ()
 
 -- ===================================================================================================== the lids ===
 
@@ -540,6 +546,7 @@ end
 local function showDetail(key: string?)
 	detailKey = key
 	sellOpen = false
+	autoOpen = false
 	confirming = false
 	local item = itemByKey(key)
 	detail.Visible = item ~= nil
@@ -806,6 +813,7 @@ end
 -- out again (ScoopChest.sellFiltered); an equipped stack always keeps one.
 function showSell()
 	sellOpen = true
+	autoOpen = false
 	detailKey = nil
 	confirming = false
 	detail.Visible = true
@@ -1006,6 +1014,158 @@ function showSell()
 	end
 end
 
+-- ============================================================================================= the Auto Sell =====
+
+-- The AUTO SELL view over the window (AUTO SELL beside SELL...): what a serve does with each scoop. A switch per rarity
+-- (STORE or SELL), golden and rainbow always stored, new flavors always stored, and how many of one flavor go in (1 to
+-- Config/Chest.maxPerFlavor). Every change goes to the server a moment later (ChestAction "autoSell"), which checks it
+-- (ScoopChest.readAutoSell), saves it and uses it from the next serve.
+local AUTO_SEND_DELAY = 0.4 -- seconds after the last tap, so a row of taps is one message
+
+-- the rarities that have flavors, commonest first (mythic, secret and divine have none yet)
+local function sellableRarities(): { string }
+	local has = {}
+	for _, flavor in Flavors.list do
+		if not flavor.placeholder then
+			has[flavor.rarity] = true
+		end
+	end
+	local list = {}
+	for _, rarity in Flavors.rarities do
+		if has[rarity] then
+			table.insert(list, rarity)
+		end
+	end
+	return list
+end
+
+local function sendAutoSell()
+	autoSendToken += 1
+	local token = autoSendToken
+	task.delay(AUTO_SEND_DELAY, function()
+		if token == autoSendToken and autoPicks then
+			Remotes.ChestAction:FireServer("autoSell", autoPicks)
+		end
+	end)
+end
+
+function showAutoSell()
+	autoOpen = true
+	sellOpen = false
+	detailKey = nil
+	confirming = false
+	detail.Visible = true
+	for _, child in detail:GetChildren() do
+		local keep = child.Name == "Back" or child.Name == "DetailWaffle"
+		if not keep and not child:IsA("UICorner") and not child:IsA("UIStroke") then
+			child:Destroy()
+		end
+	end
+	local picks = autoPicks or ScoopChest.readAutoSell(latest and latest.autoSell, Flavors.rarities, ChestConfig)
+	autoPicks = picks
+	local most = if latest and type(latest.perFlavorMax) == "number"
+		then latest.perFlavorMax
+		else ChestConfig.maxPerFlavor
+
+	Theme.text({
+		Name = "Title",
+		Text = "AUTO SELL",
+		Position = UDim2.fromOffset(DETAIL.pad, DETAIL.pad),
+		Size = UDim2.new(1, -DETAIL.pad * 2, 0, 50),
+		TextScaled = true,
+		ZIndex = 24,
+		Parent = detail,
+	})
+	Theme.text({
+		Name = "Hint",
+		Text = "What happens to your scoops when you serve. Stored ones go into this chest.",
+		FontFace = Theme.fontText,
+		Position = UDim2.fromOffset(DETAIL.pad, DETAIL.pad + 54),
+		Size = UDim2.new(1, -DETAIL.pad * 2, 0, 28),
+		TextScaled = true,
+		ZIndex = 24,
+		Parent = detail,
+	})
+	local rows = Theme.frame({
+		Name = "AutoRows",
+		Position = UDim2.fromOffset(DETAIL.pad, DETAIL.pad + 96),
+		Size = UDim2.new(1, -DETAIL.pad * 2, 1, -(DETAIL.pad * 3 + 96 + 56)),
+		ZIndex = 24,
+		Parent = detail,
+	})
+	local list = Instance.new("UIGridLayout")
+	-- the switches fill the width: two columns, three in the wide (phone) layout so the last row stays clear of BACK
+	local columns = if layoutName == "wide" then 3 else 2
+	list.CellSize = UDim2.new(1 / columns, -14, 0, 58)
+	list.CellPadding = UDim2.fromOffset(14, 12)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = rows
+
+	local toggles: { { button: any, on: () -> boolean, color: Color3, label: () -> string } } = {}
+	local function paint()
+		for _, entry in toggles do
+			entry.button.setColor(if entry.on() then entry.color else Theme.color("locked"))
+			entry.button.setText(entry.label())
+		end
+	end
+	local first: GuiObject? = nil
+	local function toggle(
+		name: string,
+		order: number,
+		color: Color3,
+		on: () -> boolean,
+		flip: () -> (),
+		label: () -> string
+	)
+		local button = Buttons.wide({ name = name, text = "", color = color, width = 250, height = 58 })
+		button.button.LayoutOrder = order
+		button.button.Parent = rows
+		first = first or button.button
+		table.insert(toggles, { button = button, on = on, color = color, label = label })
+		button.button.Activated:Connect(function()
+			flip()
+			paint()
+			Anim.bump(button.button)
+			sendAutoSell()
+		end)
+	end
+	for order, rarity in sellableRarities() do
+		toggle(rarity, order, Theme.rarity(rarity), function()
+			return picks.store[rarity] == true
+		end, function()
+			picks.store[rarity] = not picks.store[rarity]
+		end, function()
+			return `{string.upper(rarityLabel(rarity))}: {if picks.store[rarity] then "STORE" else "SELL"}`
+		end)
+	end
+	toggle("Mutations", 50, Theme.color("yellow"), function()
+		return picks.keepMutations
+	end, function()
+		picks.keepMutations = not picks.keepMutations
+	end, function()
+		return if picks.keepMutations then "GOLDEN & RAINBOW: STORE" else "GOLDEN & RAINBOW: BY RARITY"
+	end)
+	toggle("NewFlavors", 51, Theme.color("mint"), function()
+		return picks.keepNew
+	end, function()
+		picks.keepNew = not picks.keepNew
+	end, function()
+		return if picks.keepNew then "NEW FLAVORS: STORE" else "NEW FLAVORS: BY RARITY"
+	end)
+	-- the limit per flavor goes round 1, 2, ... most, 1; always "on" (it is a number, not a switch)
+	toggle("PerFlavor", 52, Theme.color("sky"), function()
+		return true
+	end, function()
+		picks.perFlavor = if picks.perFlavor >= most then 1 else picks.perFlavor + 1
+	end, function()
+		return `UP TO {picks.perFlavor} PER FLAVOR`
+	end)
+	paint()
+	if Screen.input() == "gamepad" and first then
+		GuiService.SelectedObject = first
+	end
+end
+
 local function render()
 	if not window then
 		return
@@ -1094,7 +1254,9 @@ local function render()
 	emptyLabel.Visible = #items == 0
 	window.firstSelection = first
 
-	if detail.Visible and sellOpen then
+	if detail.Visible and autoOpen then
+		showAutoSell()
+	elseif detail.Visible and sellOpen then
 		showSell()
 	elseif detail.Visible then
 		if itemByKey(detailKey) then
@@ -1273,6 +1435,21 @@ local function buildWindow()
 		sellPicks.mutations = false
 		showSell()
 	end)
+	-- AUTO SELL beside it: what a serve stores and what it sells (showAutoSell)
+	local autoSell = Buttons.wide({
+		name = "AutoSell",
+		text = "AUTO SELL",
+		color = Theme.color("mint"),
+		width = 180,
+		height = 42,
+	})
+	autoSell.button.Position = L.storedLabel + UDim2.fromOffset(386, 0)
+	autoSell.button.ZIndex = 6
+	autoSell.button.Parent = content
+	autoSell.button.Activated:Connect(function()
+		autoPicks = nil -- start from what the server holds
+		showAutoSell()
+	end)
 
 	local gridPanel = panel({
 		Name = "GridPanel",
@@ -1308,7 +1485,7 @@ local function buildWindow()
 
 	emptyLabel = Theme.text({
 		Name = "Empty",
-		Text = `Your chest is empty!\nCatch {rarityLabel(ChestConfig.minRarity)}, Epic or Legendary scoops and serve them at your cart: they land here instead of being sold.`,
+		Text = "Your chest is empty!\nServe rare scoops at your cart: they land here instead of being sold. AUTO SELL decides which.",
 		FontFace = Theme.fontText,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -1372,7 +1549,8 @@ local function onChanged(snapshot: any, event: any)
 		local stored = if type(event.stored) == "table" then event.stored else {}
 		local overflow = if type(event.overflow) == "number" then event.overflow else 0
 		local capped = if type(event.capped) == "table" then event.capped else {}
-		local messages = chestMessages(stored, overflow, capped)
+		local limit = if type(event.limit) == "number" then event.limit else ChestConfig.maxPerFlavor
+		local messages = chestMessages(stored, overflow, capped, limit)
 		-- the serve's own message ("SERVE! +n", if anything was sold) comes right after this event: the chest's wait
 		-- their turn behind it, one after the other
 		task.delay(0.15, function()
@@ -1408,8 +1586,8 @@ end
 -- colour and the sound plays. Only the catcher gets this event.
 -- The messages after a serve that stored scoops (ChestService.serve): "+1 to your chest: EPIC Tiramisu" in the
 -- rarity's colour, with NEW! for a flavor the player never had, several flavors in one line (the rarest names the
--- colour); then what was sold anyway (the flavor already 3 times in the chest, or the chest full).
-function chestMessages(stored: { any }, overflow: number, capped: { any }): { any }
+-- colour); then what was sold anyway (the flavor already at the Auto Sell limit per flavor, or the chest full).
+function chestMessages(stored: { any }, overflow: number, capped: { any }, limit: number): { any }
 	local messages = {}
 	if #stored > 0 then
 		local order, counts, news = {}, {}, {}
@@ -1480,7 +1658,7 @@ function chestMessages(stored: { any }, overflow: number, capped: { any }): { an
 			end
 		end
 		table.insert(messages, {
-			text = `Already {ChestConfig.maxPerFlavor}x {table.concat(names, ", ")} in your chest: sold instead.`,
+			text = `Up to {limit} per flavor: {table.concat(names, ", ")} sold instead.`,
 			kind = "normal",
 			icon = "coin",
 		})
@@ -1521,6 +1699,23 @@ end
 
 -- A copy of the chest as the server last sent it (its stacks, nothing equipped), to work out what a serve would
 -- store (TowerController's preview); nil before the first snapshot.
+-- The player's AUTO SELL settings as the server last sent them (the defaults before the first snapshot), for the
+-- serve preview.
+function ChestController.autoSell(): ScoopChest.AutoSell
+	return ScoopChest.readAutoSell(latest and latest.autoSell, Flavors.rarities, ChestConfig)
+end
+
+-- The flavors the player served before (flavor id -> true), so the serve preview knows a new flavor.
+function ChestController.seen(): { [string]: boolean }
+	local set = {}
+	if latest and type(latest.seen) == "table" then
+		for _, flavorId in latest.seen do
+			set[flavorId] = true
+		end
+	end
+	return set
+end
+
 function ChestController.chestCopy(): any
 	if not latest then
 		return nil

@@ -10,13 +10,15 @@ local UpgradesConfig = require("../src/shared/Config/Upgrades")
 describe("Progression: the upgrade prices meet the goals", function()
 	local result = Progression.median(UpgradesConfig, 52, 5, nil, 60)
 
-	it("the first upgrade after the first serve, about 3 minutes in", function()
-		expect(result.firstUpgrade ~= nil and result.firstUpgrade <= 4).toBe(true)
+	-- about 3 minutes until 25.11.2026; since then a new flavor goes into the chest by default (Auto Sell "new flavors:
+	-- store", decided 25.11.2026), so a new player's first towers pay less: about 6 minutes
+	it("the first upgrade after the first serves, about 6 minutes in", function()
+		expect(result.firstUpgrade ~= nil and result.firstUpgrade <= 7).toBe(true)
 	end)
 
 	it("every upgrade at about level 5 after 1 hour", function()
 		local at = result.reached[5] or math.huge
-		expect(at >= 45 and at <= 80).toBe(true)
+		expect(at >= 40 and at <= 80).toBe(true) -- about 44 minutes since the new flavors are stored (58 before)
 	end)
 
 	it("half the levels after about 10 hours", function()
