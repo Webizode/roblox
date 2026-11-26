@@ -47,6 +47,7 @@ require("./Wanted.spec")
 require("./HealthPips.spec")
 require("./ScoopChest.spec")
 require("./AutoSell.spec")
+require("./Bosses.spec")
 require("./TouchLayout.spec")
 require("./FlavorOdds.spec")
 

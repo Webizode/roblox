@@ -28,7 +28,7 @@
 local PRICE = { base = 43, growth = 1.74, bend = 12, lateGrowth = 1.07 }
 
 return {
-	order = { "cone", "stability", "cart", "luck", "slots", "sprinkles" },
+	order = { "cone", "stability", "cart", "luck", "slots", "sprinkles", "bossPower" },
 	priceDigits = 2,
 
 	-- The highest level per rebirth (Upgrades.top): `base` without a rebirth, `perRebirth` more for each. Prepared for
@@ -133,6 +133,20 @@ return {
 			start = 1,
 			perLevel = 0.04,
 			maxLevel = 25,
+			cost = PRICE,
+			hidden = true,
+		},
+		-- Stärke gegen Bosse: multiplies the damage of every ice ball against an arena boss (BossRules.damage). Never
+		-- against players (CombatService does not read it). Prepared, hidden in the shop until bosses are tuned.
+		bossPower = {
+			label = "Boss Power",
+			text = "Your ice balls hurt bosses more.",
+			icon = nil,
+			color = "sky",
+			format = "times",
+			start = 1,
+			perLevel = 0.1,
+			maxLevel = 20,
 			cost = PRICE,
 			hidden = true,
 		},

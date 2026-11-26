@@ -213,6 +213,11 @@ local function onTowerChanged(newScoops: { string }, reason: string)
 				visual:setGroan(false)
 			end
 		end
+	elseif reason == "bossHit" then
+		-- a boss knocked the top scoops off: the rest stays as it leans (TowerController.bossHit shoves it)
+		if toppledAt then
+			return
+		end
 	elseif reason ~= "catch" and reason ~= "pickup" then
 		-- topple, serve or respawn: the server's list is the new starting point
 		TowerModel.reset(state)
@@ -611,6 +616,11 @@ local function askForDash()
 		debugDash("no request: a dash is still running")
 		return
 	end
+	local sticky = player:GetAttribute("StickyUntil")
+	if type(sticky) == "number" and workspace:GetServerTimeNow() < sticky then
+		debugDash("no request: stuck in a boss's sticky puddle")
+		return
+	end
 	local direction = flatten(humanoid.MoveDirection)
 	if direction == Vector3.zero then
 		direction = flatten(root.CFrame.LookVector)
@@ -869,6 +879,18 @@ function TowerController.hit(dirX: number, dirZ: number, power: number)
 	if Stance.drain(meter, power * CombatConfig.stanceDrain) then
 		stanceEnded(false)
 	end
+end
+
+-- A boss attack hit the local player (BossController, Config/Bosses hit): a strong shove along (dirX, dirZ), and the
+-- tower is held up like in the grace for `protect` seconds, so it wobbles hard but never falls from it: only players
+-- topple towers. The scoops that fell off come from the server (TowerService.bossHit).
+function TowerController.bossHit(dirX: number, dirZ: number, kick: number, protect: number)
+	if #scoops == 0 or state.toppled or toppledAt then
+		return
+	end
+	TowerModel.startGrace(state, protect)
+	TowerModel.impulse(state, dirX * kick, dirZ * kick)
+	visual:setGroan(false)
 end
 
 -- Knocked down: the tower cannot topple on its own while the carrier is down and for graceSeconds after getting up

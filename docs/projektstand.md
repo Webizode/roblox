@@ -566,6 +566,16 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
   - Neu: Die Rettung startet nur im Warnfenster, unter `rescue.maxTilt` 0,9 der Kippgrenze und höchstens alle `rescue.cooldown` 10 s. Sie zieht den Turm bis `rescue.release` 0,2 zurück. Die Schonzeit kommt nur noch von eigener oder fremder verschütteter Beute (Big-Swirl-Kugeln zählen wie ein Fang), wird nicht verlängert und startet höchstens alle `graceCooldown` 10 s (`TowerModel.pickupGrace`). Nach dem Aufstehen startet sie immer.
   - Safe Zone hängt nicht, sie wird jeden Frame aus der Position berechnet. Stability wirkt nur aufs Gehen: Ab Stufe 15 hält ein Turm aus 35 den Zickzack, das ist so gewollt.
   - Tests: 645 bestanden.
+- **Bosse in der Arena** (26.11.2026). Bericht im Vault: `Bosse 2026-11-26.md`. Schalter `Features.bosses`, Werte in `Config/Bosses`, Regeln in `BossRules` (Tests `Bosses.spec`), Server `BossService`, Client `BossController`.
+  - Rhythmus: normaler Boss alle 15–20 min (der erste 5–8 min nach Serverstart), großer Boss zu jeder vollen Stunde (Serveruhr) mit 5 min Ankündigung. Kein normaler Boss 8 min vor bis 4 min nach der vollen Stunde. Nach 3 min verschwindet der Boss ohne Belohnung.
+  - 3 Bosse: Frost Brute (Stomp, Bodenwelle), Gummy Grizzly (Sprung auf den nächsten Spieler, Stomp), Cream Phantom (klebrige Flächen: langsamer, kein Dash; Stomp). Vorwarnung als roter Kreis, der sich füllt. Dash kurz vor dem Einschlag weicht aus, Sprung über die Welle auch.
+  - Treffer durch den Boss: kein Knockdown, kein Umfallen. Starker Turm-Schubs (der Client hält ihn 1,5 s wie in der Schonzeit), 2–3 Kugeln fallen oben ab und liegen als Beute des Besitzers (`TowerService.bossHit`).
+  - Waffenstillstand (`Config/Bosses.truce`): Solange ein Boss lebt, fliegen Eisbälle durch Spieler, keine Zielhilfe auf Spieler, niemand hebt fremde verschüttete Kugeln auf. Big Swirl und Fangen laufen weiter. Hinweise: Banner bei Ankündigung und Start („TRUCE! Defeat the boss together!“), beim Ende „PvP is back!“.
+  - Schaden: Eisbälle treffen eine Kapsel um den Boss (`CombatService`), Schaden = 10 × Trefferstärke × Boss Power. Leben skalieren mit den Spielern in der Arena (+60 % pro weiterem Spieler, steigen mit, sinken nie).
+  - Belohnung (Platzhalter): Jeder mit Schaden bekommt 150 Coins plus seinen Anteil an 1200, und eine Kugel ab Rare (70/25/5 %, großer Boss 40/45/15 % und Coins ×3), die am Boden liegt (Lichtsäule wie jede Kugel ab Rare). 20 s nur für den Besitzer, danach klaubar, 90 s Liegezeit (`LootService.reward`).
+  - „Boss Power“ (`Config/Upgrades.tracks.bossPower`) ist vorbereitet und im Shop versteckt; wirkt nur in `BossRules.damage`.
+  - Studio: `ServerStorage.StudioBossTest:Invoke("spawn", "iceBrute" | "gummyBear" | "creamGhost")`, `("big", id)`, `("announce", Sekunden)`, `("kill")`, `("escape")`, `("hurt", player, n)`, `("state")`.
+  - Tests: 670 bestanden.
 ---
 
 ## 8. Reihenfolge

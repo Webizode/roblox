@@ -40,6 +40,7 @@ type Free = {
 	endAt: number, -- expiresAt, or earlier when it rolls into the water
 	sinks: boolean,
 	landed: boolean, -- from the Big Swirl, nobody caught it (Loot.landed); otherwise spilled from a tower
+	reward: boolean?, -- a boss's reward (LootService.reward): drawn with a light pillar
 }
 
 -- how far below the tower base the server looks for ground under a scoop
@@ -93,6 +94,7 @@ local function wire(scoop: Free)
 		endAt = scoop.endAt,
 		sinks = scoop.sinks,
 		landed = scoop.landed,
+		reward = scoop.reward == true,
 	}
 end
 
@@ -156,6 +158,10 @@ local function onClaim(player: Player, id: any)
 	end
 	if registry.CombatService.isDown(player) then
 		return reject(player, id, "knocked down")
+	end
+	-- the truce while a boss is alive (Config/Bosses truce): nobody takes another player's spilled scoops
+	if not scoop.landed and scoop.owner ~= player.UserId and registry.BossService.truce() then
+		return reject(player, id, "truce")
 	end
 
 	local elapsed = time - scoop.t0
@@ -383,6 +389,54 @@ function LootService.landed(flavorId: string, position: Vector3, landedAt: numbe
 		endAt = made.endAt,
 		sinks = false,
 		landed = true,
+	}
+	free[scoop.id] = scoop
+	table.insert(order, scoop.id)
+	Remotes.LootSpawned:FireAllClients({ wire(scoop) })
+	return true
+end
+
+-- A boss's reward for `player` (BossService): one scoop of `flavorId` lying at `position` (on free ground beside it if
+-- nobody could reach it there), drawn with a light pillar. Only its owner may pick it up for `ownerSeconds`, then
+-- anybody (picking up somebody else's makes them wanted, like any spilled scoop). It lies `lifetime` seconds.
+-- False when there is no ground under it.
+function LootService.reward(
+	player: Player,
+	flavorId: string,
+	position: Vector3,
+	ownerSeconds: number,
+	lifetime: number
+): boolean
+	local groundY = groundAt(position.X, position.Y + 6, position.Z)
+	if not groundY then
+		return false
+	end
+	local spot = registry.MapService.settle(Vector3.new(position.X, groundY, position.Z))
+	if makeRoom(1) < 1 then
+		return false
+	end
+	local time = now()
+	local made = Loot.landed(flavorId, time, spot.Y, LootConfig)
+	nextId += 1
+	local scoop: Free = {
+		id = nextId,
+		ownerPlayer = player,
+		owner = player.UserId,
+		path = made.path,
+		baseX = spot.X,
+		baseY = spot.Y,
+		baseZ = spot.Z,
+		groundY = spot.Y,
+		profile = made.profile,
+		t0 = made.t0,
+		landedAt = time,
+		ownerFrom = time,
+		ownerUntil = time + ownerSeconds,
+		expiresAt = time + lifetime,
+		endAt = time + lifetime,
+		sinks = false,
+		landed = false,
+		reward = true,
 	}
 	free[scoop.id] = scoop
 	table.insert(order, scoop.id)

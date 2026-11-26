@@ -55,6 +55,9 @@ type TowerState = {
 	lastToppleAt: number,
 	knockSpillUntil: number, -- a knockdown spilled the tower: topple reports until then are refused (no second spill)
 	slowUntil: number, -- a hit slows the player until then (Combat.hitSlow, Config/Combat hitSlow)
+	-- a boss's sticky puddle holds the player until then: slower by stickyFactor and no dash (BossService)
+	stickyUntil: number,
+	stickyFactor: number,
 	joinedAt: number,
 	leaderstats: { coins: IntValue, best: IntValue },
 }
@@ -114,6 +117,9 @@ local function applyWalkSpeed(player: Player, state: TowerState)
 		)
 		if stance then
 			speed *= TowerTuning.stance.walkMultiplier
+		end
+		if now() < state.stickyUntil then
+			speed *= state.stickyFactor -- in a boss's sticky puddle
 		end
 		if now() < state.slowUntil then
 			speed *= CombatConfig.hitSlow.factor -- hit a moment ago
@@ -189,6 +195,8 @@ local function createState(player: Player): TowerState
 		lastToppleAt = 0,
 		knockSpillUntil = 0,
 		slowUntil = 0,
+		stickyUntil = 0,
+		stickyFactor = 1,
 		joinedAt = now(),
 		leaderstats = { coins = coins, best = best },
 	}
@@ -376,6 +384,9 @@ local function onDash(player: Player, dirX: any, dirZ: any)
 	local time = now()
 	if time < state.dashUntil then
 		return reject("another dash is still running")
+	end
+	if time < state.stickyUntil then
+		return reject("stuck in a boss's sticky puddle")
 	end
 	local humanoid = humanoidOf(player)
 	if not humanoid or humanoid.Health <= 0 or humanoid.Sit then
@@ -637,6 +648,57 @@ function TowerService.hitSlow(player: Player)
 			applyWalkSpeed(player, state)
 		end
 	end)
+end
+
+-- A boss attack hit the player (BossService): the top `drop` scoops fall off as loot for the owner, flying along
+-- (dirX, dirZ). Never a topple or a knockdown: the rest stays on the tower (the client shoves it). Returns how many fell.
+function TowerService.bossHit(player: Player, drop: number, dirX: number, dirZ: number): number
+	local state = states[player]
+	local count = state and #state.scoops or 0
+	drop = math.clamp(math.floor(drop), 0, count)
+	if not state or drop == 0 then
+		return 0
+	end
+	local keep = count - drop
+	local flat = math.sqrt(dirX * dirX + dirZ * dirZ)
+	local tiltX, tiltZ = 0, 0
+	if flat > 1e-3 then
+		tiltX, tiltZ = dirX / flat, dirZ / flat
+	end
+	registry.LootService.spill(player, table.clone(state.scoops), keep, tiltX, tiltZ)
+	for index = count, keep + 1, -1 do
+		state.scoops[index] = nil
+	end
+	state.carryStartedAt = if keep > 0 then state.carryStartedAt else nil
+	publish(player, state, "bossHit")
+	return drop
+end
+
+-- A boss's sticky puddle holds the player until `untilAt` (server time): slower by `factor`, no dash. The client reads
+-- the StickyUntil attribute (no dash request, the HUD). The speed comes back on its own when it ends.
+function TowerService.setSticky(player: Player, untilAt: number, factor: number)
+	local state = states[player]
+	if not state or untilAt <= state.stickyUntil then
+		return
+	end
+	local was = now() < state.stickyUntil
+	state.stickyUntil = untilAt
+	state.stickyFactor = math.clamp(factor, 0.1, 1)
+	player:SetAttribute("StickyUntil", untilAt)
+	if not was then
+		applyWalkSpeed(player, state)
+	end
+	task.delay(math.max(0, untilAt - now()) + 0.03, function()
+		if states[player] == state and now() >= state.stickyUntil then
+			applyWalkSpeed(player, state)
+		end
+	end)
+end
+
+-- Server time of the player's last granted dash (-inf without one): a boss attack is dodged by a dash just before it.
+function TowerService.lastDashAt(player: Player): number
+	local state = states[player]
+	return if state then state.dash.lastAt else -math.huge
 end
 
 -- Ends the player's stance, for a knockdown.

@@ -28,6 +28,7 @@ local ORDER = {
 	"PlotGuide",
 	"PlotPins",
 	"LeaderboardBoards",
+	"BossController",
 	"UiKitGallery",
 	"FountainWater",
 	"Ocean",

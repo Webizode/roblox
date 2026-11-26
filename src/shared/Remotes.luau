@@ -36,6 +36,10 @@ local DEFINITIONS = {
 	-- server -> the thrower: kind ("knockdown": their hit knocked the victim down; "toppled": the victim's tower fell
 	-- soon after their hit), victim, scoops the victim lost
 	HitFeedback = "RemoteEvent",
+	-- server -> all or one: what an arena boss does (BossService): kind, then per kind "announce" (startsAt), "start"
+	-- (name, big), "attack" (data table), "end" (reason "defeated" or "escaped", name), and to one player "hit" (dirX,
+	-- dirZ, kick, dropped), "dodged", "damage" (amount), "reward" (coins, rarity)
+	BossEvent = "RemoteEvent",
 	LootSpawned = "RemoteEvent", -- server -> all (a spill) or one (on join): list of free scoops, see LootService
 	LootUpdated = "RemoteEvent", -- server -> all: ids, ownerUntil (the owner's head start moved, e.g. a knockdown)
 	LootRemoved = "RemoteEvent", -- server -> all: id, catcher (Player or nil), reason ("caught", "puff", "water", "room")

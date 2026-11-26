@@ -251,8 +251,8 @@ end
 -- in plain sight and not in their cart's safe zone. The input the client names only picks the strength; an unknown
 -- one gets the mouse's, the weakest.
 local function homingTarget(thrower: Player, origin: Vector3, aim: Vector3, device: any): (Player?, any?)
-	if not wantsAssist(thrower) then
-		return nil, nil
+	if not wantsAssist(thrower) or registry.BossService.truce() then
+		return nil, nil -- in the truce (BossService) players are no targets
 	end
 	local assist = Config.homing.devices[if type(device) == "string" then device else "keyboard"]
 		or Config.homing.devices.keyboard
@@ -584,11 +584,13 @@ local function step()
 		local hitRadius = BallFlight.hitRadius(BallFlight.flown(flight), Config)
 
 		local bestS, bestVictim, bestDistance = math.huge, nil :: Player?, 0
+		-- while a boss is alive there is a truce (Config/Bosses truce): balls fly on through players
+		local truce = registry.BossService.truce()
 		for _, player in Players:GetPlayers() do
 			local victimState = states[player]
 			local root = rootOf(player)
 			-- players outside the arena are never hit: the ball flies on through them, even one already in the air
-			local target = player ~= ball.thrower and root and registry.ArenaService.inArena(player)
+			local target = not truce and player ~= ball.thrower and root and registry.ArenaService.inArena(player)
 			if target and root and not (victimState and time < victimState.downUntil) then
 				local p = root.Position
 				local distance, s = Combat.closestToCapsule(ax, ay, az, bx, by, bz, p.X, p.Y, p.Z, Config.hitHalfHeight)
@@ -606,8 +608,29 @@ local function step()
 		local meetsS, worldHit = ballMeetsMap(from, to, characters)
 		local worldS = meetsS or math.huge
 
+		-- the arena boss (BossService): an upright capsule; its body only exists on the clients, so the map ray above
+		-- never sees it
+		local bossS = math.huge
+		local capsule = registry.BossService.capsule()
+		if capsule then
+			local distance, s =
+				Combat.closestToCapsule(ax, ay, az, bx, by, bz, capsule.x, capsule.y, capsule.z, capsule.halfHeight)
+			if distance <= capsule.radius + Config.ballRadius then
+				bossS = s
+			end
+		end
+
 		local resolved = true
-		if bestVictim and bestS <= worldS then
+		if bossS < math.huge and bossS <= worldS and bossS <= bestS then
+			local hitT = ball.lastT + (t - ball.lastT) * bossS
+			local speed = Vector3.new(avx, avy - Config.gravity * (hitT - ball.lastT), avz).Magnitude
+			-- a centred hit at the ball's speed: how strong the throw was is what counts against a boss
+			local power = Combat.hitPower(0, speed, ball.speed, ball.strength, Config)
+			local position = from:Lerp(to, bossS)
+			debugLog(string.format("#%d hit the boss after %.2f s, power %.2f", ball.id, hitT, power))
+			registry.BossService.damage(ball.thrower, power, position)
+			resolve(ball, nil, position, power, false)
+		elseif bestVictim and bestS <= worldS then
 			local hitT = ball.lastT + (t - ball.lastT) * bestS
 			local speed = Vector3.new(avx, avy - Config.gravity * (hitT - ball.lastT), avz).Magnitude
 			debugLog(

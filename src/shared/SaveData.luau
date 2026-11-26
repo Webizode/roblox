@@ -6,7 +6,7 @@
 -- default, a step in MIGRATIONS that lifts version n to n + 1. Saves are never thrown away: missing or broken
 -- fields are repaired from the template.
 
--- an upgrade's level by its id (Config/Upgrades tracks and legacy: cone, stability, cart, luck, slots, sprinkles,
+-- an upgrade's level by its id (Config/Upgrades tracks and legacy: cone, stability, cart, luck, slots, sprinkles, bossPower,
 -- sneakers); 0 is the start
 export type Upgrades = { [string]: number }
 
@@ -113,7 +113,16 @@ function SaveData.template(): Data
 	return {
 		version = SaveData.VERSION,
 		coins = 0,
-		upgrades = { cone = 0, stability = 0, cart = 0, luck = 0, slots = 0, sprinkles = 0, sneakers = 0 },
+		upgrades = {
+			cone = 0,
+			stability = 0,
+			cart = 0,
+			luck = 0,
+			slots = 0,
+			sprinkles = 0,
+			bossPower = 0,
+			sneakers = 0,
+		},
 		flavorServes = {},
 		scoopsServed = 0,
 		bestTower = 0,

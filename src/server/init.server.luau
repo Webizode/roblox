@@ -21,6 +21,7 @@ local ORDER = {
 	"DebugDummies",
 	"WalkTimer",
 	"LeaderboardService",
+	"BossService",
 }
 
 local registry = {}

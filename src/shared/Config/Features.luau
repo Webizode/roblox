@@ -9,6 +9,8 @@ return {
 	churn = false, -- week 5
 	-- the Scoop Chest (Config/Chest): rare scoops are kept instead of sold, equipped ones give passive bonuses
 	scoopChest = true,
+	-- arena bosses (Config/Bosses, BossService): a normal one every 15 to 20 minutes, a big one at every full hour
+	bosses = true,
 	-- the three placeholder rare flavors (Config/Flavors, placeholder = true) come out of the Big Swirl; off once the
 	-- real rare flavors are in
 	placeholderRares = false, -- off since the real rare flavors are in (18.11.2026)
