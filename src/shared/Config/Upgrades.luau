@@ -55,6 +55,25 @@ return {
 	-- reset with the rest
 	legacy = { sneakers = 5 },
 
+	-- The window's pictures (UpgradeController), cut out of the reference (vault: UI Vorschau/Upgrades, 1312 x 1199) on
+	-- 26.11.2026. The window has the plaque, the coin pill and the subtitle pill painted in, without their words (those
+	-- are live); the rows' area is the bare board. `tiles` per upgrade id; slots is a stand-in (the blue tile turned
+	-- purple, without its letter) until a drawn one exists.
+	art = {
+		window = "rbxassetid://100771024306540", -- upgrade_window, 1024 x 936 (the reference scaled)
+		card = "rbxassetid://96982934216115", -- upgrade_card2, 1024 x 160, a 9-slice (rim and inside from one clean column)
+		buy = "rbxassetid://86287687164176", -- upgrade_buy, 284 x 116, the pink pill with its coin, no price
+		buyOff = "rbxassetid://91382055160821", -- upgrade_buy_off, the same in grey (too few coins)
+		close = "rbxassetid://85268570016637", -- upgrade_close, 116 x 116
+		tiles = {
+			cone = "rbxassetid://72850702647799", -- upgrade_tile_cone, 163 x 150
+			stability = "rbxassetid://92036833031286", -- upgrade_tile_stability
+			cart = "rbxassetid://91930440734542", -- upgrade_tile_cart
+			luck = "rbxassetid://95476453739057", -- upgrade_tile_luck
+			slots = "rbxassetid://113246531070492", -- upgrade_tile_slots (stand-in)
+		},
+	},
+
 	tracks = {
 		-- Tragkraft: the cone holds more scoops (TowerService.addScoop, the HUD's tower count, the load on walking)
 		cone = {

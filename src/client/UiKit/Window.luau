@@ -35,7 +35,7 @@ export type Window = {
 	gui: ScreenGui,
 	root: Frame,
 	content: Frame,
-	closeButton: TextButton,
+	closeButton: GuiButton,
 	open: () -> (),
 	close: () -> (),
 	isOpen: () -> boolean,
@@ -55,6 +55,11 @@ export type Art = {
 	titleSize: Vector2?,
 	titleY: number?,
 	inset: { top: number, side: number, bottom: number },
+	-- the title is painted on the panel (a plaque without words): only the live word, `titleText` its box (design
+	-- pixels, centred at titleY), in the main font with the chocolate outline
+	titleText: { width: number, height: number }?,
+	-- an own close button: its picture, its middle (design pixels from the window's top left) and its size
+	close: { image: string, x: number, y: number, size: number }?,
 }
 
 local current: Window? = nil
@@ -147,7 +152,24 @@ function Window.new(props: {
 		if square then
 			square:Destroy()
 		end
-		if art.title and art.titleSize then
+		if art.titleText then
+			-- the plaque is in the panel picture: only the word, live, with a thick chocolate outline
+			local word = Theme.text({
+				Name = "Title",
+				Text = props.title,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, 0, 0, art.titleY or 0),
+				Size = UDim2.fromOffset(art.titleText.width, art.titleText.height),
+				TextScaled = true,
+				TextColor3 = Theme.color("cream"),
+				ZIndex = 5,
+				Parent = root,
+			})
+			local outline = word:FindFirstChildOfClass("UIStroke")
+			if outline then
+				outline.Thickness = 5
+			end
+		elseif art.title and art.titleSize then
 			local title = Theme.icon(art.title, {
 				Name = "Title",
 				AnchorPoint = Vector2.new(0.5, 0.5),
@@ -202,11 +224,28 @@ function Window.new(props: {
 		end
 	end
 
-	local closeButton = Buttons.close(50)
-	closeButton.AnchorPoint = Vector2.new(0.5, 0.5)
-	closeButton.Position = UDim2.new(1, -18, 0, 12)
-	closeButton.ZIndex = 6
-	closeButton.Parent = root
+	local closeButton: GuiButton
+	local closeArt = art and art.close
+	if closeArt then
+		-- the window's own close picture where the panel has room for it
+		local own = Instance.new("ImageButton")
+		own.Name = "Close"
+		own.BackgroundTransparency = 1
+		own.Image = closeArt.image
+		own.AnchorPoint = Vector2.new(0.5, 0.5)
+		own.Position = UDim2.fromOffset(closeArt.x, closeArt.y)
+		own.Size = UDim2.fromOffset(closeArt.size, closeArt.size)
+		own.ZIndex = 6
+		own.Parent = root
+		Anim.button(own)
+		closeButton = own
+	else
+		closeButton = Buttons.close(50)
+		closeButton.AnchorPoint = Vector2.new(0.5, 0.5)
+		closeButton.Position = UDim2.new(1, -18, 0, 12)
+		closeButton.ZIndex = 6
+		closeButton.Parent = root
+	end
 	local closeBadge = Buttons.badge(closeButton, "back", 28)
 	closeBadge.frame.Position = UDim2.new(0, -4, 1, 2)
 

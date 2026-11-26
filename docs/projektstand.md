@@ -579,6 +579,12 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
   - Studio-Panel rechts (nur in Studio, `StudioBossCommand`, der Server prüft `RunService:IsStudio()` auch): Ice Brute, Gummy Bear, Cream Ghost, Big Boss, Kill, Escape. Ein lebender Boss geht vor einem neuen ohne Belohnung.
   - **Aus seit 26.11.2026** bis zum ersten eigenen Modell: `Features.bosses = false` (kein Boss, keine Ankündigung, kein Waffenstillstand, Schild unsichtbar). Pro Boss `enabled` in `Config/Bosses`: nur der Cream Ghost an. Das Studio-Panel startet in Studio jeden Boss.
   - Tests: 672 bestanden.
+- **Upgrade-Fenster nach Referenzbild** (26.11.2026). Bericht im Vault: `Upgrade-Fenster 2026-11-26.md`, Referenz, Ausschnitte und Vergleich unter `UI Vorschau/Upgrades`.
+  - 10 Bilder aus der Referenz geschnitten (C# über PowerShell/System.Drawing, kein Bildprogramm nötig) und über das Studio-MCP hochgeladen, IDs in `Config/Upgrades.art`: Fenster (Plakette, Coin-Pille und Untertitel ohne Schrift, Zeilenbereich als leeres Brett), Karte als 9-Slice, 5 Kacheln (Equip Slots als lila Notlösung), Kaufknopf pink und grau, Schließen-Knopf.
+  - Live: Titel, Coins, Untertitel, Namen, Beschreibungen, Stufen-Punkte und „LV 7/25“, Wirkung in der Farbe des Upgrades, Preise. Luckiest Guy für Titel/Namen, Nunito ExtraBold für Beschreibungen, Nunito Black für Zahlen.
+  - Liste im UI-Kit-Scroller, alle sichtbaren Upgrades inklusive Equip Slots. Zu wenig Coins: grauer Knopf. Maximum: goldenes MAX. Kauf: Anim.bump, Sound, neue Punkte füllen sich nacheinander.
+  - `UiKit.Window` hat dafür zwei neue Optionen: `art.titleText` (nur das Live-Wort auf einer gemalten Plakette) und `art.close` (eigenes Bild für den Schließen-Knopf).
+  - Handy: dasselbe Fenster mit flacheren Karten (100 statt 122), alle 5 Upgrades ohne Scrollen.
 ---
 
 ## 8. Reihenfolge
