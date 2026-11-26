@@ -207,9 +207,11 @@ local function onTowerChanged(newScoops: { string }, reason: string)
 		TowerModel.landingKick(state, Tuning, #scoops)
 		Sfx.catch(#scoops)
 		if reason == "pickup" then
-			-- picked up from the ground: the tower cannot topple on its own for a moment (Config/Tower graceSeconds)
-			TowerModel.startGrace(state, Tuning.graceSeconds)
-			visual:setGroan(false)
+			-- a spilled scoop picked up: the tower cannot topple on its own for a moment (Config/Tower graceSeconds),
+			-- at most once per graceCooldown
+			if TowerModel.pickupGrace(state, Tuning) then
+				visual:setGroan(false)
+			end
 		end
 	elseif reason ~= "catch" and reason ~= "pickup" then
 		-- topple, serve or respawn: the server's list is the new starting point

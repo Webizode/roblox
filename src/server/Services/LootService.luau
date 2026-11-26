@@ -179,7 +179,10 @@ local function onClaim(player: Player, id: any)
 		return reject(player, id, "too far away")
 	end
 
-	if not registry.TowerService.addScoop(player, scoop.path.flavorId, "pickup") then
+	-- only a spilled scoop is a "pickup" (the client's grace, Config/Tower graceSeconds); a Big Swirl scoop from the
+	-- ground counts like a catch
+	local reason = if scoop.landed then "catch" else "pickup"
+	if not registry.TowerService.addScoop(player, scoop.path.flavorId, reason) then
 		return reject(player, id, "cone is full")
 	end
 	if not scoop.landed then

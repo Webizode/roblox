@@ -560,6 +560,12 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
   - Leaderboard: Der Server veröffentlicht die Rangliste als JSON in `ReplicatedStorage.LeaderboardTop`, jeder Client zeichnet die Schilder selbst (`LeaderboardBoards`) als scrollbare Liste: Top 50 (`count`), 10 sichtbar (`visibleRows`). Mit dem Controller nicht scrollbar (offen).
   - Landekreise: ohne Ring-Decal, Farbe der Flugspur (`RarityFlight.circleColor`, Common hellgrau `landingCircle.common`), Transparenz 0,45, Aufleuchten bis 0,15.
   - Tests: 637 bestanden.
+- **Turm fällt wieder (Bug, 26.11.2026).** Ein Turm aus 32 hing ganz schräg, die Anzeige war rot, und trotzdem kam immer wieder „SAVED!“. Bericht im Vault: `Turm fällt wieder 2026-11-26.md`.
+  - Ursache 1: Die Rettung beim Stehenbleiben (`rescue`) ließ an der Ächz-Grenze los, wo der Stabilisator schon aufgibt. Der Turm fiel sofort zurück und wurde wieder gerettet, in der Simulation über 400 Mal in 60 s.
+  - Ursache 2: Jede Kugel vom Boden startete die Schonzeit neu, auch Big-Swirl-Kugeln. Beim Einsammeln war der Turm dadurch dauerhaft geschützt.
+  - Neu: Die Rettung startet nur im Warnfenster, unter `rescue.maxTilt` 0,9 der Kippgrenze und höchstens alle `rescue.cooldown` 10 s. Sie zieht den Turm bis `rescue.release` 0,2 zurück. Die Schonzeit kommt nur noch von eigener oder fremder verschütteter Beute (Big-Swirl-Kugeln zählen wie ein Fang), wird nicht verlängert und startet höchstens alle `graceCooldown` 10 s (`TowerModel.pickupGrace`). Nach dem Aufstehen startet sie immer.
+  - Safe Zone hängt nicht, sie wird jeden Frame aus der Position berechnet. Stability wirkt nur aufs Gehen: Ab Stufe 15 hält ein Turm aus 35 den Zickzack, das ist so gewollt.
+  - Tests: 645 bestanden.
 ---
 
 ## 8. Reihenfolge

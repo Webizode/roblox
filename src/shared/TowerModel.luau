@@ -40,6 +40,8 @@ export type Tuning = {
 	forcedWindow: number?, -- seconds a hit or a dash counts as the cause of a groan
 	-- seconds after a pickup and after getting up in which the tower cannot topple on its own (startGrace)
 	graceSeconds: number?,
+	-- seconds after a pickup grace started before a pickup can start another one (pickupGrace); 0 when omitted
+	graceCooldown: number?,
 	-- scoops from which walking starts to tip the tower harder (accelAuthority); the "Stability" upgrade raises it
 	walkHeavyFrom: number?,
 	gravityGain: number,
@@ -97,6 +99,9 @@ export type State = {
 	stance: boolean, -- the steady stance is held: the stabiliser works on the real lean at full strength
 	graceUntil: number, -- state.t until which the tower cannot topple on its own (startGrace)
 	forcedAt: number, -- state.t of the last ice-ball hit or dash (TowerModel.forced)
+	rescuing: boolean, -- standing still is pulling a groaning tower back right now (assist, Config/Tower rescue)
+	rescuedAt: number, -- state.t the last rescue started (rescue.cooldown)
+	pickupGraceAt: number, -- state.t the last pickup grace started (pickupGrace, graceCooldown)
 }
 
 export type Input = {
@@ -140,6 +145,9 @@ function TowerModel.newState(seed: number): State
 		stance = false,
 		graceUntil = 0,
 		forcedAt = -math.huge,
+		rescuing = false,
+		rescuedAt = -math.huge,
+		pickupGraceAt = -math.huge,
 	}
 end
 
@@ -157,7 +165,9 @@ function TowerModel.reset(state: State)
 	state.shake = 0
 	state.seenX, state.seenZ, state.seenVx, state.seenVz = 0, 0, 0, 0
 	state.stance = false
-	-- graceUntil stays: a knockdown's grace (startGrace) must survive the reset its spill brings
+	state.rescuing = false
+	-- graceUntil, rescuedAt and pickupGraceAt stay: a knockdown's grace (startGrace) must survive the reset its spill
+	-- brings, and a topple does not hand out a fresh rescue or pickup grace
 end
 
 -- flavorIds are bottom to top. stiffnessMultiplier comes from the cone upgrade.
@@ -256,6 +266,9 @@ export type RescueTuning = {
 	authority: number, -- rad/s^2 of pad the rescue may use at most
 	kp: number,
 	kd: number,
+	maxTilt: number?, -- share of tipAngle: a tower leaning this far or further is not rescued (1 when omitted)
+	cooldown: number?, -- seconds after a rescue started before standing still can start another one (0 when omitted)
+	release: number?, -- share of tipAngle: a rescue lets go once the lean is below this (groanFraction when omitted)
 }
 
 -- The automatic stabiliser, fed into step() as pad input (so the pad authority and the full-strength-only-
@@ -281,17 +294,33 @@ function TowerModel.assist(
 	state.seenVx += (state.vx - state.seenVx) * blend
 	state.seenVz += (state.vz - state.seenVz) * blend
 	if params.count == 0 or state.toppled then
+		state.rescuing = false
 		return 0, 0
 	end
 
 	-- The rescue: a groaning tower whose carrier stands still is caught like in the stance (its own gains and
-	-- authority), unless a hit or a dash caused it (TowerModel.forced): those keep their full danger.
+	-- authority), unless a hit or a dash caused it (TowerModel.forced): those keep their full danger. It only starts
+	-- in the warning window (groaning), below rescue.maxTilt and at most once per rescue.cooldown seconds; once started
+	-- it pulls the tower back to rescue.release, where the stabiliser holds it again, as long as the carrier stays
+	-- still. A tower leaning past maxTilt, or groaning again within the cooldown, topples. (Test of 26.11.2026: the
+	-- rescue let go at the groan line, where the stabiliser has given up, so a tower of 32 groaned and was "saved"
+	-- several times a second for as long as its carrier stood.)
 	local rescue = tuning.rescue
-	local rescuing = rescue ~= nil
-		and still == true
-		and state.groan > 0
-		and not state.stance
-		and not TowerModel.forced(state, tuning)
+	local rescuing = false
+	if rescue and still == true and not state.stance and not TowerModel.forced(state, tuning) then
+		local lean = TowerModel.tilt(state) / tipAngle
+		if state.rescuing then
+			rescuing = lean > (rescue.release or tuning.groanFraction)
+		elseif
+			state.groan > 0
+			and lean < (rescue.maxTilt or 1)
+			and state.t - state.rescuedAt >= (rescue.cooldown or 0)
+		then
+			rescuing = true
+			state.rescuedAt = state.t
+		end
+	end
+	state.rescuing = rescuing
 	if state.stance or rescuing then
 		local gains = if state.stance then tuning.stance else rescue :: RescueTuning
 		local limit = math.min(1, gains.authority / TowerModel.padAuthority(params, variant, tuning))
@@ -400,6 +429,18 @@ function TowerModel.startGrace(state: State, seconds: number)
 	end
 	state.graceUntil = math.max(state.graceUntil, state.t + seconds)
 	state.groan = 0
+end
+
+-- The grace after picking up a spilled scoop: it starts only when no grace runs and the last pickup grace started at
+-- least graceCooldown seconds ago, so gathering one scoop after another does not keep the tower safe for good (test of
+-- 26.11.2026). Returns whether it started.
+function TowerModel.pickupGrace(state: State, tuning: Tuning): boolean
+	if state.toppled or TowerModel.inGrace(state) or state.t - state.pickupGraceAt < (tuning.graceCooldown or 0) then
+		return false
+	end
+	TowerModel.startGrace(state, tuning.graceSeconds or 0)
+	state.pickupGraceAt = state.t
+	return true
 end
 
 function TowerModel.endGrace(state: State)

@@ -43,18 +43,28 @@ return {
 	},
 	-- Rescue (TowerModel.assist): while the tower groans and its carrier stands still (no move input),
 	-- the stabiliser does not give up but catches it like the stance, with these gains and up to `authority` rad/s^2
-	-- of pad. Not after a hit or a dash (forcedWindow above).
+	-- of pad. Not after a hit or a dash (forcedWindow above). Test of 26.11.2026: the rescue let go at the groan line
+	-- and caught it again at once, so a tower of 32 hung at the edge and was "SAVED!" over and over. Now it only starts
+	-- while groaning, below maxTilt of tipAngle (leaning further it topples), at most once every cooldown seconds, and
+	-- once started it pulls the tower back to `release` of tipAngle, where the stabiliser holds it again.
 	rescue = {
 		authority = 10,
 		kp = 2.5,
 		kd = 1.0,
+		maxTilt = 0.9,
+		cooldown = 10,
+		release = 0.2,
 	},
 	-- Grace (TowerModel.startGrace): for this many seconds after picking up a scoop from the ground and after getting
 	-- up from a knockdown, the tower behaves as in the safe zone (rights itself, cannot groan or topple on its own).
 	-- An ice-ball hit or a dash ends it at once. Test of 20.11.2026: gathering a spilled tower of 30 is stop-and-go
 	-- walking, and it ended leaning with momentum where the stabiliser gives up, so it toppled again within 2 s in
 	-- more than half of the cases, over and over.
+	-- Since 26.11.2026 only spilled scoops (not Big Swirl scoops lying on the ground) start it, it is never extended
+	-- by a further pickup, and a pickup starts a new one only graceCooldown seconds after the last one started: before,
+	-- gathering one scoop after another kept the tower safe for good. Getting up always starts it.
 	graceSeconds = 3,
+	graceCooldown = 10,
 	-- From this many scoops walking tips the tower harder (TowerModel.params walkInstability, accelAuthority): the
 	-- walking leverage grows with the instability above that of a tower of this height on the starter cone. 10 is
 	-- exactly the old behaviour. Only walking: hits, dashes, standing and the stabiliser do not see it. The

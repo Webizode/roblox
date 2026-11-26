@@ -7,6 +7,8 @@ local Economy = require("../src/shared/Economy")
 local Flavors = require("../src/shared/Config/Flavors")
 local Tuning = require("../src/shared/Config/Tower")
 local EconomyConfig = require("../src/shared/Config/Economy")
+local Upgrades = require("../src/shared/Upgrades")
+local UpgradesConfig = require("../src/shared/Config/Upgrades")
 
 local DT = 1 / Tuning.stepRate
 local PAD = Tuning.variant
@@ -910,7 +912,7 @@ local function gatherAgain(count: number, seed: number, grace: boolean, after: n
 				params = paramsFor(stack("vanilla", held), cone)
 				TowerModel.landingKick(state, Tuning, held)
 				if grace then
-					TowerModel.startGrace(state, Tuning.graceSeconds)
+					TowerModel.pickupGrace(state, Tuning)
 				end
 			end
 		end
@@ -958,10 +960,15 @@ describe("Gathering a spilled tower (test of 20.11.2026)", function()
 		expect(again).toBeGreaterThan(5)
 	end)
 
-	it("standing still after gathering is enough even without the grace now (the rescue catches it)", function()
+	it("standing still after gathering mostly holds even without the grace (the rescue, once per cooldown)", function()
+		-- since 26.11.2026 the rescue is limited (maxTilt, cooldown), so without the grace a few towers go again
+		local again = 0
 		for seed = 1, 20 do
-			expect(gatherAgain(30, seed * 977, false, 15)).toBe(false)
+			if gatherAgain(30, seed * 977, false, 15) then
+				again += 1
+			end
 		end
+		expect(again <= 2).toBe(true)
 	end)
 
 	it("with the grace a gathered tower of 28 to 34 stands: it never topples again on its own", function()
@@ -1022,6 +1029,152 @@ describe("Gathering a spilled tower (test of 20.11.2026)", function()
 
 	it("standing still does not rescue a tower a hit has just pushed over", function()
 		expect(groaning(30, 2, true, true)).toBe(true)
+	end)
+end)
+
+-- Test of 26.11.2026: a tower of 32 hung far over with a red gauge and "SAVED!" came again and again; it never fell.
+-- The rescue let go at the groan line, where the stabiliser has given up, and caught it again at once. And every scoop
+-- picked up from the ground (Big Swirl scoops too) restarted the grace, so gathering kept the tower safe for good.
+
+-- A tower of `count` leaning `lean` (share of tipAngle) whose carrier stands still for `seconds`, with `rules`.
+-- Returns whether it toppled and how often it was "saved".
+local function standStill(count: number, lean: number, seconds: number, rules: any?): (boolean, number)
+	local tuning = rules or Tuning
+	local state = TowerModel.newState(3)
+	local params = TowerModel.params(stack("vanilla", count), FLAVORS, tuning, 1)
+	state.x = lean * Tuning.tipAngle
+	state.seenX = state.x
+	local saved = 0
+	for _ = 1, seconds / DT do
+		local padX, padZ = TowerModel.assist(state, params, PAD, tuning, DT, true)
+		local event = TowerModel.step(state, params, { ax = 0, az = 0, padX = padX, padZ = padZ }, PAD, tuning, DT)
+		if event == "saved" then
+			saved += 1
+		end
+		if state.toppled then
+			return true, saved
+		end
+	end
+	return false, saved
+end
+
+-- Zigzag with a tower of `count`, nobody balancing: walking at 16 studs/s, the heading swinging 60 degrees to either
+-- side every 0.8 s, with the Stability upgrade at `stability`. Returns when it toppled (nil: it stood for 120 s).
+local function zigzag(count: number, seed: number, stability: number): number?
+	local tuning = table.clone(Tuning) :: any
+	tuning.walkHeavyFrom = Upgrades.value("stability", stability, UpgradesConfig)
+	local state = TowerModel.newState(seed)
+	local params = TowerModel.params(stack("vanilla", count), FLAVORS, tuning, 1)
+	local vx, vz = 0, 0
+	for step = 1, 120 / DT do
+		local t = step * DT
+		local side = if math.floor(t / 0.8) % 2 == 0 then 1 else -1
+		local heading = math.rad(60) * side + seed
+		local ax, az
+		vx, vz, ax, az = TowerModel.baseVelocityStep(
+			vx,
+			vz,
+			math.cos(heading) * 16,
+			math.sin(heading) * 16,
+			Tuning.accelSmoothing,
+			DT,
+			Tuning.turnFactor
+		)
+		local padX, padZ = TowerModel.assist(state, params, PAD, tuning, DT, false)
+		TowerModel.step(state, params, { ax = ax, az = az, padX = padX, padZ = padZ }, PAD, tuning, DT)
+		if state.toppled then
+			return t
+		end
+	end
+	return nil
+end
+
+describe("Rescue and grace are limited (test of 26.11.2026)", function()
+	it(
+		"reproduces the bug: under the old rescue a leaning tower of 32 is saved hundreds of times and never falls",
+		function()
+			local old = table.clone(Tuning) :: any
+			old.rescue = { authority = Tuning.rescue.authority, kp = Tuning.rescue.kp, kd = Tuning.rescue.kd }
+			local toppled, saved = standStill(32, 0.85, 60, old)
+			expect(toppled).toBe(false)
+			expect(saved).toBeGreaterThan(100)
+		end
+	)
+
+	it("the values live in the config", function()
+		expect(Tuning.rescue.maxTilt).toBe(0.9)
+		expect(Tuning.rescue.cooldown).toBe(10)
+		expect(Tuning.rescue.release < Tuning.groanFraction).toBe(true)
+		expect(Tuning.rescue.maxTilt > Tuning.groanFraction).toBe(true)
+		expect(Tuning.graceCooldown).toBe(10)
+	end)
+
+	it("a tower of 32 leaning past the limit topples although its carrier stands still", function()
+		for _, lean in { Tuning.rescue.maxTilt, 0.95, 1 } do
+			local toppled, saved = standStill(32, lean, 10)
+			expect(toppled).toBe(true)
+			expect(saved).toBe(0)
+		end
+	end)
+
+	it("in the warning window below the limit standing still saves it once, upright, and it stays up", function()
+		for _, lean in { 0.8, 0.85 } do
+			local toppled, saved = standStill(32, lean, 60)
+			expect(toppled).toBe(false)
+			expect(saved).toBe(1)
+		end
+	end)
+
+	it("a second groan within the cooldown is not rescued", function()
+		local state = TowerModel.newState(3)
+		local params = TowerModel.params(stack("vanilla", 32), FLAVORS, Tuning, 1)
+		state.x = 0.85 * Tuning.tipAngle
+		state.groan = DT
+		TowerModel.assist(state, params, PAD, Tuning, DT, true)
+		expect(state.rescuing).toBe(true)
+		-- the carrier walks off, the rescue ends; it groans again 5 s later
+		state.t += 5
+		TowerModel.assist(state, params, PAD, Tuning, DT, false)
+		expect(state.rescuing).toBe(false)
+		TowerModel.assist(state, params, PAD, Tuning, DT, true)
+		expect(state.rescuing).toBe(false)
+		-- after the cooldown it would be rescued again
+		state.t += Tuning.rescue.cooldown
+		TowerModel.assist(state, params, PAD, Tuning, DT, true)
+		expect(state.rescuing).toBe(true)
+	end)
+
+	-- (from Stability level 15 on, walking with 35 feels like walking with 20 to 25 and a tower can hold the zigzag: the
+	-- upgrade does that on purpose; level 8 is the Studio save of 26.11.2026)
+	it("zigzag with 35 scoops throws the tower over sooner or later, without the upgrade and at Stability 8", function()
+		for _, stability in { 0, 8 } do
+			for seed = 1, 8 do
+				local toppledAt = zigzag(35, seed, stability)
+				expect(toppledAt ~= nil).toBe(true)
+			end
+		end
+	end)
+
+	it("a pickup grace is not extended by more pickups and starts again only after the cooldown", function()
+		local state = TowerModel.newState(3)
+		expect(TowerModel.pickupGrace(state, Tuning)).toBe(true)
+		local until1 = state.graceUntil
+		state.t += 1
+		expect(TowerModel.pickupGrace(state, Tuning)).toBe(false)
+		expect(state.graceUntil).toBe(until1)
+		state.t += Tuning.graceSeconds -- the grace is over, the cooldown not yet
+		expect(TowerModel.inGrace(state)).toBe(false)
+		expect(TowerModel.pickupGrace(state, Tuning)).toBe(false)
+		state.t = Tuning.graceCooldown
+		expect(TowerModel.pickupGrace(state, Tuning)).toBe(true)
+	end)
+
+	it("getting up always starts the grace, the pickup cooldown does not stop it", function()
+		local state = TowerModel.newState(3)
+		TowerModel.pickupGrace(state, Tuning)
+		state.t += Tuning.graceSeconds + 1
+		TowerModel.startGrace(state, 2 + Tuning.graceSeconds)
+		expect(TowerModel.inGrace(state)).toBe(true)
 	end)
 end)
 
