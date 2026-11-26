@@ -575,7 +575,9 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
   - Belohnung (Platzhalter): Jeder mit Schaden bekommt 150 Coins plus seinen Anteil an 1200, und eine Kugel ab Rare (70/25/5 %, großer Boss 40/45/15 % und Coins ×3), die am Boden liegt (Lichtsäule wie jede Kugel ab Rare). 20 s nur für den Besitzer, danach klaubar, 90 s Liegezeit (`LootService.reward`).
   - „Boss Power“ (`Config/Upgrades.tracks.bossPower`) ist vorbereitet und im Shop versteckt; wirkt nur in `BossRules.damage`.
   - Studio: `ServerStorage.StudioBossTest:Invoke("spawn", "iceBrute" | "gummyBear" | "creamGhost")`, `("big", id)`, `("announce", Sekunden)`, `("kill")`, `("escape")`, `("hurt", player, n)`, `("state")`.
-  - Tests: 670 bestanden.
+  - Schild über dem Big Swirl (seit 26.11.2026, `Config/Bosses.sign`): Countdown bis zum nächsten Boss („BOSS IN 12:34“, großer Boss „BIG BOSS IN 4:59“ in Gold), während ein Boss lebt sein Name. Zeit vom Server (`BossState` NextAt/NextBig, `BossRules.nextBoss`). BillboardGui mit fester Pixel- plus Stud-Größe, aus Arena und Hub lesbar.
+  - Studio-Panel rechts (nur in Studio, `StudioBossCommand`, der Server prüft `RunService:IsStudio()` auch): Ice Brute, Gummy Bear, Cream Ghost, Big Boss, Kill, Escape. Ein lebender Boss geht vor einem neuen ohne Belohnung.
+  - Tests: 671 bestanden.
 ---
 
 ## 8. Reihenfolge

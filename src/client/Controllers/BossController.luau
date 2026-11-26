@@ -610,6 +610,153 @@ local function onEvent(kind: string, a: any, b: any, c: any, d: any)
 	end
 end
 
+---------------------------------------------------------------------------------------------------------------------
+-- The sign over the Big Swirl (Config/Bosses sign): the countdown to the next boss, or the living boss's name. The time
+-- comes from the server (BossState NextAt and NextBig).
+
+local SIGN = BossConfig.sign
+local signGui: BillboardGui? = nil
+local signLabel: TextLabel
+local signFrame: Frame
+
+local function buildSign(at: Vector3)
+	local anchor = anchoredPart({
+		Name = "BossSignAnchor",
+		Size = Vector3.one * 0.2,
+		Transparency = 1,
+		CFrame = CFrame.new(at),
+		Parent = world(),
+	})
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "BossSign"
+	billboard.Adornee = anchor
+	billboard.Size = UDim2.new(SIGN.studs.width, SIGN.pixels.width, SIGN.studs.height, SIGN.pixels.height)
+	billboard.MaxDistance = SIGN.maxDistance
+	billboard.LightInfluence = 0
+	billboard.AlwaysOnTop = false
+	billboard.ResetOnSpawn = false
+	signFrame = Theme.frame({
+		Name = "Plate",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 0,
+		BackgroundColor3 = Theme.color("panel"),
+		Parent = billboard,
+	})
+	Theme.corner(signFrame, UDim.new(0.5, 0))
+	local rim = Instance.new("UIStroke")
+	rim.Color = Theme.color("cream")
+	rim.Thickness = 4
+	rim.Parent = signFrame
+	signLabel = Theme.text({
+		Name = "Text",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.9, 0.78),
+		TextScaled = true,
+		Parent = signFrame,
+	})
+	billboard.Parent = player:WaitForChild("PlayerGui")
+	signGui = billboard
+end
+
+local function updateSign(time: number, active: boolean)
+	if not signGui then
+		local at = stateFolder:GetAttribute("SignAt")
+		if typeof(at) ~= "Vector3" then
+			return
+		end
+		buildSign(at)
+	end
+	local gui = signGui :: BillboardGui
+	if active then
+		local big = stateFolder:GetAttribute("Big") == true
+		local name = tostring(stateFolder:GetAttribute("Name") or "")
+		signLabel.Text = if big then BossConfig.big.title .. ": " .. name else name
+		signLabel.TextColor3 = if big then Theme.color("yellow") else Theme.color("red")
+		gui.Enabled = true
+		return
+	end
+	local nextAt = stateFolder:GetAttribute("NextAt") or 0
+	if nextAt <= 0 then
+		gui.Enabled = false -- bosses are off
+		return
+	end
+	local big = stateFolder:GetAttribute("NextBig") == true
+	signLabel.Text = string.format(if big then SIGN.nextBig else SIGN.next, BossRules.clock(nextAt - time))
+	signLabel.TextColor3 = if big then Theme.color("yellow") else Theme.color("text")
+	gui.Enabled = true
+end
+
+---------------------------------------------------------------------------------------------------------------------
+-- Studio only: a small panel at the right edge to start and end bosses without the command bar (StudioBossCommand;
+-- the server ignores it outside Studio too).
+
+local function buildStudioPanel()
+	if not RunService:IsStudio() then
+		return
+	end
+	local panelGui = Screen.gui("StudioBossPanel", 30)
+	panelGui.Parent = player:WaitForChild("PlayerGui")
+	local panel = Theme.frame({
+		Name = "Panel",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -12, 0.45, 0),
+		Size = UDim2.fromOffset(150, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 0.15,
+		BackgroundColor3 = Theme.color("panel"),
+		Parent = panelGui,
+	})
+	Theme.corner(panel, UDim.new(0, 12))
+	Theme.outline(panel, 3)
+	local padding = Instance.new("UIPadding")
+	for _, side in { "PaddingTop", "PaddingBottom", "PaddingLeft", "PaddingRight" } do
+		(padding :: any)[side] = UDim.new(0, 8)
+	end
+	padding.Parent = panel
+	local list = Instance.new("UIListLayout")
+	list.Padding = UDim.new(0, 6)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = panel
+	Theme.text({
+		Name = "Title",
+		Text = "BOSS TEST",
+		TextSize = 18,
+		Size = UDim2.new(1, 0, 0, 20),
+		LayoutOrder = 0,
+		Parent = panel,
+	})
+	local buttons = {
+		{ "Ice Brute", "iceBrute", "sky" },
+		{ "Gummy Bear", "gummyBear", "pink" },
+		{ "Cream Ghost", "creamGhost", "creamDark" },
+		{ "Big Boss", "big", "yellow" },
+		{ "Kill", "kill", "mint" },
+		{ "Escape", "escape", "red" },
+	}
+	for index, entry in buttons do
+		local button = Instance.new("TextButton")
+		button.Name = entry[2]
+		button.LayoutOrder = index
+		button.Size = UDim2.new(1, 0, 0, 30)
+		button.BackgroundColor3 = Theme.color(entry[3])
+		button.AutoButtonColor = true
+		button.Text = ""
+		button.Parent = panel
+		Theme.corner(button, UDim.new(0.5, 0))
+		Theme.outline(button, 2)
+		Theme.text({
+			Text = entry[1],
+			TextSize = 18,
+			Size = UDim2.fromScale(1, 1),
+			Parent = button,
+		})
+		button.Activated:Connect(function()
+			Remotes.StudioBossCommand:FireServer(entry[2])
+		end)
+	end
+end
+
 -- Every frame: the model follows the published position (smoothed; a leap flies its arc), the bar and the countdown.
 local stuckShown = false
 local function onRender(dt: number)
@@ -673,6 +820,7 @@ local function onRender(dt: number)
 		barTruce.Visible = stateFolder:GetAttribute("Truce") == true
 	end
 
+	updateSign(time, active)
 	local startsAt = stateFolder:GetAttribute("BigStartsAt") or 0
 	if startsAt > time and not active then
 		countdown.Visible = true
@@ -696,6 +844,7 @@ end
 function BossController.Start()
 	stateFolder = ReplicatedStorage:WaitForChild("BossState") :: Folder
 	buildHud()
+	buildStudioPanel()
 	Remotes.BossEvent.OnClientEvent:Connect(onEvent)
 	RunService.RenderStepped:Connect(onRender)
 end

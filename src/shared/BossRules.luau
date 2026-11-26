@@ -215,6 +215,15 @@ function BossRules.pause(pause: number, big: boolean, config: any): number
 	return if big then pause / config.big.attackSpeed else pause
 end
 
+-- What comes next: the normal boss at `normalAt` or the big one at `bigAt` (both on the same clock), whichever is first;
+-- the big one when they fall together. Returns the time and whether it is the big one.
+function BossRules.nextBoss(normalAt: number, bigAt: number): (number, boolean)
+	if bigAt <= normalAt then
+		return bigAt, true
+	end
+	return normalAt, false
+end
+
 -- Remaining seconds as "4:59" (the announcement and the timer on the health bar).
 function BossRules.clock(seconds: number): string
 	local s = math.max(0, math.ceil(seconds))

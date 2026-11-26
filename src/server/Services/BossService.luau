@@ -132,6 +132,9 @@ local function publish()
 	stateFolder:SetAttribute("Facing", b.facing)
 end
 
+-- server time minus wall clock, taken once: the countdown on the sign does not jump with the whole seconds of os.time
+local wallToServer = 0
+
 local function publishAnnounce(startsAt: number?)
 	stateFolder:SetAttribute("BigStartsAt", startsAt or 0)
 end
@@ -447,7 +450,7 @@ local function tick(dt: number)
 end
 
 -- The schedule, once a second: the big boss's announcement and start, the normal ones.
-local function schedule()
+local function scheduleStep()
 	local clock = os.time()
 	-- the next big boss: the coming full hour, once the last one has come (or was missed by far)
 	if bigDoneHour == bigHour or clock > bigHour + BossConfig.lifetime then
@@ -455,7 +458,7 @@ local function schedule()
 	end
 	if announcedHour ~= bigHour and bigDoneHour ~= bigHour and bigHour - clock <= BossConfig.schedule.announce then
 		announcedHour = bigHour
-		local startsAt = now() + (bigHour - clock)
+		local startsAt = bigHour + wallToServer
 		publishAnnounce(startsAt)
 		Remotes.BossEvent:FireAllClients("announce", startsAt, BossConfig.truce)
 		print(string.format("[Boss] big boss announced for %d s from now", bigHour - clock))
@@ -477,6 +480,32 @@ local function schedule()
 		end
 		local id = BossConfig.order[rng:NextInteger(1, #BossConfig.order)]
 		spawn(id, false)
+	end
+end
+
+-- The schedule, once a second, and what the sign over the Big Swirl counts down to (BossState NextAt, server time, and
+-- NextBig): the next normal boss or the big one, whichever comes first.
+local function schedule()
+	scheduleStep()
+	local at, big = BossRules.nextBoss(nextNormalAt, bigHour)
+	stateFolder:SetAttribute("NextAt", at + wallToServer)
+	stateFolder:SetAttribute("NextBig", big)
+end
+
+-- Studio only (StudioBossCommand from the Studio panel, BossController): a boss to look at, now. Whatever lives goes
+-- first (no reward for an escape).
+local function studioCommand(action: string)
+	if action == "kill" then
+		if boss then
+			boss.health = 0
+			finish("defeated")
+		end
+	elseif action == "escape" then
+		finish("escaped")
+	elseif action == "big" or BossConfig.bosses[action] then
+		finish("escaped")
+		local id = if action == "big" then BossConfig.order[rng:NextInteger(1, #BossConfig.order)] else action
+		spawn(id, action == "big")
 	end
 end
 
@@ -534,6 +563,16 @@ function BossService.Start()
 	stateFolder:SetAttribute("Active", false)
 	stateFolder:SetAttribute("Truce", false)
 	stateFolder:SetAttribute("BigStartsAt", 0)
+	stateFolder:SetAttribute("NextAt", 0)
+	stateFolder:SetAttribute("NextBig", false)
+	wallToServer = now() - os.time()
+	-- where the sign with the countdown floats: over the top of the Big Swirl (BossController draws it)
+	local pier = workspace:FindFirstChild("Pier")
+	local machine = pier and pier:FindFirstChild("BigSwirl")
+	if machine and machine:IsA("Model") then
+		local frame, size = machine:GetBoundingBox()
+		stateFolder:SetAttribute("SignAt", frame.Position + Vector3.new(0, size.Y / 2 + BossConfig.sign.above, 0))
+	end
 	stateFolder.Parent = ReplicatedStorage
 
 	if not (Features.bosses and BossConfig.enabled) then
@@ -581,6 +620,16 @@ function BossService.Start()
 	--   StudioBossTest:Invoke("escape")              -- it leaves without a reward
 	--   StudioBossTest:Invoke("hurt", player, 100)   -- that much damage as if the player had thrown it
 	--   StudioBossTest:Invoke("state")               -- a summary
+	-- the Studio panel's buttons (BossController); outside Studio nobody is listening, and the check below holds anyway
+	if RunService:IsStudio() then
+		Remotes.StudioBossCommand.OnServerEvent:Connect(function(_player, action: any)
+			if not RunService:IsStudio() or type(action) ~= "string" then
+				return
+			end
+			studioCommand(action)
+		end)
+	end
+
 	if RunService:IsStudio() then
 		local test = Instance.new("BindableFunction")
 		test.Name = "StudioBossTest"

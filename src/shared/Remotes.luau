@@ -40,6 +40,9 @@ local DEFINITIONS = {
 	-- (name, big), "attack" (data table), "end" (reason "defeated" or "escaped", name), and to one player "hit" (dirX,
 	-- dirZ, kick, dropped), "dodged", "damage" (amount), "reward" (coins, rarity)
 	BossEvent = "RemoteEvent",
+	-- client -> server, Studio only: a button of the Studio boss panel ("iceBrute", "gummyBear", "creamGhost", "big",
+	-- "kill", "escape"); the server ignores it outside Studio
+	StudioBossCommand = "RemoteEvent",
 	LootSpawned = "RemoteEvent", -- server -> all (a spill) or one (on join): list of free scoops, see LootService
 	LootUpdated = "RemoteEvent", -- server -> all: ids, ownerUntil (the owner's head start moved, e.g. a knockdown)
 	LootRemoved = "RemoteEvent", -- server -> all: id, catcher (Player or nil), reason ("caught", "puff", "water", "room")

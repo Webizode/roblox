@@ -143,6 +143,18 @@ return {
 	},
 	order = { "iceBrute", "gummyBear", "creamGhost" },
 
+	-- The sign over the Big Swirl (BossController): the countdown to the next boss ("BOSS IN 12:34", the big one in gold),
+	-- the boss's name while one lives. It floats `above` studs over the machine's top. Its size is `studs` (it grows as
+	-- one comes closer) plus `pixels` (so it stays readable from the hub, some 200 studs away); seen up to maxDistance.
+	sign = {
+		above = 12,
+		studs = { width = 22, height = 5.5 },
+		pixels = { width = 230, height = 58 },
+		maxDistance = 900,
+		next = "BOSS IN %s",
+		nextBig = "BIG BOSS IN %s",
+	},
+
 	-- the look on the clients (BossController)
 	look = {
 		warnColor = "#FF4D6D",
