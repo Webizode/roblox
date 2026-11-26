@@ -20,6 +20,7 @@ local UiKit = require(client:WaitForChild("UiKit"))
 local Keys = require(client:WaitForChild("Keys"))
 local Theme, Screen, Buttons, Window = UiKit.Theme, UiKit.Screen, UiKit.Buttons, UiKit.Window
 local Settings = require(client:WaitForChild("Settings"))
+local Version = require(client:WaitForChild("Version"))
 
 local SettingsController = {}
 
@@ -29,6 +30,7 @@ local ROW_HEIGHT = 54
 local WINDOW_WIDTH = 600
 local WINDOW_HEIGHT = 470
 local BUTTON = 48 -- square buttons, big enough for a thumb
+local VERSION_HEIGHT = 20 -- the build line under the rows
 
 -- `action`: a button that does something instead of a value (Edit Controls); `touchOnly`: shown on touch screens only
 type Row = { key: string, label: string, action: string?, touchOnly: boolean? }
@@ -330,7 +332,7 @@ local function build()
 	scroller.BackgroundTransparency = 1
 	scroller.BorderSizePixel = 0
 	scroller.Position = UDim2.fromOffset(0, 58)
-	scroller.Size = UDim2.new(1, 0, 1, -58)
+	scroller.Size = UDim2.new(1, 0, 1, -58 - VERSION_HEIGHT)
 	scroller.CanvasSize = UDim2.new()
 	scroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroller.ScrollingDirection = Enum.ScrollingDirection.Y
@@ -345,6 +347,22 @@ local function build()
 	rows.Padding = UDim.new(0, 4)
 	rows.SortOrder = Enum.SortOrder.LayoutOrder
 	rows.Parent = content
+
+	-- the build, small at the bottom (Version): which commit and which published place version this is
+	local version = plainText({
+		Name = "Version",
+		Text = Version.text(),
+		AutomaticSize = Enum.AutomaticSize.None,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 1),
+		Size = UDim2.new(1, 0, 0, VERSION_HEIGHT),
+		TextSize = 14,
+		TextTransparency = 0.35,
+		Parent = window.content,
+	})
+	Version.onChanged(function()
+		version.Text = Version.text()
+	end)
 end
 
 -- The controls overview at the right edge, for the input in use; only in combat mode and if switched on.

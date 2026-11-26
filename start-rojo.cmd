@@ -84,6 +84,8 @@ echo In Roblox Studio: Plugins ^> Rojo ^> Connect. Beim ersten Verbinden die Aen
 echo Aenderungen aus einer Cloud-Session holst du mit "git pull" in diesem Ordner, Rojo uebernimmt sie sofort.
 echo Beenden mit Strg+C.
 echo.
+rem Den Versionsstempel (src\shared\Build.luau, Commit und Datum) vor dem Sync neu schreiben
+lune run scripts/stamp
 rojo serve default.project.json
 pause
 popd

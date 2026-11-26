@@ -6,6 +6,7 @@ local fs = require("@lune/fs")
 local process = require("@lune/process")
 
 local steps = {
+	{ "lune", { "run", "scripts/stamp" } },
 	{ "stylua", { "--check", "src", "tests", "scripts" } },
 	{ "selene", { "src", "tests", "scripts" } },
 	{ "lune", { "run", "tests/run.luau" } },

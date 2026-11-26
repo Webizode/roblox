@@ -43,3 +43,6 @@ assets/TowerScoops/proto2/meshes/
 assets/TowerScoops/proto2/textures/
 assets/TowerScoops/renders/close_*.png
 assets/TowerScoops/proto2/rollout_*.json
+
+# build stamp: written by scripts/stamp.luau (commit and date of the synced code)
+src/shared/Build.luau

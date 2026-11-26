@@ -3,6 +3,10 @@
 
 local Services = script:WaitForChild("Services")
 
+-- the published place version this server was started with, shown in the settings (client Version): tells on a phone
+-- whether a server runs the newest publish
+workspace:SetAttribute("PlaceVersion", game.PlaceVersion)
+
 local ORDER = {
 	"MapService",
 	"DataService",

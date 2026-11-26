@@ -52,6 +52,9 @@ local proxies: { [string]: Proxy } = {}
 local spots: TouchLayout.Layout = {}
 local jumpHeld = false
 local jumpQueued = false -- a tap shorter than a frame still jumps once
+-- what the touch debug overlay shows (TouchDebug): taps the jump button got, jumps set before the physics, the reason
+-- the last wanted jump was not set
+local jumpStats = { taps = 0, lastTap = 0, sets = 0, lastSet = 0, jumpAfterSet = false, blocked = "" }
 local layoutListeners: { () -> () } = {}
 
 -- Edit Controls
@@ -298,6 +301,8 @@ local function jump(state: Enum.UserInputState)
 	jumpHeld = state == Enum.UserInputState.Begin
 	if jumpHeld then
 		jumpQueued = true
+		jumpStats.taps += 1
+		jumpStats.lastTap = os.clock()
 	end
 end
 
@@ -619,6 +624,17 @@ function TouchControls.panel(id: string): (TouchLayout.Rect?, number, boolean)
 	return TouchLayout.panelRect(spot, default, width, height), spot.scale, Settings.get().touchLayout[id] ~= nil
 end
 
+-- For the touch debug overlay (TouchDebug): the action buttons' GUI objects, the ScreenGui they are in, and the jump's
+-- counters (taps, sets before the physics, os.clock() of the last of each, Humanoid.Jump right after setting it, why
+-- the last wanted jump was not set). Read only.
+function TouchControls.debugInfo(): (ScreenGui, { [string]: GuiObject }, typeof(jumpStats), boolean)
+	local objects = {}
+	for id, entry in buttons do
+		objects[id] = entry.button
+	end
+	return gui, objects, jumpStats, jumpHeld
+end
+
 -- Calls `listener()` after every new layout (a new screen, a saved or loaded layout, Edit Controls closing).
 function TouchControls.onLayout(listener: () -> ())
 	table.insert(layoutListeners, listener)
@@ -679,13 +695,23 @@ function TouchControls.Start()
 	RunService.PreSimulation:Connect(function()
 		local wanted = jumpHeld or jumpQueued
 		jumpQueued = false
-		if not wanted or editing or knockedDown() then
+		if not wanted then
+			return
+		end
+		if editing or knockedDown() then
+			jumpStats.blocked = if editing then "editing" else "knocked down"
 			return
 		end
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		if humanoid and humanoid.Health > 0 then
 			humanoid.Jump = true
+			jumpStats.sets += 1
+			jumpStats.lastSet = os.clock()
+			jumpStats.jumpAfterSet = humanoid.Jump
+			jumpStats.blocked = ""
+		else
+			jumpStats.blocked = if humanoid then "dead" else "no humanoid"
 		end
 	end)
 	-- Studio only: the Workspace attribute StudioEditControls opens Edit Controls, false cancels it (playtests through

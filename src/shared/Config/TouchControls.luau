@@ -41,4 +41,16 @@ return {
 		labels = { dashBar = "DASH BAR", ammo = "AMMO", balance = "BALANCE" },
 		colors = { dashBar = "mint", ammo = "pink", balance = "sky" },
 	},
+
+	-- The touch debug overlay (client TouchDebug, phone test 26.11.2026: jump and camera on a real phone): shows live
+	-- the camera's modes, the jump button's taps and jumps, the touches on the screen and what lies under them. On for
+	-- these UserIds on a touch screen (a tap on its title folds it away), in Studio also with the attribute TouchDebug
+	-- on Workspace (true on, false off). Nobody else ever sees it.
+	debugOverlay = {
+		users = { 1521940809 }, -- the place's owner
+		attribute = "TouchDebug",
+		-- how often the text is rewritten, and how many recent events it lists
+		interval = 0.2,
+		events = 6,
+	},
 }
