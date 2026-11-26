@@ -449,6 +449,12 @@ local function tick(dt: number)
 	publish()
 end
 
+-- A boss the schedule may send (Config/Bosses enabled), at random; nil when none is switched on.
+local function pickBoss(): string?
+	local ids = BossRules.enabledIds(BossConfig)
+	return if #ids > 0 then ids[rng:NextInteger(1, #ids)] else nil
+end
+
 -- The schedule, once a second: the big boss's announcement and start, the normal ones.
 local function scheduleStep()
 	local clock = os.time()
@@ -469,8 +475,10 @@ local function scheduleStep()
 	if bigDoneHour ~= bigHour and clock >= bigHour then
 		bigDoneHour = bigHour
 		publishAnnounce(nil)
-		local id = BossConfig.order[rng:NextInteger(1, #BossConfig.order)]
-		spawn(id, true)
+		local id = pickBoss()
+		if id then
+			spawn(id, true)
+		end
 		return
 	end
 	if clock >= nextNormalAt then
@@ -478,8 +486,12 @@ local function scheduleStep()
 			nextNormalAt = BossRules.nextNormalAt(clock, rng:NextNumber(), BossConfig.schedule)
 			return
 		end
-		local id = BossConfig.order[rng:NextInteger(1, #BossConfig.order)]
-		spawn(id, false)
+		local id = pickBoss()
+		if id then
+			spawn(id, false)
+		else
+			nextNormalAt = BossRules.nextNormalAt(clock, rng:NextNumber(), BossConfig.schedule)
+		end
 	end
 end
 
@@ -488,7 +500,8 @@ end
 local function schedule()
 	scheduleStep()
 	local at, big = BossRules.nextBoss(nextNormalAt, bigHour)
-	stateFolder:SetAttribute("NextAt", at + wallToServer)
+	-- no boss switched on: nothing to count down to, the sign hides
+	stateFolder:SetAttribute("NextAt", if #BossRules.enabledIds(BossConfig) > 0 then at + wallToServer else 0)
 	stateFolder:SetAttribute("NextBig", big)
 end
 
@@ -504,7 +517,7 @@ local function studioCommand(action: string)
 		finish("escaped")
 	elseif action == "big" or BossConfig.bosses[action] then
 		finish("escaped")
-		local id = if action == "big" then BossConfig.order[rng:NextInteger(1, #BossConfig.order)] else action
+		local id = if action == "big" then pickBoss() or BossConfig.order[1] else action
 		spawn(id, action == "big")
 	end
 end

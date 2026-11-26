@@ -577,7 +577,8 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
   - Studio: `ServerStorage.StudioBossTest:Invoke("spawn", "iceBrute" | "gummyBear" | "creamGhost")`, `("big", id)`, `("announce", Sekunden)`, `("kill")`, `("escape")`, `("hurt", player, n)`, `("state")`.
   - Schild über dem Big Swirl (seit 26.11.2026, `Config/Bosses.sign`): Countdown bis zum nächsten Boss („BOSS IN 12:34“, großer Boss „BIG BOSS IN 4:59“ in Gold), während ein Boss lebt sein Name. Zeit vom Server (`BossState` NextAt/NextBig, `BossRules.nextBoss`). BillboardGui mit fester Pixel- plus Stud-Größe, aus Arena und Hub lesbar.
   - Studio-Panel rechts (nur in Studio, `StudioBossCommand`, der Server prüft `RunService:IsStudio()` auch): Ice Brute, Gummy Bear, Cream Ghost, Big Boss, Kill, Escape. Ein lebender Boss geht vor einem neuen ohne Belohnung.
-  - Tests: 671 bestanden.
+  - **Aus seit 26.11.2026** bis zum ersten eigenen Modell: `Features.bosses = false` (kein Boss, keine Ankündigung, kein Waffenstillstand, Schild unsichtbar). Pro Boss `enabled` in `Config/Bosses`: nur der Cream Ghost an. Das Studio-Panel startet in Studio jeden Boss.
+  - Tests: 672 bestanden.
 ---
 
 ## 8. Reihenfolge

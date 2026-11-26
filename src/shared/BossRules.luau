@@ -215,6 +215,18 @@ function BossRules.pause(pause: number, big: boolean, config: any): number
 	return if big then pause / config.big.attackSpeed else pause
 end
 
+-- The bosses the schedule may send (Config/Bosses bosses[id].enabled), in the config's order.
+function BossRules.enabledIds(config: any): { string }
+	local ids = {}
+	for _, id in config.order do
+		local boss = config.bosses[id]
+		if boss and boss.enabled ~= false then
+			table.insert(ids, id)
+		end
+	end
+	return ids
+end
+
 -- What comes next: the normal boss at `normalAt` or the big one at `bigAt` (both on the same clock), whichever is first;
 -- the big one when they fall together. Returns the time and whether it is the big one.
 function BossRules.nextBoss(normalAt: number, bigAt: number): (number, boolean)

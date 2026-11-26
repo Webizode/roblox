@@ -94,8 +94,10 @@ return {
 	--   leap   the boss jumps onto a player's spot (radius at the landing); dash away
 	--   puddle `count` sticky spots near players (radius) that last `duration` s: slow (slowFactor) and no dash
 	-- every attack waits `cooldown` seconds before it is picked again; the boss pauses `pause` seconds between attacks
+	-- `enabled`: whether the schedule picks this boss (normal and big); the Studio panel can start any of them
 	bosses = {
 		iceBrute = {
+			enabled = false, -- until its model is done
 			name = "Frost Brute",
 			model = "iceBrute",
 			health = 900,
@@ -108,6 +110,7 @@ return {
 			},
 		},
 		gummyBear = {
+			enabled = false, -- until its model is done
 			name = "Gummy Grizzly",
 			model = "gummyBear",
 			health = 650,
@@ -120,6 +123,7 @@ return {
 			},
 		},
 		creamGhost = {
+			enabled = true,
 			name = "Cream Phantom",
 			model = "creamGhost",
 			health = 750,

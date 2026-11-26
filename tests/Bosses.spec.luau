@@ -39,6 +39,18 @@ describe("Bosses: config", function()
 		end
 	)
 
+	it("bosses are off until the first real model (Features.bosses); then only the Cream Ghost comes", function()
+		local Features = require("../src/shared/Config/Features")
+		expect(Features.bosses).toBe(false)
+		local ids = BossRules.enabledIds(Config)
+		expect(#ids).toBe(1)
+		expect(ids[1]).toBe("creamGhost")
+		expect(Config.bosses.iceBrute.enabled).toBe(false)
+		expect(Config.bosses.gummyBear.enabled).toBe(false)
+		-- a boss without the field counts as on
+		expect(#BossRules.enabledIds({ order = { "a" }, bosses = { a = {} } })).toBe(1)
+	end)
+
 	it("the truce is a switch in the config, and on", function()
 		expect(Config.truce).toBe(true)
 	end)
