@@ -59,3 +59,43 @@ describe("LeaderboardRules", function()
 		expect(LeaderboardRules.dueWrite(150, 100, 0, 60, 60)).toBe(true)
 	end)
 end)
+
+describe("LeaderboardRules: the board's rows from the published ranking", function()
+	local Config = require("../src/shared/Config/Leaderboard")
+
+	it("shows the top 50, ten at a time (it scrolls)", function()
+		expect(Config.count).toBe(50)
+		expect(Config.visibleRows).toBe(10)
+		expect(Config.count * 2 <= 100).toBe(true) -- GetSortedAsync reads at most 100 a page
+	end)
+
+	it("keeps valid rows in rank order, at most `count`", function()
+		local list = {}
+		for rank = 60, 1, -1 do
+			table.insert(list, { r = rank, n = "P" .. rank, c = 1000 - rank })
+		end
+		local rows = LeaderboardRules.shown(list, 50)
+		expect(#rows).toBe(50)
+		expect(rows[1].rank).toBe(1)
+		expect(rows[1].name).toBe("P1")
+		expect(rows[50].rank).toBe(50)
+	end)
+
+	it("drops broken rows and never fails on junk", function()
+		local rows = LeaderboardRules.shown({
+			{ r = 1, n = "Ann", c = 10 },
+			{ r = 0, n = "Zero", c = 5 },
+			{ r = 2.5, n = "Half", c = 5 },
+			{ r = 3, n = "Nan", c = 0 / 0 },
+			{ r = 4, n = "Neg", c = -1 },
+			{ r = 5, c = 3 },
+			{ r = 6, n = string.rep("x", 90), c = 2 },
+			"junk",
+		}, 50)
+		expect(#rows).toBe(3)
+		expect(rows[2].name).toBe("Player")
+		expect(#rows[3].name).toBe(40)
+		expect(#LeaderboardRules.shown(nil, 50)).toBe(0)
+		expect(#LeaderboardRules.shown("[]", 50)).toBe(0)
+	end)
+end)

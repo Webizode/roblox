@@ -140,7 +140,8 @@ function UpgradeService.Start()
 	addPrompts()
 
 	-- Studio only: ServerStorage.StudioUpgradeTest for playtests (Studio MCP, command bar): ("coins", player, n) gives
-	-- coins, ("reset", player) runs resetAll, ("get", player) returns the levels and the coins.
+	-- coins, ("reset", player) runs resetAll, ("get", player) returns the levels and the coins, ("slots", player, n) sets the
+	-- Equip Slots level to n (0..its top; to look at the chest window with 4 to 6 slots).
 	if RunService:IsStudio() then
 		local test = Instance.new("BindableFunction")
 		test.Name = "StudioUpgradeTest"
@@ -153,6 +154,9 @@ function UpgradeService.Start()
 				registry.TowerService.addCoins(player, amount)
 			elseif action == "reset" then
 				UpgradeService.resetAll(player)
+			elseif action == "slots" and amount then
+				data.upgrades.slots = math.clamp(math.floor(amount), 0, UpgradesConfig.tracks.slots.maxLevel)
+				apply(player)
 			end
 			return { coins = data.coins, upgrades = table.clone(data.upgrades), equipped = #data.chest.equipped }
 		end

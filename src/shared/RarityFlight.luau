@@ -74,4 +74,19 @@ function RarityFlight.delay(rarity: string, config: any): number
 	return if announce then announce.delay or 0 else 0
 end
 
+-- The landing circle's colour (ShotRenderer, Config/TowerScoops.landingCircle): from uncommon on the colour of the
+-- scoop's trail (`style` colour: the rarity's, golden for a legendary); a common one (or none or an unknown rarity) the
+-- circle's own light grey `common`, since pure white glares on the light arena floor.
+function RarityFlight.circleColor(
+	rarity: string?,
+	config: any,
+	rarityColors: { [string]: string },
+	common: string
+): string
+	if not rarity or rarity == "common" or not rarityColors[rarity] then
+		return common
+	end
+	return RarityFlight.style(rarity, "high", config, rarityColors).color
+end
+
 return RarityFlight

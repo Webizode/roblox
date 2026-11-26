@@ -31,8 +31,8 @@ local ChestVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):Wait
 local LuckyVfx = require(client:WaitForChild("Vfx"):WaitForChild("Effects"):WaitForChild("Lucky"))
 local LuckyPopup = require(client:WaitForChild("LuckyPopup"))
 
-local Theme, Window, Widgets, Buttons, Anim, Toast, Screen =
-	UiKit.Theme, UiKit.Window, UiKit.Widgets, UiKit.Buttons, UiKit.Anim, UiKit.Toast, UiKit.Screen
+local Theme, Window, Widgets, Buttons, Anim, Toast, Screen, Scroller =
+	UiKit.Theme, UiKit.Window, UiKit.Widgets, UiKit.Buttons, UiKit.Anim, UiKit.Toast, UiKit.Screen, UiKit.Scroller
 
 local ChestController = {}
 
@@ -40,25 +40,30 @@ local player = Players.LocalPlayer
 local registry
 local LID = ChestConfig.lid
 local CARD_W, CARD_H = 144, 161 -- a stored scoop's card (the card pictures are about 458 x 512)
-local SLOT_SCALE = 0.8 -- the equipped cards, of a full card
 local DETAIL = { pad = 18, cardScale = 1.6 } -- the details: margin, the big card
 local ART = ChestConfig.art
--- the bonus rows on the boost panel (210 high): their middle between the title (down to 66) and the inner rim (190),
--- row height and gap, the columns (icon, gap, "Coins +1.5%", "(max 25%)") and the text size
-local BOOSTS = { middle = 130, rowHeight = 32, rowGap = 6, icon = 38, gap = 10, value = 140, cap = 118, textSize = 26 }
+-- the columns of the bonus rows on the boost panel (icon, gap, "Coins +1.5%", "(max 25%)") and their text size; where
+-- the rows sit and how high they are is the layout's boostRows (between the title, down to 66, and the inner rim)
+local BOOSTS = { icon = 38, gap = 10, value = 140, cap = 118, textSize = 26 }
 
 -- Two arrangements of the same parts (rectangles in design pixels of the window's content). "tall" follows the
 -- reference (PC, tablet, console). "wide" is for phones in landscape: there the tall window is held small by the
 -- screen's height; the wide one puts slots and bonuses on the left and the grid on the right and comes out about a
 -- fifth bigger. The details keep their order and only move up in the wide one, with buttons and question under the
 -- right column.
+-- Since 25.11.2026 the equip slots (3 to 6 with the Equip Slots upgrade) sit in rows of three (slotsPerRow) at
+-- slotScale of a full card, so six fit inside their panel; before, one row of 0.8 cards ran out of the window from
+-- the fourth on. The stored grid scrolls with the kit's bar (UiKit Scroller).
 type Rect = { pos: UDim2, size: UDim2 }
 type Layout = {
 	width: number,
 	height: number,
 	equippedLabel: UDim2,
 	slots: Rect,
+	slotScale: number, -- an equipped card's size, of a full card
 	bonuses: Rect,
+	-- the bonus rows: their middle on the panel, row height and gap (BOOSTS has the columns)
+	boostRows: { middle: number, height: number, gap: number },
 	storedLabel: UDim2,
 	grid: Rect,
 	detail: {
@@ -73,15 +78,21 @@ type Layout = {
 		underRight: boolean, -- buttons and question under the right column (else across the whole width)
 	},
 }
+local SLOTS_PER_ROW = 3
+local SLOT_GAP = 12 -- between two equipped cards, both ways
+local SLOTS_TOP = 34 -- the slots start under the EQUIPPED plaque
 local LAYOUTS: { [string]: Layout } = {
 	tall = {
 		width = 880,
-		height = 740,
+		height = 810, -- content 712 (740 before the six slots): two rows of slots and still two rows of cards
 		equippedLabel = UDim2.fromOffset(6, 0),
-		slots = { pos = UDim2.fromOffset(0, 24), size = UDim2.fromOffset(400, 186) },
-		bonuses = { pos = UDim2.fromOffset(418, 6), size = UDim2.new(1, -418, 0, 210) },
-		storedLabel = UDim2.fromOffset(6, 224),
-		grid = { pos = UDim2.fromOffset(0, 266), size = UDim2.new(1, 0, 1, -266) },
+		-- two rows of three 0.7 cards (101 x 113): 34 + 113 + 12 + 113 + 10
+		slots = { pos = UDim2.fromOffset(0, 24), size = UDim2.fromOffset(400, 282) },
+		slotScale = 0.7,
+		bonuses = { pos = UDim2.fromOffset(418, 6), size = UDim2.new(1, -418, 0, 300) },
+		boostRows = { middle = 176, height = 38, gap = 14 },
+		storedLabel = UDim2.fromOffset(6, 320),
+		grid = { pos = UDim2.fromOffset(0, 362), size = UDim2.new(1, 0, 1, -362) },
 		detail = {
 			name = 14,
 			rarity = 78,
@@ -98,8 +109,11 @@ local LAYOUTS: { [string]: Layout } = {
 		width = 1180,
 		height = 538, -- content 440: the left column (slots and bonuses) exactly, two rows of cards on the right
 		equippedLabel = UDim2.fromOffset(6, 0),
-		slots = { pos = UDim2.fromOffset(0, 24), size = UDim2.fromOffset(400, 186) },
-		bonuses = { pos = UDim2.fromOffset(0, 230), size = UDim2.fromOffset(400, 210) },
+		-- two rows of three 0.56 cards (81 x 90): 34 + 90 + 12 + 90 + 4
+		slots = { pos = UDim2.fromOffset(0, 24), size = UDim2.fromOffset(400, 230) },
+		slotScale = 0.56,
+		bonuses = { pos = UDim2.fromOffset(0, 244), size = UDim2.fromOffset(400, 196) },
+		boostRows = { middle = 118, height = 36, gap = 2 },
 		storedLabel = UDim2.fromOffset(424, 0),
 		grid = { pos = UDim2.fromOffset(418, 24), size = UDim2.new(1, -418, 1, -24) },
 		detail = {
@@ -1180,12 +1194,19 @@ local function render()
 		end
 	end
 	local slots = if snapshot then snapshot.slots else ChestConfig.equipSlots
+	-- rows of three, the block in the middle of the room under the plaque (one row of three sits in the middle too)
+	local rowsOf = math.ceil(slots / SLOTS_PER_ROW)
+	local cardH = CARD_H * L.slotScale
+	local blockH = rowsOf * cardH + (rowsOf - 1) * SLOT_GAP
+	local room = slotsRow.Parent and (slotsRow.Parent :: GuiObject).Size.Y.Offset - SLOTS_TOP or blockH
+	slotsRow.Size = UDim2.new(1, -24, 0, blockH)
+	slotsRow.Position = UDim2.new(0.5, 0, 0, SLOTS_TOP + math.max(0, (room - blockH) / 2))
 	for slot = 1, slots do
 		local key = snapshot and snapshot.equipped[slot]
 		local item = itemByKey(key)
 		local cell
 		if item then
-			cell = card(item, SLOT_SCALE)
+			cell = card(item, L.slotScale)
 			cell.Activated:Connect(function()
 				showDetail(item.key)
 			end)
@@ -1196,7 +1217,7 @@ local function render()
 				Name = "EmptySlot",
 				BackgroundTransparency = 0.35,
 				BackgroundColor3 = Theme.color("chocolate"),
-				Size = UDim2.fromOffset(CARD_W * SLOT_SCALE, CARD_H * SLOT_SCALE),
+				Size = UDim2.fromOffset(CARD_W * L.slotScale, CARD_H * L.slotScale),
 				ZIndex = 4,
 			})
 			Theme.corner(cell, UDim.new(0, 18))
@@ -1305,18 +1326,20 @@ local function buildWindow()
 		ZIndex = 6,
 		Parent = content,
 	}, 768 / 203)
+	-- the slots in rows of SLOTS_PER_ROW (render sizes and centres the block for 3 to 6 slots)
 	slotsRow = Theme.frame({
 		Name = "Slots",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 34),
-		Size = UDim2.new(1, -24, 0, CARD_H * SLOT_SCALE),
+		Position = UDim2.new(0.5, 0, 0, SLOTS_TOP),
+		Size = UDim2.new(1, -24, 0, CARD_H * L.slotScale),
 		ZIndex = 5,
 		Parent = slotsPanel,
 	})
-	local slotList = Instance.new("UIListLayout")
-	slotList.FillDirection = Enum.FillDirection.Horizontal
+	local slotList = Instance.new("UIGridLayout")
+	slotList.CellSize = UDim2.fromOffset(CARD_W * L.slotScale, CARD_H * L.slotScale)
+	slotList.CellPadding = UDim2.fromOffset(SLOT_GAP, SLOT_GAP)
+	slotList.FillDirectionMaxCells = SLOTS_PER_ROW
 	slotList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	slotList.Padding = UDim.new(0, 12)
 	slotList.SortOrder = Enum.SortOrder.LayoutOrder
 	slotList.Parent = slotsRow
 
@@ -1342,10 +1365,10 @@ local function buildWindow()
 	local rows = Theme.frame({
 		Name = "Rows",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0, BOOSTS.middle),
+		Position = UDim2.new(0.5, 0, 0, L.boostRows.middle),
 		Size = UDim2.fromOffset(
 			BOOSTS.icon + BOOSTS.gap + BOOSTS.value + BOOSTS.cap,
-			BOOSTS.rowHeight * 3 + BOOSTS.rowGap * 2
+			L.boostRows.height * 3 + L.boostRows.gap * 2
 		),
 		ZIndex = 5,
 		Parent = bonuses,
@@ -1353,14 +1376,14 @@ local function buildWindow()
 	local rowList = Instance.new("UIListLayout")
 	rowList.FillDirection = Enum.FillDirection.Vertical
 	rowList.VerticalAlignment = Enum.VerticalAlignment.Center
-	rowList.Padding = UDim.new(0, BOOSTS.rowGap)
+	rowList.Padding = UDim.new(0, L.boostRows.gap)
 	rowList.SortOrder = Enum.SortOrder.LayoutOrder
 	rowList.Parent = rows
 	for order, kind in ChestConfig.passives.order do
 		local spec = ChestConfig.passives.kinds[kind]
 		local row = Theme.frame({
 			Name = "Row_" .. kind,
-			Size = UDim2.new(1, 0, 0, BOOSTS.rowHeight),
+			Size = UDim2.new(1, 0, 0, L.boostRows.height),
 			LayoutOrder = order,
 			ZIndex = 5,
 			Parent = rows,
@@ -1458,28 +1481,25 @@ local function buildWindow()
 		ZIndex = 3,
 		Parent = content,
 	})
-	grid = Instance.new("ScrollingFrame")
+	-- the stored cards scroll with the kit's bar on the right (UiKit Scroller): 50 scoops are ten rows of five
+	local scroller = Scroller.new({
+		name = "GridScroller",
+		position = UDim2.fromOffset(4, 10),
+		-- 792 wide on the tall window: 5 cards of 144 with 10 between (760) beside the bar (16 + 8) and 6 padding
+		size = UDim2.new(1, -8, 1, -20),
+		zIndex = 4,
+		parent = gridPanel,
+	})
+	grid = scroller.list
 	grid.Name = "Grid"
-	grid.BackgroundTransparency = 1
-	grid.BorderSizePixel = 0
-	grid.Position = UDim2.fromOffset(4, 4)
-	grid.Size = UDim2.new(1, -8, 1, -8)
-	grid.CanvasSize = UDim2.new()
-	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	grid.ScrollingDirection = Enum.ScrollingDirection.Y
-	grid.ScrollBarThickness = 8
-	grid.ScrollBarImageColor3 = Theme.color("creamDark")
-	grid.ZIndex = 4
-	grid.Selectable = false
-	grid.Parent = gridPanel
 	local padding = Instance.new("UIPadding")
 	padding.PaddingTop = UDim.new(0, 12)
-	padding.PaddingLeft = UDim.new(0, 10)
+	padding.PaddingLeft = UDim.new(0, 6)
 	padding.PaddingBottom = UDim.new(0, 12)
 	padding.Parent = grid
 	local layout = Instance.new("UIGridLayout")
 	layout.CellSize = UDim2.fromOffset(CARD_W, CARD_H)
-	layout.CellPadding = UDim2.fromOffset(12, 14)
+	layout.CellPadding = UDim2.fromOffset(10, 14)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = grid
 

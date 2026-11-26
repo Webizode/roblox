@@ -261,3 +261,35 @@ describe("UI layout: the top row and the ice balls", function()
 		end
 	)
 end)
+
+describe("UiLayout: the kit's scroll bar", function()
+	it("shows no bar while everything fits", function()
+		local shown = UiLayout.scrollThumb(300, 400, 0, 400, 44)
+		expect(shown).toBe(false)
+		expect((UiLayout.scrollThumb(400, 400, 0, 400, 44))).toBe(false)
+	end)
+
+	it("sizes the thumb by what is shown, at least minThumb, and moves it with the scrolling", function()
+		-- 50 stored scoops: ten rows of 175 = 1750 in a window of 350
+		local shown, length, offset = UiLayout.scrollThumb(1750, 350, 0, 350, 44)
+		expect(shown).toBe(true)
+		expect(length).toBeCloseTo(70)
+		expect(offset).toBe(0)
+		local _, _, bottom = UiLayout.scrollThumb(1750, 350, 1400, 350, 44)
+		expect(bottom).toBeCloseTo(280) -- at the end the thumb touches the track's end
+		local _, small = UiLayout.scrollThumb(100000, 350, 0, 350, 44)
+		expect(small).toBe(44)
+	end)
+
+	it("dragging the thumb is the reverse, and broken numbers show no bar", function()
+		expect(UiLayout.scrollFromThumb(1750, 350, 350, 70, 140)).toBeCloseTo(700)
+		expect(UiLayout.scrollFromThumb(1750, 350, 350, 70, 999)).toBeCloseTo(1400)
+		expect(UiLayout.scrollFromThumb(1750, 350, 350, 70, -5)).toBe(0)
+		expect((UiLayout.scrollThumb(0 / 0, 350, 0, 350, 44))).toBe(false)
+		expect((UiLayout.scrollThumb(1750, 350, math.huge, 350, 44))).toBe(false)
+	end)
+
+	it("has its look in the config", function()
+		expect(Config.scrollbar.width > 0 and Config.scrollbar.minThumb > 0).toBe(true)
+	end)
+end)

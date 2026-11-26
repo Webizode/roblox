@@ -68,4 +68,35 @@ function LeaderboardRules.dueWrite(
 	return lastAt == nil or now - lastAt >= interval
 end
 
+export type Shown = { rank: number, name: string, coins: number }
+
+-- The published ranking (LeaderboardService.render: a decoded JSON list of { r, n, c }) as the board shows it, checked:
+-- rows with a whole rank of at least 1, a name (at most 40 characters, "Player" if missing) and finite coins of 0 or
+-- more, in rank order, at most `count`. Anything else is left out; not a list gives an empty board.
+function LeaderboardRules.shown(list: any, count: number): { Shown }
+	local rows: { Shown } = {}
+	if type(list) ~= "table" then
+		return rows
+	end
+	for _, entry in list do
+		if type(entry) ~= "table" then
+			continue
+		end
+		local rank, name, coins = entry.r, entry.n, entry.c
+		local okRank = type(rank) == "number" and rank >= 1 and rank == math.floor(rank) and rank < math.huge
+		local okCoins = type(coins) == "number" and coins == coins and coins >= 0 and coins < math.huge
+		if okRank and okCoins then
+			local label = if type(name) == "string" and name ~= "" then string.sub(name, 1, 40) else "Player"
+			table.insert(rows, { rank = rank, name = label, coins = coins })
+		end
+	end
+	table.sort(rows, function(a, b)
+		return a.rank < b.rank
+	end)
+	while #rows > count do
+		table.remove(rows)
+	end
+	return rows
+end
+
 return LeaderboardRules

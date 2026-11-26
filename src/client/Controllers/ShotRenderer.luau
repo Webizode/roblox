@@ -240,7 +240,7 @@ end
 -- the light-up of each new landing circle, stopped if the circle hides before it ends
 local flashes: { [Part]: Tween } = setmetatable({}, { __mode = "k" }) :: any
 
--- Hides a landing circle with its outline (a Decal stays visible on a see-through part).
+-- Hides a landing circle.
 local function hideCircle(circle: Part)
 	local flash = flashes[circle]
 	if flash then
@@ -248,10 +248,6 @@ local function hideCircle(circle: Part)
 		flashes[circle] = nil
 	end
 	circle.Transparency = 1
-	local outline = circle:FindFirstChild("Outline") :: Decal?
-	if outline then
-		outline.Transparency = 1
-	end
 end
 
 local function remove(id: number)
@@ -315,16 +311,15 @@ local function onShotFired(
 	circle.Shape = Enum.PartType.Cylinder
 	circle.Size = Vector3.new(0.2, CIRCLE_SIZE, CIRCLE_SIZE)
 	circle.CFrame = CFrame.new(to + Vector3.new(0, 0.12, 0)) * CIRCLE_ROTATION
-	TowerVisual.applyFlavor(circle, flavorId)
-	-- from uncommon on the circle takes the rarity's colour (Config/Flavors rarityColors): where a rare one will come
-	-- down shows from far away; a common one keeps its flavour's colour
+	-- the rarity's colour like the trail, a common one light grey (RarityFlight.circleColor): where a rare one will come
+	-- down shows from far away; no dark rim since 25.11.2026
 	local rarity = Flavors.byId[flavorId] and Flavors.byId[flavorId].rarity
-	if rarity and rarity ~= "common" and Flavors.rarityColors[rarity] then
-		circle.Color = Color3.fromHex(Flavors.rarityColors[rarity])
-	end
+	circle.Color = Color3.fromHex(
+		RarityFlight.circleColor(rarity, VfxConfig.flight, Flavors.rarityColors, Look.landingCircle.common)
+	)
 	circle.Material = Enum.Material.Neon
 	-- it lights up as the Big Swirl fires and settles to its normal faintness
-	circle.Transparency = 0
+	circle.Transparency = Look.landingCircle.flashTransparency
 	local flash = TweenService:Create(
 		circle,
 		TweenInfo.new(Look.landingCircle.flash, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
@@ -332,14 +327,6 @@ local function onShotFired(
 	)
 	flashes[circle] = flash
 	flash:Play()
-	-- the dark outline: a ring picture on the disc's top face (the cylinder's +X face points up), so it reads on the
-	-- light floor; it shrinks with the disc and goes with it
-	local outline = Instance.new("Decal")
-	outline.Name = "Outline"
-	outline.Face = Enum.NormalId.Right
-	outline.Texture = Look.landingCircle.outlineImage
-	outline.Color3 = Color3.fromHex(Look.landingCircle.outline)
-	outline.Parent = circle
 	SwirlShotVfx.circle(to, flavorId)
 
 	local trail = makeTrail(flavorId)

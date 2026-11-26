@@ -34,18 +34,18 @@ return {
 		screenShare = 0.024,
 		minText = 11,
 	},
-	-- the landing circle (ShotRenderer): a Neon disc in the flavour colour, shrinking to 40 % as the scoop comes down.
-	-- On the light arena floor (04.11.2026) it needs an outline: a ring picture as a Decal on its top, in Berry; a
-	-- Decal stays opaque on a see-through part and shrinks with it. The disc is a little less see-through than before
-	-- (0.5).
+	-- the landing circle (ShotRenderer): a Neon disc, shrinking to 40 % as the scoop comes down. Since 25.11.2026 in the
+	-- rarity's colour like the trail (RarityFlight.circleColor), a common one in light grey (`common`), and without the
+	-- dark ring (04.11.2026 to 25.11.2026 a Berry ring picture on its top, for the light floor; it read as a black rim).
+	-- A little more see-through (0.35 before) so the coloured discs show without glaring.
 	landingCircle = {
 		size = 7, -- studs across at the start
-		transparency = 0.35,
+		transparency = 0.45,
+		common = "#D9DDE6", -- light grey: white glares on the light floor
 		-- when the Big Swirl fires, each new circle lights up (fully opaque) and settles to `transparency` in this many
 		-- seconds: where the scoops will come down shows itself
 		flash = 0.7,
-		outline = "#633F52", -- Berry
-		outlineImage = "rbxassetid://88345459876129", -- assets/ArenaKit/textures/LandingCircle_Ring.png (ring 80-100 %)
+		flashTransparency = 0.15, -- how strong it lights up first (0 before 25.11.2026: a full Neon flash glared)
 	},
 	-- how far the lowest drip is below the scoop's centre in the models (the same for every flavor: build_scoops.py
 	-- base shape). The importer centres a mesh on its bounding box; from the bottom of that box this finds the scoop's

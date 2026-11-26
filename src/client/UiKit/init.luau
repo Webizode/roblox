@@ -8,6 +8,7 @@
 --   Widgets  coin counter, progress bar, item card (six rarities, silhouette), mutation look (golden, rainbow;
 --            MutationOverlay), reward message, safe-zone sign
 --   Toast    the short messages (Toast.show(text, kind, icon)), all in one look
+--   Scroller a list longer than its frame with the kit's scroll bar (wheel, drag, thumb, gamepad selection)
 -- The test page with every piece: Controllers/UiKitGallery (Studio only).
 
 local UiKit = {
@@ -19,6 +20,7 @@ local UiKit = {
 	Window = require(script:WaitForChild("Window")),
 	Widgets = require(script:WaitForChild("Widgets")),
 	Toast = require(script:WaitForChild("Toast")),
+	Scroller = require(script:WaitForChild("Scroller")),
 }
 
 return UiKit

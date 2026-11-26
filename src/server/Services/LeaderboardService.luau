@@ -8,10 +8,13 @@
 -- the boards show the players on this server.
 --
 -- The signs are the deco kit's Leaderboard models anywhere under the map, each with the invisible parts Display
--- (the board) and Header (the plank). The server puts a SurfaceGui on their Front face; it replicates to every
--- client that has the sign streamed in.
+-- (the board) and Header (the plank). The server puts the title on the Header's Front face (it replicates to every
+-- client that has the sign streamed in) and publishes the ranking (render); each client draws the board itself as a
+-- scrolling list of the top `count` (Controllers/LeaderboardBoards, since 25.11.2026: before, a fixed top 10 drawn
+-- here could not scroll).
 
 local DataStoreService = game:GetService("DataStoreService")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -24,9 +27,8 @@ local MapConfig = require(Config:WaitForChild("Map"))
 local UiConfig = require(Config:WaitForChild("Ui"))
 local LeaderboardRules = require(Shared:WaitForChild("LeaderboardRules"))
 
--- the game's fonts (Config/Ui.fonts): the main one for words, the text one for the coin numbers
+-- the game's main font (Config/Ui.fonts) for the title
 local FONT_MAIN = Font.fromEnum((Enum.Font :: any)[UiConfig.fonts.main])
-local FONT_TEXT = Font.new(UiConfig.fonts.text.family, (Enum.FontWeight :: any)[UiConfig.fonts.text.weight])
 
 local LeaderboardService = {}
 
@@ -36,6 +38,7 @@ local store: OrderedDataStore?
 local names: { [number]: string } = {}
 local written: { [Player]: { coins: number, at: number } } = {}
 local boards: { { display: BasePart, header: BasePart? } } = {}
+local published: StringValue? = nil -- ReplicatedStorage.LeaderboardTop
 local haveGlobal = false
 local readFailures, writeFailures = 0, 0
 local nextReadAt, nextWriteAt = 0, 0
@@ -82,88 +85,6 @@ local function resolveNames(rows: { LeaderboardRules.Row })
 	end
 end
 
--- the board's SurfaceGui with `count` empty rows (made once per sign, filled by fill)
-local function makeBoard(display: BasePart): Frame
-	local gui = Instance.new("SurfaceGui")
-	gui.Name = "LeaderboardGui"
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = cfg.pixelsPerStud
-	gui.LightInfluence = 0.4
-	local list = Instance.new("Frame")
-	list.Name = "Rows"
-	list.BackgroundTransparency = 1
-	list.Position = UDim2.fromScale(0.04, 0.04)
-	list.Size = UDim2.fromScale(0.92, 0.92)
-	list.Parent = gui
-	local layout = Instance.new("UIListLayout")
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0.008, 0)
-	layout.Parent = list
-	for rank = 1, cfg.count do
-		local row = Instance.new("Frame")
-		row.Name = "Row" .. rank
-		row.LayoutOrder = rank
-		row.Size = UDim2.new(1, 0, 1 / cfg.count, -3)
-		row.BackgroundColor3 = colour(cfg.colours.rowStripe)
-		row.BackgroundTransparency = if rank % 2 == 0 then 0.35 else 1
-		row.BorderSizePixel = 0
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.3, 0)
-		corner.Parent = row
-		local badge = Instance.new("TextLabel")
-		badge.Name = "Rank"
-		badge.Size = UDim2.fromScale(0.13, 0.9)
-		badge.Position = UDim2.fromScale(0.005, 0.05)
-		badge.BackgroundColor3 = colour(cfg.colours.top[math.min(rank, 3)])
-		badge.BackgroundTransparency = if rank <= 3 then 0 else 1
-		badge.FontFace = FONT_MAIN
-		badge.Text = tostring(rank)
-		badge.TextScaled = true
-		badge.TextColor3 = if rank <= 3 then colour(cfg.colours.titleStroke) else colour(cfg.colours.dim)
-		local badgeCorner = Instance.new("UICorner")
-		badgeCorner.CornerRadius = UDim.new(0.5, 0)
-		badgeCorner.Parent = badge
-		badge.Parent = row
-		local name = Instance.new("TextLabel")
-		name.Name = "Name"
-		name.BackgroundTransparency = 1
-		name.Position = UDim2.fromScale(0.17, 0.08)
-		name.Size = UDim2.fromScale(0.5, 0.84)
-		name.FontFace = FONT_MAIN
-		name.TextScaled = true
-		name.TextXAlignment = Enum.TextXAlignment.Left
-		name.TextColor3 = colour(cfg.colours.text)
-		name.TextTruncate = Enum.TextTruncate.AtEnd
-		name.Text = ""
-		name.Parent = row
-		local coins = Instance.new("TextLabel")
-		coins.Name = "Coins"
-		coins.BackgroundTransparency = 1
-		coins.Position = UDim2.fromScale(0.68, 0.08)
-		coins.Size = UDim2.fromScale(0.31, 0.84)
-		coins.FontFace = FONT_TEXT
-		coins.TextScaled = true
-		coins.TextXAlignment = Enum.TextXAlignment.Right
-		coins.TextColor3 = if rank <= 3 then colour(cfg.colours.top[rank]) else colour(cfg.colours.text)
-		coins.Text = ""
-		coins.Parent = row
-		row.Parent = list
-	end
-	local empty = Instance.new("TextLabel")
-	empty.Name = "Empty"
-	empty.BackgroundTransparency = 1
-	empty.Size = UDim2.fromScale(1, 1)
-	empty.FontFace = FONT_MAIN
-	empty.TextScaled = true
-	empty.TextColor3 = colour(cfg.colours.dim)
-	empty.Text = cfg.emptyText
-	empty.Visible = false
-	empty.Parent = gui
-	gui.Parent = display
-	return list
-end
-
 local function makeHeader(header: BasePart)
 	local gui = Instance.new("SurfaceGui")
 	gui.Name = "TitleGui"
@@ -186,25 +107,22 @@ local function makeHeader(header: BasePart)
 	gui.Parent = header
 end
 
--- Draws `rows` on every sign (names from the cache; unknown ids show "Player").
+-- Publishes `rows` for the signs (names from the cache; unknown ids show "Player"): the ranking as JSON in
+-- ReplicatedStorage.LeaderboardTop, [{ r = rank, n = name, c = coins }, ...]. Every client draws the boards from it
+-- (Controllers/LeaderboardBoards), as a list that scrolls: a board on the server could not take the mouse wheel or a
+-- finger.
 function LeaderboardService.render(rows: { LeaderboardRules.Row }, nameOf: { [number]: string }?)
-	for _, board in boards do
-		local gui = board.display:FindFirstChild("LeaderboardGui")
-		local list = gui and gui:FindFirstChild("Rows")
-		if not list then
-			continue
-		end
-		for rank = 1, cfg.count do
-			local frame = list:FindFirstChild("Row" .. rank) :: Frame
-			local row = rows[rank]
-			frame.Visible = row ~= nil
-			if row then
-				local label = (nameOf and nameOf[row.userId]) or names[row.userId] or "Player"
-				(frame:FindFirstChild("Name") :: TextLabel).Text = label;
-				(frame:FindFirstChild("Coins") :: TextLabel).Text = LeaderboardRules.formatCoins(row.coins)
-			end
-		end
-		(gui:FindFirstChild("Empty") :: TextLabel).Visible = #rows == 0
+	local list = {}
+	for _, row in rows do
+		table.insert(list, {
+			r = row.rank,
+			n = (nameOf and nameOf[row.userId]) or names[row.userId] or "Player",
+			c = row.coins,
+		})
+	end
+	local text = HttpService:JSONEncode(list)
+	if published and published.Value ~= text then
+		published.Value = text
 	end
 end
 
@@ -285,9 +203,6 @@ local function findBoards()
 			if display and display:IsA("BasePart") then
 				local header = model:FindFirstChild("Header")
 				local board = { display = display, header = if header and header:IsA("BasePart") then header else nil }
-				if not display:FindFirstChild("LeaderboardGui") then
-					makeBoard(display)
-				end
 				if board.header and not board.header:FindFirstChild("TitleGui") then
 					makeHeader(board.header)
 				end
@@ -306,6 +221,11 @@ function LeaderboardService.Start()
 	if #boards == 0 then
 		return
 	end
+	local value = Instance.new("StringValue")
+	value.Name = cfg.publishName
+	value.Value = "[]"
+	value.Parent = ReplicatedStorage
+	published = value
 	local name = cfg.storeName .. (if RunService:IsStudio() then cfg.studioSuffix else "")
 	local ok, result = pcall(function()
 		return DataStoreService:GetOrderedDataStore(name)

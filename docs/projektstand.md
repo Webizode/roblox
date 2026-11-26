@@ -555,6 +555,11 @@ Sorten (Erdbeere, Minze, Chili), Animationen und Partikel separat vereinbaren.
   - Auto Sell im Truhenfenster (Knopf AUTO SELL neben SELL…): pro Seltenheit STORE oder SELL (Standard ab Rare lagern), „Golden & Rainbow“ immer lagern (an), „New Flavors“ immer lagern (an: die erste Kugel einer nie servierten Sorte geht in die Truhe), Limit pro Sorte 1 bis 3 (Standard 3, Obergrenze `Config/Chest.maxPerFlavor`). Spielstand-Feld `autoSell` (alte Stände: `{}` = Standard), gelesen und geprüft nur über `ScoopChest.readAutoSell`. Der Server entscheidet beim Servieren (`ScoopChest.store` mit den Einstellungen). Rückmeldung: „SOLD n SCOOPS! +Coins“, wenn etwas gelagert wurde, dann die Truhen-Meldungen („+1 to your chest: …“, „Up to n per flavor: … sold instead.“).
   - Entscheidung 25.11.2026: „New Flavors“ ist für alle Seltenheiten standardmäßig an, auch wenn das den Einstieg langsamer macht: Erstes Upgrade nach etwa 6 statt 3 Minuten, alle Upgrades auf Stufe 5 schon nach etwa 44 statt 58 Minuten, Hälfte und Max unverändert (9,9 h, 44 h). `tests/Progression.spec` hält die neuen Werte fest.
   - Tests: 628 bestanden (`tests/AutoSell.spec`: jede Einstellung, alte Spielstände, Prüfung der Client-Werte, Dash-Weg).
+- **Truhenfenster, Leaderboard, Landekreise** (25.11.2026). Bericht mit Vorher/Nachher-Bildern im Vault: `Truhenfenster, Leaderboard, Landekreise 2026-11-25.md`.
+  - Truhe: Ausrüst-Plätze in Reihen zu 3 (`SLOTS_PER_ROW`, Karten `slotScale` 0,7 am PC, 0,56 auf dem Handy), bis 6 passen ohne Überstehen. Tall-Fenster 810 hoch (740 vorher). Gelagerter Bereich scrollt mit der neuen Kit-Leiste `UiKit/Scroller` (`Config/Ui.scrollbar`, Rechnung `UiLayout.scrollThumb`). Studio-Befehl `StudioUpgradeTest("slots", player, n)`.
+  - Leaderboard: Der Server veröffentlicht die Rangliste als JSON in `ReplicatedStorage.LeaderboardTop`, jeder Client zeichnet die Schilder selbst (`LeaderboardBoards`) als scrollbare Liste: Top 50 (`count`), 10 sichtbar (`visibleRows`). Mit dem Controller nicht scrollbar (offen).
+  - Landekreise: ohne Ring-Decal, Farbe der Flugspur (`RarityFlight.circleColor`, Common hellgrau `landingCircle.common`), Transparenz 0,45, Aufleuchten bis 0,15.
+  - Tests: 637 bestanden.
 ---
 
 ## 8. Reihenfolge

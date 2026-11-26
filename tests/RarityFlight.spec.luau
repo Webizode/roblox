@@ -78,3 +78,27 @@ describe("Rarity in flight", function()
 		end
 	)
 end)
+
+describe("Landing circles of the Big Swirl", function()
+	local TowerScoops = require("../src/shared/Config/TowerScoops")
+	local look = TowerScoops.landingCircle
+
+	it("have no dark rim any more and are a little see-through", function()
+		expect(look.outline).toBeNil()
+		expect(look.outlineImage).toBeNil()
+		expect(look.transparency > 0.3 and look.transparency < 0.7).toBe(true)
+		expect(look.flashTransparency > 0 and look.flashTransparency < look.transparency).toBe(true)
+	end)
+
+	it("common is light grey, every rarer one the colour of its trail (a legendary golden)", function()
+		expect(RarityFlight.circleColor("common", CONFIG, COLORS, look.common)).toBe(look.common)
+		expect(look.common ~= "#FFFFFF").toBe(true) -- not glaring white
+		for _, rarity in { "uncommon", "rare", "epic", "legendary", "mythic", "secret", "divine" } do
+			expect(RarityFlight.circleColor(rarity, CONFIG, COLORS, look.common)).toBe(style(rarity).color)
+		end
+		expect(RarityFlight.circleColor(nil, CONFIG, COLORS, look.common)).toBe(look.common)
+		expect(RarityFlight.circleColor("unknown", CONFIG, COLORS, look.common)).toBe(look.common)
+		expect(RarityFlight.circleColor("legendary", CONFIG, COLORS, look.common)).toBe(COLORS.golden)
+		expect(RarityFlight.circleColor("rare", CONFIG, COLORS, look.common)).toBe(COLORS.rare)
+	end)
+end)

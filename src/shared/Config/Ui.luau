@@ -160,6 +160,11 @@ return {
 		window = { { "yellow", 40, -24 }, { "blue", 70, 30 }, { "yellow", -84, 20 } },
 	},
 
+	-- the scroll bar of every list that can be longer than its frame (UiKit Scroller, rules in UiLayout.scrollThumb): a
+	-- rounded chocolate track with a cream rim beside the list and a cream thumb with the outline, at least minThumb
+	-- long; it only shows while there is more than fits
+	scrollbar = { width = 16, gap = 8, minThumb = 44, track = "panel", thumb = "cream", rimTransparency = 0.35 },
+
 	-- the UI's colours, stronger than the world's pastels so buttons read on the beach (from the reference images)
 	colors = {
 		outline = "#3B2016", -- chocolate, round every button, card and word

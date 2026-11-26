@@ -27,6 +27,7 @@ local ORDER = {
 	"Navigation",
 	"PlotGuide",
 	"PlotPins",
+	"LeaderboardBoards",
 	"UiKitGallery",
 	"FountainWater",
 	"Ocean",

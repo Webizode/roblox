@@ -286,4 +286,35 @@ function UiLayout.plan(width: number, height: number, device: Device, config: Co
 	}
 end
 
+-- A scroll bar's thumb for a list `canvas` long shown in a window `view` long, scrolled to `position` (all in pixels),
+-- on a track `track` long: the thumb's length (in proportion to what is shown, at least minThumb, at most the track)
+-- and its offset from the track's start. `shown` is false when everything fits (no bar then). Any broken number
+-- (not finite, negative) counts as "everything fits".
+function UiLayout.scrollThumb(
+	canvas: number,
+	view: number,
+	position: number,
+	track: number,
+	minThumb: number
+): (boolean, number, number)
+	local function ok(value: number): boolean
+		return type(value) == "number" and value == value and value >= 0 and value < math.huge
+	end
+	if not (ok(canvas) and ok(view) and ok(position) and ok(track) and ok(minThumb)) or canvas <= view + 0.5 then
+		return false, track, 0
+	end
+	local length = math.clamp(track * view / canvas, math.min(minThumb, track), track)
+	local share = math.clamp(position / (canvas - view), 0, 1)
+	return true, length, (track - length) * share
+end
+
+-- The reverse for dragging: the scroll position that puts the thumb's start at `offset` on the track.
+function UiLayout.scrollFromThumb(canvas: number, view: number, track: number, length: number, offset: number): number
+	local room = track - length
+	if room <= 0 or canvas <= view then
+		return 0
+	end
+	return math.clamp(offset / room, 0, 1) * (canvas - view)
+end
+
 return UiLayout

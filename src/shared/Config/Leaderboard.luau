@@ -6,7 +6,12 @@ return {
 	storeName = "CoinsTop",
 	-- Studio ranks into its own store (as Config/Save.studioSuffix), so playtests never show up on the live boards
 	studioSuffix = "_Studio",
-	count = 10, -- rows on a board
+	-- places on a board (read from the store and shown): the board shows visibleRows of them and scrolls (wheel, a
+	-- finger, the kit's bar). 10 without scrolling until 25.11.2026. GetSortedAsync reads count x 2 (at most 100).
+	count = 50,
+	visibleRows = 10,
+	-- the ranking for the clients' boards: ReplicatedStorage.<publishName>, JSON (LeaderboardService.render)
+	publishName = "LeaderboardTop",
 	refreshSeconds = 90, -- how often the top list is read (60 to 120; one GetSortedAsync per refresh for all boards)
 	writeSeconds = 60, -- a player's coins go to the ordered store at most this often, and when they leave
 	retrySeconds = 15, -- after a failed read or write, the next try waits this long (it doubles up to 4x)
