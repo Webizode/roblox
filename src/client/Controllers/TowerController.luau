@@ -33,6 +33,7 @@ local MapConfig = require(Config:WaitForChild("Map"))
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
+local RobloxControls = require(client:WaitForChild("RobloxControls"))
 local Sfx = require(client:WaitForChild("Sfx"))
 local UiKit = require(client:WaitForChild("UiKit"))
 local Keys = require(client:WaitForChild("Keys"))
@@ -57,7 +58,7 @@ local FADE_IN, FADE_OUT = 0.4, 1.2
 local DASH_ACTION = "WobbleDash"
 local SPRINT_ACTION = "WobbleSprint"
 -- Roblox puts shift lock on Shift, which is the sprint here; it moves to Ctrl
-local SHIFT_LOCK_KEYS = "LeftControl,RightControl"
+local SHIFT_LOCK_KEYS = { Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl }
 local STANCE_ACTION = "WobbleSteady"
 -- an "off" from the server this soon after a start may still be the answer to the previous stance
 local STANCE_ECHO = 0.5
@@ -733,19 +734,9 @@ local function onSprintInput(_: string, inputState: Enum.UserInputState, input: 
 	return Enum.ContextActionResult.Sink
 end
 
--- Uses the PlayerModule's own setting for the shift-lock keys, so shift lock keeps working, just on Ctrl.
+-- Puts Roblox's shift lock on Ctrl (RobloxControls), so it keeps working without taking the sprint's Shift.
 local function moveShiftLockToCtrl()
-	local ok, boundKeys = pcall(function()
-		return player
-			:WaitForChild("PlayerScripts")
-			:WaitForChild("PlayerModule", 10)
-			:WaitForChild("CameraModule", 10)
-			:WaitForChild("MouseLockController", 10)
-			:WaitForChild("BoundKeys", 10)
-	end)
-	if ok and boundKeys and boundKeys:IsA("StringValue") then
-		boundKeys.Value = SHIFT_LOCK_KEYS
-	end
+	RobloxControls.moveShiftLock(SHIFT_LOCK_KEYS)
 end
 
 function TowerController.Init(reg)

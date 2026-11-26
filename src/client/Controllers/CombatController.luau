@@ -33,6 +33,7 @@ local Palette = require(Config:WaitForChild("Palette"))
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
 local CombatCamera = require(client:WaitForChild("CombatCamera"))
+local RobloxControls = require(client:WaitForChild("RobloxControls"))
 local Sfx = require(client:WaitForChild("Sfx"))
 local UiKit = require(client:WaitForChild("UiKit"))
 local Keys = require(client:WaitForChild("Keys"))
@@ -230,17 +231,12 @@ local function knockDown()
 	-- drops, a held button charges again after getting up (canThrow waits for downUntil), the body lies still
 	cancelCharge(false)
 	CombatCamera.pauseFacing(downUntil)
-	local playerModule = player:WaitForChild("PlayerScripts"):FindFirstChild("PlayerModule")
-	local ok, controls = pcall(function()
-		return (require(playerModule :: ModuleScript) :: any):GetControls()
-	end)
-	if not ok or not controls then
+	if not RobloxControls.setEnabled(false) then
 		return
 	end
-	controls:Disable()
 	task.delay(CombatConfig.knockdownTime, function()
 		if os.clock() >= downUntil - 0.05 then
-			controls:Enable()
+			RobloxControls.setEnabled(true)
 		end
 	end)
 end
@@ -581,14 +577,10 @@ local function swallow(): Enum.ContextActionResult
 	return Enum.ContextActionResult.Sink
 end
 
--- Whether Roblox's own shift lock (Ctrl) is on, read from the PlayerModule. If that cannot be read, it counts as
--- off, so leaving combat mode always frees the mouse.
+-- Whether Roblox's own shift lock (Ctrl) is on (RobloxControls). If that cannot be read, it counts as off, so
+-- leaving combat mode always frees the mouse.
 local function shiftLockOn(): boolean
-	local ok, locked = pcall(function()
-		local playerModule = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule") :: any) :: any
-		return playerModule:GetCameras().activeMouseLockController:GetIsMouseLocked()
-	end)
-	return ok and locked == true
+	return RobloxControls.shiftLockOn()
 end
 
 -- For a moment after leaving combat mode: the mouse stays free unless shift lock or the right mouse button (Roblox's
