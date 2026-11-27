@@ -5,6 +5,7 @@
 local RunService = game:GetService("RunService")
 
 local Settings = require(script.Parent.Parent:WaitForChild("Settings"))
+local CameraLog = require(script.Parent.Parent:WaitForChild("CameraLog"))
 
 local Camera = {}
 
@@ -45,6 +46,7 @@ local function onStep()
 	end
 	if camera then
 		camera.CFrame *= CFrame.Angles(pitch, yaw, 0)
+		CameraLog.wrote("VfxCamera (shake)")
 	end
 end
 

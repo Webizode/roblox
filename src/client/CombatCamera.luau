@@ -26,6 +26,7 @@ local Look = CombatConfig.camera
 local Assist = CombatConfig.aimAssist
 
 local Settings = require(script.Parent:WaitForChild("Settings"))
+local CameraLog = require(script.Parent:WaitForChild("CameraLog"))
 
 local CombatCamera = {}
 
@@ -252,6 +253,7 @@ local function ownStep(dt: number)
 	local pivot = root.Position + Vector3.new(0, Look.pivotUp, 0)
 	local offset = rotation:VectorToWorldSpace(stepAim(dt))
 	camera.CFrame = CFrame.new(pivot + unblocked(pivot, offset, character :: Model)) * rotation
+	CameraLog.wrote("CombatCamera")
 	camera.Focus = CFrame.new(pivot)
 	if os.clock() >= facingPausedUntil then
 		face(character :: Model, rotation.LookVector)

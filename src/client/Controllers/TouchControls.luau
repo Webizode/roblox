@@ -18,6 +18,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local StarterPlayer = game:GetService("StarterPlayer")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -53,8 +54,19 @@ local spots: TouchLayout.Layout = {}
 local jumpHeld = false
 local jumpQueued = false -- a tap shorter than a frame still jumps once
 -- what the touch debug overlay shows (TouchDebug): taps the jump button got, jumps set before the physics, the reason
--- the last wanted jump was not set
-local jumpStats = { taps = 0, lastTap = 0, sets = 0, lastSet = 0, jumpAfterSet = false, blocked = "" }
+-- the last wanted jump was not set, presses of Roblox's JumpAction (how many actions the last one reached, the last
+-- error)
+local jumpStats = {
+	taps = 0,
+	lastTap = 0,
+	sets = 0,
+	lastSet = 0,
+	jumpAfterSet = false,
+	blocked = "",
+	actionPresses = 0,
+	actionReached = 0,
+	actionError = "",
+}
 local layoutListeners: { () -> () } = {}
 
 -- Edit Controls
@@ -294,21 +306,74 @@ local function makeProxy(id: string)
 	proxies[id] = { button = box, stroke = stroke }
 end
 
--- Jump: held, the character keeps jumping like with Roblox's own button. The jump is asked for right before the
--- physics step (PreSimulation): Roblox's controls write Humanoid.Jump every frame before it, so a jump set anywhere
--- else can be overwritten before the physics sees it. Not while knocked down.
+local function knockedDown(): boolean
+	local downUntil = player:GetAttribute("DownUntil")
+	return type(downUntil) == "number" and workspace:GetServerTimeNow() < downUntil
+end
+
+-- Roblox's JumpAction (its PlayerModule of 2025, phone test 27.11.2026: the JUMP button did nothing on a real phone).
+-- Every way that module moves the character takes the jump from this action's state and writes it to Humanoid.Jump
+-- itself: in its render step (the classic way), in its simulation step (server authority) or through its own ability
+-- buttons. So the JUMP button presses the action, through a Scriptable binding of ours on it, like Roblox's own jump
+-- button does through its TouchBinding. The action is in StarterPlayer.PlayerModule.InputContexts, or under the Player
+-- with server authority; both get the binding.
+local JUMP_BINDING = "WobbleJumpBinding"
+
+function TouchControls.jumpActions(): { InputAction }
+	local found = {}
+	local module = StarterPlayer:FindFirstChild("PlayerModule")
+	for _, contexts in { module and module:FindFirstChild("InputContexts"), player:FindFirstChild("InputContexts") } do
+		local character = contexts and contexts:FindFirstChild("CharacterContext")
+		local action = character and character:FindFirstChild("JumpAction")
+		if action and action:IsA("InputAction") then
+			table.insert(found, action)
+		end
+	end
+	return found
+end
+
+-- Presses (true) or lets go of (false) Roblox's JumpAction. Returns how many actions it reached.
+local function pressJumpAction(down: boolean): number
+	local reached = 0
+	for _, action in TouchControls.jumpActions() do
+		local ok, problem = pcall(function()
+			local binding = action:FindFirstChild(JUMP_BINDING)
+			if not (binding and binding:IsA("InputBinding")) then
+				binding = Instance.new("InputBinding")
+				binding.Name = JUMP_BINDING
+				binding.Type = Enum.InputBindingType.Scriptable
+				binding.Parent = action
+			end
+			(binding :: InputBinding):Fire(down)
+		end)
+		if ok then
+			reached += 1
+		else
+			jumpStats.actionError = tostring(problem)
+		end
+	end
+	if down then
+		jumpStats.actionPresses += 1
+		jumpStats.actionReached = reached
+	end
+	return reached
+end
+
+-- Jump: held, the character keeps jumping like with Roblox's own button. The press goes to Roblox's JumpAction (above);
+-- besides, the jump is asked for right before the physics step (PreSimulation), after Roblox's render step has written
+-- Humanoid.Jump. Not while knocked down or editing.
 local function jump(state: Enum.UserInputState)
 	jumpHeld = state == Enum.UserInputState.Begin
 	if jumpHeld then
 		jumpQueued = true
 		jumpStats.taps += 1
 		jumpStats.lastTap = os.clock()
+		if not editing and not knockedDown() then
+			pressJumpAction(true)
+		end
+	else
+		pressJumpAction(false)
 	end
-end
-
-local function knockedDown(): boolean
-	local downUntil = player:GetAttribute("DownUntil")
-	return type(downUntil) == "number" and workspace:GetServerTimeNow() < downUntil
 end
 
 -- Roblox's jump button stays hidden while ours are up (it comes back with every new TouchGui).
