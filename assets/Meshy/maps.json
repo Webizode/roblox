@@ -1,0 +1,15 @@
+{
+ "ScoopChest_Body": {"color": "rbxassetid://115926909588437", "normal": "rbxassetid://77907438784258", "rough": "rbxassetid://138538507465564"},
+ "ScoopChest_Body2": {"color": "rbxassetid://115926909588437", "normal": "rbxassetid://77907438784258", "rough": "rbxassetid://138538507465564"},
+ "ScoopChest_Lid": {"color": "rbxassetid://115926909588437", "normal": "rbxassetid://77907438784258", "rough": "rbxassetid://138538507465564"},
+ "SellCart_Body": {"color": "rbxassetid://96701779237747", "normal": "rbxassetid://93216886852342", "rough": "rbxassetid://138538507465564"},
+ "SellCart_Body2": {"color": "rbxassetid://96701779237747", "normal": "rbxassetid://93216886852342", "rough": "rbxassetid://138538507465564"},
+ "CraftingStation_Body": {"color": "rbxassetid://117525937256746", "normal": "rbxassetid://135341385859845", "rough": "rbxassetid://138538507465564"},
+ "CraftingStation_Body2": {"color": "rbxassetid://117525937256746", "normal": "rbxassetid://135341385859845", "rough": "rbxassetid://138538507465564"},
+ "UpgradeShop_Body": {"color": "rbxassetid://89487602286372", "normal": "rbxassetid://139283367725078", "rough": "rbxassetid://138538507465564"},
+ "UpgradeShop_Body2": {"color": "rbxassetid://89487602286372", "normal": "rbxassetid://139283367725078", "rough": "rbxassetid://138538507465564"},
+ "CosmeticShop_Body": {"color": "rbxassetid://129152965669313", "normal": "rbxassetid://114447792948551", "rough": "rbxassetid://138538507465564"},
+ "CosmeticShop_Body2": {"color": "rbxassetid://129152965669313", "normal": "rbxassetid://114447792948551", "rough": "rbxassetid://138538507465564"},
+ "QuestHub_Body": {"color": "rbxassetid://139572259598456", "normal": "rbxassetid://114955266871531", "rough": "rbxassetid://138538507465564"},
+ "QuestHub_Body2": {"color": "rbxassetid://139572259598456", "normal": "rbxassetid://114955266871531", "rough": "rbxassetid://138538507465564"}
+}

@@ -46,3 +46,8 @@ assets/TowerScoops/proto2/rollout_*.json
 
 # build stamp: written by scripts/stamp.luau (commit and date of the synced code)
 src/shared/Build.luau
+
+# Meshy models: the sources (60-80 MB GLB each, Desktop/meshy modelle) and what assets/Meshy/build.py makes from them;
+# the previews are in the vault (Shop Kit Vorschau/Meshy)
+assets/Meshy/source/
+assets/Meshy/export/
