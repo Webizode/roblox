@@ -56,6 +56,14 @@ local turnFingers: { InputObject } = {}
 local turnFingersAt = 0
 local autoRotateResets = 0
 local moved: { InputObject } = {} -- camera fingers that dragged since the last frame
+-- Phone test 27.11.2026 (Android): walking with the stick turned the combat camera through GetMouseDelta (mouse
+-- -51 deg/s while only the stick finger moved), Android reports the touch as mouse movement too. Mouse movement
+-- counts only while a real mouse is in use: MouseEnabled, the last input was mouse or keyboard, no finger is down and
+-- none was within MOUSE_AFTER_TOUCH seconds. On a phone only the touch path (a camera finger) turns it.
+local MOUSE_AFTER_TOUCH = 0.5
+local lastTouchAt = -math.huge
+local mouseGate = "-" -- why mouse movement counts or not this frame, for the overlay
+local fingersDown: () -> number -- fingers on the screen now (set with the finger rule below)
 
 -- Eases the aim camera towards where the charge says and returns the camera's offset from the pivot (right, up,
 -- back) for this frame; sets fovOffset.
@@ -232,6 +240,33 @@ local function showCharacter(character: Model)
 	end
 end
 
+local MOUSE_INPUTS = {
+	[Enum.UserInputType.MouseMovement] = true,
+	[Enum.UserInputType.MouseButton1] = true,
+	[Enum.UserInputType.MouseButton2] = true,
+	[Enum.UserInputType.MouseButton3] = true,
+	[Enum.UserInputType.MouseWheel] = true,
+	[Enum.UserInputType.Keyboard] = true,
+}
+
+-- Whether mouse movement turns the camera now (see MOUSE_AFTER_TOUCH), and why for the overlay.
+local function mouseCounts(): (boolean, string)
+	if not UserInputService.MouseEnabled then
+		return false, "no mouse"
+	end
+	if fingersDown() > 0 then
+		return false, "finger down"
+	end
+	if os.clock() - lastTouchAt < MOUSE_AFTER_TOUCH then
+		return false, "touch just now"
+	end
+	local last = UserInputService:GetLastInputType()
+	if not MOUSE_INPUTS[last] then
+		return false, "last input " .. last.Name
+	end
+	return true, "on"
+end
+
 local function ownStep(dt: number)
 	local camera = workspace.CurrentCamera
 	local character = player.Character
@@ -240,7 +275,9 @@ local function ownStep(dt: number)
 		return
 	end
 	local settings = Settings.get()
-	local delta = UserInputService:GetMouseDelta()
+	local mouseOn
+	mouseOn, mouseGate = mouseCounts()
+	local delta = if mouseOn then UserInputService:GetMouseDelta() else Vector2.zero
 	local speed = mouseSpeed()
 	local turn = stick() * Look.gamepadSpeed * settings.gamepadSensitivity * dt
 	local swipe = touchDelta * Look.touchSpeed * settings.touchSensitivity
@@ -413,14 +450,37 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		cameraFingers[input] = true
 	end
 	fingerRoles[input] = role
+	lastTouchAt = os.clock()
 end)
 
 UserInputService.InputEnded:Connect(function(input)
 	cameraFingers[input] = nil
 	fingerRoles[input] = nil
+	if input.UserInputType == Enum.UserInputType.Touch then
+		lastTouchAt = os.clock()
+	end
 end)
 
+-- A finger whose InputEnded never came (phone test 27.11.2026: two fingers listed as the stick with one thumb on it)
+-- is dropped as soon as its InputObject says it ended; one that ended never turns the camera.
+fingersDown = function(): number
+	local count = 0
+	for input in fingerRoles do
+		local state = input.UserInputState
+		if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			fingerRoles[input] = nil
+			cameraFingers[input] = nil
+		else
+			count += 1
+		end
+	end
+	return count
+end
+
 UserInputService.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		lastTouchAt = os.clock()
+	end
 	if active and cameraFingers[input] then
 		touchDelta += Vector2.new(input.Delta.X, input.Delta.Y)
 		if not table.find(moved, input) then
@@ -432,7 +492,7 @@ end)
 -- For the touch debug overlay (TouchDebug), read only: whether combat mode's camera runs, how fast each source turns
 -- it (degrees per second: touch, mouse, pad, assist), the fingers whose drag turned it last and when (os.clock()),
 -- what each finger is to it ("camera", "stick", "left", "button"), how often AutoRotate was switched back on, and how
--- far the body's facing is from the camera's (degrees).
+-- far the body's facing is from the camera's (degrees), and whether mouse movement counts now and why.
 function CombatCamera.debugInfo(): (
 	boolean,
 	typeof(turnRates),
@@ -440,7 +500,8 @@ function CombatCamera.debugInfo(): (
 	number,
 	{ [InputObject]: string },
 	number,
-	number
+	number,
+	string
 )
 	local apart = 0
 	local character = player.Character
@@ -450,7 +511,7 @@ function CombatCamera.debugInfo(): (
 		local a, b = root.CFrame.LookVector, camera.CFrame.LookVector
 		apart = math.deg(math.abs(turnTo(math.atan2(-b.X, -b.Z), math.atan2(-a.X, -a.Z))))
 	end
-	return active, turnRates, turnFingers, turnFingersAt, fingerRoles, autoRotateResets, apart
+	return active, turnRates, turnFingers, turnFingersAt, fingerRoles, autoRotateResets, apart, mouseGate
 end
 
 -- A new character: outside combat mode the camera follows it. Combat mode is already over (CombatController ends it

@@ -12,8 +12,9 @@
 --     finger's drag turned it last, how far the body faces from the camera and how often AutoRotate came back on
 --   * every finger on the screen with its number, what it started on (our button, Roblox's stick, other GUI, free)
 --     and what it is to the combat camera (cam=camera turns it; stick, left, button never do)
--- The events (jump taps, lift-offs, touches, changes of the jump values) are still logged, not shown. A tap on its
--- title folds it to one line and back. It never takes a touch (Interactable off), except that title.
+-- The events (jump taps, lift-offs, touches, changes of the jump values) are still logged, not shown. It starts closed
+-- as a small DBG switch; a tap on it opens the overlay and a tap on its title closes it again. It never takes a touch
+-- (Interactable off), except that title.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -44,8 +45,9 @@ local gui: ScreenGui? = nil
 local box: Frame
 local body: TextLabel
 local title: TextButton
-local folded = false
+local folded = true
 local shown = false
+local setFolded: (boolean) -> ()
 
 type Touch = {
 	n: number,
@@ -58,6 +60,7 @@ type Touch = {
 }
 local touches: { [InputObject]: Touch } = {}
 local touchCount = 0
+local staleTouches = 0 -- fingers dropped because their InputEnded never came
 local events: { string } = {}
 local frame = 0
 
@@ -236,8 +239,17 @@ end
 
 local function touchLines(lines: { string })
 	local active = {}
-	for _, touch in touches do
-		table.insert(active, touch)
+	for input, touch in touches do
+		-- a finger whose InputEnded never came (phone test 27.11.2026: two stick fingers with one thumb) goes as soon
+		-- as its InputObject says it ended
+		local state = input.UserInputState
+		if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			touches[input] = nil
+			staleTouches += 1
+			log(`touch #{touch.n} ended without InputEnded ({state.Name})`)
+		else
+			table.insert(active, touch)
+		end
 	end
 	table.sort(active, function(a, b)
 		return a.n < b.n
@@ -257,13 +269,16 @@ local function touchLines(lines: { string })
 			)
 		)
 	end
-	table.insert(lines, `touches {#active}: {table.concat(parts, " | ")} (* moving)`)
+	table.insert(
+		lines,
+		`touches {#active}: {table.concat(parts, " | ")} (* moving; ended without InputEnded {staleTouches}x)`
+	)
 end
 
 -- Combat mode's own camera (CombatCamera): how fast each source turns it, which finger's drag turned it last, how far
 -- the body faces from the camera and how often AutoRotate came back on.
 local function combatLines(lines: { string })
-	local running, rates, fingers, fingersAt, roles, resets, apart = CombatCamera.debugInfo()
+	local running, rates, fingers, fingersAt, roles, resets, apart, mouseGate = CombatCamera.debugInfo()
 	if not running then
 		table.insert(lines, "combat cam: off")
 		return
@@ -288,6 +303,7 @@ local function combatLines(lines: { string })
 	table.insert(
 		lines,
 		`combat cam turned by finger: {if #names > 0 then table.concat(names, ", ") else "-"} ({ago(fingersAt)})`
+			.. ` | mouse counts: {mouseGate}`
 	)
 end
 
@@ -303,6 +319,20 @@ end
 local function place(plan: any)
 	local topBar = if plan and plan.topbar then plan.topbar.height else 44
 	box.Position = UDim2.fromOffset(4, topBar + 2)
+end
+
+-- Off by default (27.11.2026): only a small DBG switch in the corner; a tap opens the overlay, another closes it.
+-- Closed, it tracks nothing.
+setFolded = function(fold: boolean)
+	folded = fold
+	body.Visible = not fold
+	box.Size = if fold then UDim2.fromOffset(32, 0) else UDim2.fromScale(WIDTH, 0)
+	title.Text = if fold then "DBG" else "TOUCH DEBUG (tap to close)"
+	shown = allowed() and not fold
+	if shown then
+		touches = {}
+		body.Text = text()
+	end
 end
 
 local function build()
@@ -334,13 +364,10 @@ local function build()
 	title.TextColor3 = Color3.new(1, 1, 1)
 	title.FontFace = Font.fromEnum(Enum.Font.RobotoMono)
 	title.TextSize = TITLE_SIZE
-	title.Text = "TOUCH DEBUG (tap to fold)"
 	title.Interactable = true
 	title.Parent = box
 	title.Activated:Connect(function()
-		folded = not folded
-		body.Visible = not folded
-		title.Text = if folded then "TOUCH DEBUG (tap to open)" else "TOUCH DEBUG (tap to fold)"
+		setFolded(not folded)
 	end)
 
 	body = Instance.new("TextLabel")
@@ -358,6 +385,7 @@ local function build()
 	body.Interactable = false
 	body.Parent = box
 	gui = made
+	setFolded(true)
 end
 
 local function update()
@@ -365,7 +393,7 @@ local function update()
 	if want and not gui then
 		build()
 	end
-	shown = want
+	shown = want and not folded
 	if gui then
 		gui.Enabled = want
 	end
