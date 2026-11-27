@@ -49,6 +49,13 @@ local shaken = false -- hit during this charge: no aim camera until it ends
 local blend, aimFov = 0, 0
 local kickAt, kickPerfect = -math.huge, false
 local fovOffset = 0 -- what the aim camera adds to the field of view this frame (MovementController applies it)
+-- for the touch debug overlay (TouchDebug): how fast each source turned the camera (degrees per second, smoothed), the
+-- fingers whose drag turned it last and when, and how often something switched AutoRotate back on in combat mode
+local turnRates = { touch = 0, mouse = 0, pad = 0, assist = 0 }
+local turnFingers: { InputObject } = {}
+local turnFingersAt = 0
+local autoRotateResets = 0
+local moved: { InputObject } = {} -- camera fingers that dragged since the last frame
 
 -- Eases the aim camera towards where the charge says and returns the camera's offset from the pivot (right, up,
 -- back) for this frame; sets fovOffset.
@@ -91,6 +98,11 @@ local function face(character: Model, look: Vector3)
 		releaseFacing()
 		turned = humanoid
 		humanoid.AutoRotate = false
+	elseif humanoid.AutoRotate then
+		-- something switched it back on (Roblox's PlayerModule does with server authority): the humanoid would turn the
+		-- body to the walking direction while strafing, so it goes off again at once
+		humanoid.AutoRotate = false
+		autoRotateResets += 1
 	end
 	root.CFrame = CFrame.lookAt(root.Position, root.Position + flat)
 end
@@ -240,6 +252,7 @@ local function ownStep(dt: number)
 		target, closeness = assistTarget(camera, character :: Model)
 	end
 	local slow = AimRules.friction(closeness, device)
+	local yawBefore = yaw
 	yaw -= (delta.X * speed + turn.X + swipe.X) * slow
 	pitch = math.clamp(pitch - (delta.Y * speed - turn.Y + swipe.Y) * slow, Look.pitchMin, Look.pitchMax)
 	if target then
@@ -247,6 +260,20 @@ local function ownStep(dt: number)
 		local share = AimRules.pull(closeness, dt, device)
 		yaw += turnTo(yaw, math.atan2(-to.X, -to.Z)) * share
 		pitch = math.clamp(pitch + (math.asin(math.clamp(to.Y, -1, 1)) - pitch) * share, Look.pitchMin, Look.pitchMax)
+	end
+	if dt > 0 then
+		local function rate(old: number, turnedBy: number): number
+			return old + (math.deg(turnedBy) / dt - old) * math.min(1, dt * 8)
+		end
+		local byInput = -(delta.X * speed + turn.X + swipe.X) * slow
+		turnRates.touch = rate(turnRates.touch, -swipe.X * slow)
+		turnRates.mouse = rate(turnRates.mouse, -delta.X * speed * slow)
+		turnRates.pad = rate(turnRates.pad, -turn.X * slow)
+		turnRates.assist = rate(turnRates.assist, (yaw - yawBefore) - byInput)
+	end
+	if #moved > 0 then
+		turnFingers, turnFingersAt = moved, os.clock()
+		moved = {}
 	end
 
 	local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
@@ -332,32 +359,99 @@ function CombatCamera.stop()
 end
 
 -- A finger dragging over the screen turns the camera in combat mode, but only one that started in the free part of
--- the screen right of the move stick (Config/Combat camera.touchFromX of the width) and not on a button. Each finger
--- is followed by its own InputObject from the moment it touches down, so one finger walks with the stick while another
--- aims. Before (phone test 17.11.2026) every unprocessed move counted, and Roblox's stick does not mark its finger as
--- processed: walking turned the camera.
+-- the screen right of the move stick (Config/Combat camera.touchFromX of the width), not on a button and not on
+-- Roblox's stick. Each finger is followed by its own InputObject from the moment it touches down, so one finger walks
+-- with the stick while another aims, and a finger that started on the stick never turns the camera, wherever it slides
+-- to. Before (phone test 17.11.2026) every unprocessed move counted, and Roblox's stick does not mark its finger as
+-- processed: walking turned the camera. Phone test 27.11.2026: in combat mode the camera still turned while walking;
+-- Roblox's dynamic stick takes 40 % of the safe area from its left edge, which on a phone with a notch reaches past
+-- 40 % of the whole width, so a thumb could land on the stick and still count here. Its real frame (invisible until
+-- touched) is asked now, with STICK_MARGIN pixels to spare.
+local STICK_MARGIN = 12
 local cameraFingers: { [InputObject]: boolean } = {}
+local fingerRoles: { [InputObject]: string } = {} -- what each finger on the screen is to the combat camera
+
+-- Whether a point (InputObject.Position) lies on Roblox's move stick: inside its frame, visible or not.
+local function onStick(x: number, y: number): boolean
+	local playerGui = player:FindFirstChildOfClass("PlayerGui")
+	local touchGui = playerGui and playerGui:FindFirstChild("TouchGui")
+	if not touchGui then
+		return false
+	end
+	for _, found in touchGui:GetDescendants() do
+		if (found.Name == "DynamicThumbstickFrame" or found.Name == "ThumbstickFrame") and found:IsA("GuiObject") then
+			local at, size = found.AbsolutePosition, found.AbsoluteSize
+			if
+				x >= at.X - STICK_MARGIN
+				and x <= at.X + size.X + STICK_MARGIN
+				and y >= at.Y - STICK_MARGIN
+				and y <= at.Y + size.Y + STICK_MARGIN
+			then
+				return true
+			end
+		end
+	end
+	return false
+end
 
 UserInputService.InputBegan:Connect(function(input, processed)
-	if input.UserInputType ~= Enum.UserInputType.Touch or processed then
+	if input.UserInputType ~= Enum.UserInputType.Touch then
 		return
 	end
 	local camera = workspace.CurrentCamera
 	local width = if camera then camera.ViewportSize.X else 0
-	if input.Position.X >= width * Look.touchFromX then
+	local x, y = input.Position.X, input.Position.Y
+	local role
+	if processed then
+		role = "button"
+	elseif onStick(x, y) then
+		role = "stick"
+	elseif x < width * Look.touchFromX then
+		role = "left"
+	else
+		role = "camera"
 		cameraFingers[input] = true
 	end
+	fingerRoles[input] = role
 end)
 
 UserInputService.InputEnded:Connect(function(input)
 	cameraFingers[input] = nil
+	fingerRoles[input] = nil
 end)
 
 UserInputService.InputChanged:Connect(function(input)
 	if active and cameraFingers[input] then
 		touchDelta += Vector2.new(input.Delta.X, input.Delta.Y)
+		if not table.find(moved, input) then
+			table.insert(moved, input)
+		end
 	end
 end)
+
+-- For the touch debug overlay (TouchDebug), read only: whether combat mode's camera runs, how fast each source turns
+-- it (degrees per second: touch, mouse, pad, assist), the fingers whose drag turned it last and when (os.clock()),
+-- what each finger is to it ("camera", "stick", "left", "button"), how often AutoRotate was switched back on, and how
+-- far the body's facing is from the camera's (degrees).
+function CombatCamera.debugInfo(): (
+	boolean,
+	typeof(turnRates),
+	{ InputObject },
+	number,
+	{ [InputObject]: string },
+	number,
+	number
+)
+	local apart = 0
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local camera = workspace.CurrentCamera
+	if root and camera then
+		local a, b = root.CFrame.LookVector, camera.CFrame.LookVector
+		apart = math.deg(math.abs(turnTo(math.atan2(-b.X, -b.Z), math.atan2(-a.X, -a.Z))))
+	end
+	return active, turnRates, turnFingers, turnFingersAt, fingerRoles, autoRotateResets, apart
+end
 
 -- A new character: outside combat mode the camera follows it. Combat mode is already over (CombatController ends it
 -- on every respawn); this also catches a camera Roblox left on the old character.

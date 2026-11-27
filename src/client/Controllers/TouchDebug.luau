@@ -1,27 +1,25 @@
 --!strict
 -- The touch debug overlay (Config/TouchControls debugOverlay; phone tests 26./27.11.2026: on a real phone the jump
--- button did nothing and walking with the stick seemed to turn the camera). Only for the UserIds listed there on a
--- touch screen, in Studio also with the attribute TouchDebug on Workspace. A small grey box at the screen's left edge,
--- next to the icon buttons and under the top row, shows live (jump first, so it is never cut off):
+-- button did nothing, fixed in TouchControls, and walking with the stick turns the camera). Only for the UserIds listed
+-- there on a touch screen, in Studio also with the attribute TouchDebug on Workspace. A small grey box in the top left
+-- corner, away from THROW and the action buttons, shows live and compact:
 --   * the build (Version), so a phone shows whether the newest publish arrived
---   * the jump: taps the JUMP button got, its presses of Roblox's JumpAction (TouchControls) and that action's state,
---     jumps set before the physics, the humanoid's state, floor, jump values and whether jumping is allowed, how
---     often it really lifted off and how often a tap did not (with the state then), changes of the jump values or of
---     the Jumping state by any script, and what lies over the JUMP button's centre (Roblox's TouchGui and ability
---     buttons listed apart)
---   * the camera: CameraType, the modes, how fast it turns now, Roblox's own camera turn input (CameraRotationAction),
---     which finger moved while it turned (the stick's finger or a free one) and which code last wrote Camera.CFrame
---     (CombatCamera, the camera jolts, or Roblox's camera module)
---   * every finger on the screen with its number and what it started on (our button, Roblox's stick, other GUI, free)
---   * the move controls and the last few events with their time
--- A tap on its title folds it to one line and back. It never takes a touch (Interactable off), except that title.
+--   * how fast the camera turns now and Roblox's own camera turn input (its CameraRotationAction)
+--   * which code last turned the camera (CombatCamera, the camera jolts, or Roblox's camera module; CameraLog)
+--   * which finger moved while the camera turned: the stick's finger (found by the stick's frame, which stays
+--     invisible until touched) or a free one
+--   * in combat mode: how fast each source turns combat mode's own camera (touch, mouse, pad, aim assist), which
+--     finger's drag turned it last, how far the body faces from the camera and how often AutoRotate came back on
+--   * every finger on the screen with its number, what it started on (our button, Roblox's stick, other GUI, free)
+--     and what it is to the combat camera (cam=camera turns it; stick, left, button never do)
+-- The events (jump taps, lift-offs, touches, changes of the jump values) are still logged, not shown. A tap on its
+-- title folds it to one line and back. It never takes a touch (Interactable off), except that title.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
 local UserInputService = game:GetService("UserInputService")
-local GuiService = game:GetService("GuiService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local TouchConfig = require(Shared:WaitForChild("Config"):WaitForChild("TouchControls"))
@@ -30,14 +28,15 @@ local client = script.Parent.Parent
 local UiKit = require(client:WaitForChild("UiKit"))
 local Version = require(client:WaitForChild("Version"))
 local CameraLog = require(client:WaitForChild("CameraLog"))
+local CombatCamera = require(client:WaitForChild("CombatCamera"))
 local Screen = UiKit.Screen
 
 local TouchDebug = {}
 
 local CONFIG = TouchConfig.debugOverlay
-local TEXT_SIZE = 6 -- half of what it was (phone test 27.11.2026: the box covered the buttons, the jump lines were cut)
-local TITLE_SIZE = 7
-local WIDTH = 0.36 -- share of the screen's width
+local TEXT_SIZE = 5 -- small (phone tests 27.11.2026: the box covered THROW and the buttons, the camera lines were cut)
+local TITLE_SIZE = 6
+local WIDTH = 0.3 -- share of the screen's width
 local player = Players.LocalPlayer
 local registry: any = nil
 
@@ -64,7 +63,6 @@ local frame = 0
 
 -- the jump
 local jumpsDone = 0 -- the humanoid really entered Jumping
-local lastLiftOff = 0
 local pendingTap: number? = nil -- os.clock() of a tap still waiting to lift off
 local noLiftOff = 0
 local lastNoLiftOff = "-"
@@ -104,15 +102,6 @@ end
 local function name(object: GuiObject): string
 	local screenGui = object:FindFirstAncestorWhichIsA("LayerCollector")
 	return (if screenGui then screenGui.Name .. "/" else "") .. object.Name
-end
-
-local function enumName(value: any): string
-	return if typeof(value) == "EnumItem" then value.Name else tostring(value)
-end
-
-local function read(getter: () -> any): string
-	local ok, value = pcall(getter)
-	return if ok then enumName(value) else "?"
 end
 
 local function ago(at: number): string
@@ -231,125 +220,18 @@ local function cameraModule(): string
 	return if ok then text else "unreadable"
 end
 
-local function rect(object: GuiObject): string
-	local at, size = object.AbsolutePosition, object.AbsoluteSize
-	return string.format("%d,%d %dx%d", at.X, at.Y, size.X, size.Y)
-end
-
-local function jumpLines(lines: { string }, humanoid: Humanoid?)
-	table.insert(lines, "-- jump")
-	local touchGui, buttons, stats, held
-	if registry and registry.TouchControls then
-		touchGui, buttons, stats, held = registry.TouchControls.debugInfo()
-	end
-	if stats then
-		table.insert(
-			lines,
-			`taps {stats.taps} ({ago(stats.lastTap)}) held={tostring(held)} | JumpAction presses {stats.actionPresses} reached {stats.actionReached}{if stats.actionError
-					~= ""
-				then " ERR " .. stats.actionError
-				else ""}`
-		)
-		local actions = {}
-		for _, action in registry.TouchControls.jumpActions() do
-			table.insert(
-				actions,
-				`{action.Parent and action.Parent.Parent and action.Parent.Parent.Parent and action.Parent.Parent.Parent.Name or "?"}: state={read(
-					function()
-						return action:GetState()
-					end
-				)} enabled={tostring(action.Enabled)}`
-			)
-		end
-		table.insert(lines, "JumpAction " .. (if #actions > 0 then table.concat(actions, "; ") else "NOT FOUND"))
-		table.insert(
-			lines,
-			`Humanoid.Jump set {stats.sets}x ({ago(stats.lastSet)}){if stats.blocked ~= ""
-				then " blocked: " .. stats.blocked
-				else ""}`
-		)
-	end
-	if humanoid then
-		table.insert(
-			lines,
-			`state={humanoid:GetState().Name} floor={humanoid.FloorMaterial.Name} Jumping enabled={tostring(
-				humanoid:GetStateEnabled(Enum.HumanoidStateType.Jumping)
-			)} Jump={tostring(humanoid.Jump)}`
-		)
-		table.insert(
-			lines,
-			string.format(
-				"UseJumpPower=%s JumpPower=%.0f JumpHeight=%.1f",
-				tostring(humanoid.UseJumpPower),
-				humanoid.JumpPower,
-				humanoid.JumpHeight
-			)
-		)
-		table.insert(
-			lines,
-			`lifted off {jumpsDone}x ({ago(lastLiftOff)}), taps without lift-off {noLiftOff} (last: {lastNoLiftOff})`
-		)
-	else
-		table.insert(lines, "no humanoid")
-	end
-	local jumpButton = buttons and buttons.jump
-	if jumpButton then
-		local centre = jumpButton.AbsolutePosition + jumpButton.AbsoluteSize / 2
-		local taker, first = hit(centre.X, centre.Y)
-		local on = if taker == jumpButton
-			then "ok"
-			elseif taker then "COVERED by " .. name(taker)
-			else "nothing takes it" .. (if first then " (over " .. name(first) .. ")" else "")
-		table.insert(lines, `JUMP {rect(jumpButton)} visible={tostring(jumpButton.Visible)} centre: {on}`)
-	end
-	-- Roblox's own touch GUIs and anything of theirs that shows (an invisible one takes no tap)
-	local parts = {}
-	for _, screenGui in robloxGuis() do
-		local visible = {}
-		for _, found in screenGui:GetDescendants() do
-			if found:IsA("GuiButton") and found.Visible then
-				table.insert(visible, found.Name)
-			end
-		end
-		table.insert(
-			parts,
-			`{screenGui.Name}(on={tostring(screenGui.Enabled)} order={screenGui.DisplayOrder}) buttons shown: {if #visible
-					> 0
-				then table.concat(visible, ",")
-				else "none"}`
-		)
-	end
-	table.insert(lines, if #parts > 0 then table.concat(parts, " | ") else "no Roblox touch GUI")
-	if touchGui then
-		local inset = GuiService:GetGuiInset()
-		table.insert(lines, string.format("inset %d,%d safe area %s", inset.X, inset.Y, rect(touchGui :: any)))
-	end
-end
-
-local function cameraLines(lines: { string }, humanoid: Humanoid?)
-	local camera = workspace.CurrentCamera
-	table.insert(lines, "-- camera")
-	table.insert(
-		lines,
-		`type={read(function()
-			return camera.CameraType
-		end)} {cameraModule()} autoRotate={if humanoid then tostring(humanoid.AutoRotate) else "-"}`
-	)
+local function cameraLines(lines: { string })
 	local input = rotationInput()
 	table.insert(
 		lines,
 		string.format(
-			"turning %+.0f deg/s, Roblox turn input %s",
+			"turning %+.0f deg/s (Roblox input %s)",
 			yawRate,
 			if input then string.format("%.2f,%.2f", input.X, input.Y) else "-"
 		)
 	)
 	table.insert(lines, `last turned by: {writer} ({ago(writerAt)})`)
 	table.insert(lines, `finger moving then: {turner} ({ago(turnerAt)})`)
-	table.insert(
-		lines,
-		`walk now {if walk.active then string.format("%.0f deg in %.1fs", walk.turned, walk.time) else "-"}, last {lastWalk}`
-	)
 end
 
 local function touchLines(lines: { string })
@@ -360,51 +242,67 @@ local function touchLines(lines: { string })
 	table.sort(active, function(a, b)
 		return a.n < b.n
 	end)
+	local roles = select(5, CombatCamera.debugInfo())
 	local parts = {}
 	for _, touch in active do
+		local role = roles[touch.input]
 		table.insert(
 			parts,
-			string.format("#%d %s%s", touch.n, touch.what, if touch.movedFrame == frame then "*" else "")
+			string.format(
+				"#%d %s%s%s",
+				touch.n,
+				touch.what,
+				if role then " cam=" .. role else "",
+				if touch.movedFrame == frame then "*" else ""
+			)
 		)
 	end
-	table.insert(lines, `-- touches {#active}: {table.concat(parts, " | ")} (* moving)`)
+	table.insert(lines, `touches {#active}: {table.concat(parts, " | ")} (* moving)`)
+end
+
+-- Combat mode's own camera (CombatCamera): how fast each source turns it, which finger's drag turned it last, how far
+-- the body faces from the camera and how often AutoRotate came back on.
+local function combatLines(lines: { string })
+	local running, rates, fingers, fingersAt, roles, resets, apart = CombatCamera.debugInfo()
+	if not running then
+		table.insert(lines, "combat cam: off")
+		return
+	end
+	table.insert(
+		lines,
+		string.format(
+			"COMBAT CAM touch %+.0f mouse %+.0f pad %+.0f assist %+.0f deg/s | body-cam %.0f deg, AutoRotate back on %dx",
+			rates.touch,
+			rates.mouse,
+			rates.pad,
+			rates.assist,
+			apart,
+			resets
+		)
+	)
+	local names = {}
+	for _, input in fingers do
+		local touch = touches[input]
+		table.insert(names, `#{if touch then touch.n else "?"} {roles[input] or "gone"}`)
+	end
+	table.insert(
+		lines,
+		`combat cam turned by finger: {if #names > 0 then table.concat(names, ", ") else "-"} ({ago(fingersAt)})`
+	)
 end
 
 local function text(): string
 	local lines = { Version.text() }
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local settings = UserSettings():GetService("UserGameSettings")
-	jumpLines(lines, humanoid)
-	cameraLines(lines, humanoid)
+	combatLines(lines)
+	cameraLines(lines)
 	touchLines(lines)
-	table.insert(
-		lines,
-		`-- move: devTouchMove={read(function()
-			return player.DevTouchMovementMode
-		end)} own={read(function()
-			return settings.TouchMovementMode
-		end)} moveDir={if humanoid then string.format("%.2f", humanoid.MoveDirection.Magnitude) else "-"}`
-	)
-	table.insert(lines, "-- events")
-	for _, event in events do
-		table.insert(lines, event)
-	end
 	return table.concat(lines, "\n")
 end
 
--- At the left edge, right of the icon buttons and under the top row (the HUD's plan), so it covers no button.
+-- In the top left corner, right under Roblox's top bar: away from THROW and the action buttons (bottom right).
 local function place(plan: any)
-	if not plan then
-		return
-	end
-	local x = if plan.column then plan.column.x + plan.column.w + 6 else 8
-	local topBar = if plan.topbar then plan.topbar.height else 44
-	local y = topBar + 4
-	if plan.top then
-		y = math.max(y, plan.top.y + plan.top.h + 4)
-	end
-	box.Position = UDim2.fromOffset(x, y)
+	local topBar = if plan and plan.topbar then plan.topbar.height else 44
+	box.Position = UDim2.fromOffset(4, topBar + 2)
 end
 
 local function build()
@@ -481,7 +379,6 @@ local function watchCharacter(character: Model)
 	humanoid.StateChanged:Connect(function(_, new)
 		if new == Enum.HumanoidStateType.Jumping then
 			jumpsDone += 1
-			lastLiftOff = os.clock()
 			pendingTap = nil
 			log("lifted off")
 		end
