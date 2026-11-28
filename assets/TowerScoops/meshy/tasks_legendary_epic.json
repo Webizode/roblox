@@ -1,0 +1,82 @@
+{
+ "royal_cream": {
+  "gen": "01a21f2d-b85d-70dd-8b15-2a4c3d23c48f",
+  "remesh": "01a21f2f-0ae3-779f-8ce2-893eeedf3729"
+ },
+ "tiramisu": {
+  "gen": "01a21f1c-885d-754f-b4c1-7760ec4652ae",
+  "remesh": "01a21f1d-c286-77fe-9701-dbb67e310cc3"
+ },
+ "white_chocolate": {
+  "gen": "01a21f55-4ef1-7628-bb31-56d27b67959c",
+  "remesh": "01a21f56-d6e8-7080-bdad-0cf5d98418e5"
+ },
+ "black_cherry": {
+  "gen": "01a21f55-55df-7425-8d51-0516f8495830",
+  "remesh": "01a21f56-d7e2-7259-8c90-fd623dbbc142"
+ },
+ "pistachio_cream": {
+  "gen": "01a21f55-5be1-72ee-ac6c-624a756bd433",
+  "remesh": "01a21f56-d8e5-77f8-a763-e52e5289fafc"
+ },
+ "salted_caramel": {
+  "gen": "01a21f55-6344-73f5-a4a8-4e1520559c2c",
+  "remesh": "01a21f56-d9dc-71e3-ba23-28b3b4fd6218"
+ },
+ "marzipan": {
+  "gen": "01a21f55-6891-77d7-ae25-0d2d750b388f",
+  "remesh": "01a21f56-dad3-7062-bd9c-65467631712a"
+ },
+ "cinnamon_roll": {
+  "gen": "01a21f55-6f77-71a7-b799-ad73e9cec639",
+  "remesh": "01a21f56-dbd8-7244-95cb-31904ae79395"
+ },
+ "cheesecake": {
+  "gen": "01a21f55-b79a-74f6-b75d-413a2847e62b",
+  "remesh": "01a21f57-4e9f-7776-990b-702ec4662fbe"
+ },
+ "mocha": {
+  "gen": "01a21f55-bebf-7712-9b4a-6d35d85180fa",
+  "remesh": "01a21f57-4fa1-71b9-92fd-df8f5de9c850"
+ },
+ "passion_fruit": {
+  "gen": "01a21f55-c50c-737b-9b1c-3a7aa7f2db0f",
+  "remesh": "01a21f57-50ab-7576-ae3a-97abd81bf805"
+ },
+ "midnight_berry": {
+  "gen": "01a21f55-cc71-706b-a28a-46cb3505db0f",
+  "remesh": "01a21f57-51ce-7512-890e-0216879ba234"
+ },
+ "frosted_melon": {
+  "gen": "01a21f55-d3e2-700b-8df6-39e3d4850773",
+  "remesh": "01a21f57-52eb-75cf-b11f-6841fd6ff67e"
+ },
+ "velvet_dream": {
+  "gen": "01a21f55-d8e6-73fb-9f7a-dbc97f42db17",
+  "remesh": "01a21f57-53e7-77b7-81db-f011c7ba1288"
+ },
+ "mystic_plum": {
+  "gen": "01a21f56-0ea4-70d2-8fe8-270f24d3e597",
+  "remesh": "01a21f57-d231-777a-9c63-a28338b93243"
+ },
+ "arctic_coconut": {
+  "gen": "01a21f56-15f9-752c-ba85-97bae7a95d2b",
+  "remesh": "01a21f57-d34b-72c5-a250-74d36de41b6f"
+ },
+ "crimson_velvet": {
+  "gen": "01a21f56-1bdc-751b-af1f-78087a1088d3",
+  "remesh": "01a21f57-d440-779f-81c2-75f4883ac03a"
+ },
+ "honey_blossom": {
+  "gen": "01a21f56-22fa-765d-9c27-81cebc4b38e5",
+  "remesh": "01a21f57-d52d-7639-94cd-53490a1cf2f9"
+ },
+ "velvet_mocha": {
+  "gen": "01a21f56-28c2-71c4-b33e-c9b8202f6b91",
+  "remesh": "01a21f57-d629-75d9-88f2-1f6b1faa399a"
+ },
+ "sapphire_cream": {
+  "gen": "01a21f56-3018-75ed-83ce-cc40aa306471",
+  "remesh": "01a21f57-d739-7374-a1cd-d1dbbee6b1ec"
+ }
+}

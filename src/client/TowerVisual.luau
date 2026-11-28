@@ -58,7 +58,9 @@ TowerVisual.makePart = makePart
 
 TowerVisual.applyFlavor = ScoopModel.applyFlavor
 
-function TowerVisual.new(name: string)
+-- alwaysNear: draw every scoop with its close model (LOD0) at any distance: the local player's own tower (user
+-- 28.11.2026: from the player's view the own tower always shows LOD0; tall towers reached the far model at the top).
+function TowerVisual.new(name: string, alwaysNear: boolean?)
 	local model = Instance.new("Model")
 	model.Name = name
 	model.Parent = getVisualsRoot()
@@ -96,6 +98,7 @@ function TowerVisual.new(name: string)
 		yaw = 0, -- the way the stack faces (radians about +Y), following its carrier (update)
 		yawSpeed = 0,
 		turnAt = nil :: number?, -- os.clock of the last update; nil until the first
+		alwaysNear = alwaysNear == true,
 	}, TowerVisual)
 end
 
@@ -132,7 +135,7 @@ function TowerVisual:update(baseCFrame: CFrame, tiltX: number, tiltZ: number)
 	self.tiltX, self.tiltZ = tiltX, tiltZ
 
 	local camera = workspace.CurrentCamera
-	local distance = if camera then (camera.CFrame.Position - base).Magnitude else 0
+	local distance = if camera and not self.alwaysNear then (camera.CFrame.Position - base).Magnitude else 0
 	local now = os.clock()
 
 	local look = baseCFrame.LookVector

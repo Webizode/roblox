@@ -741,7 +741,7 @@ end
 
 function TowerController.Init(reg)
 	registry = reg
-	visual = TowerVisual.new("MyTower")
+	visual = TowerVisual.new("MyTower", true)
 end
 
 function TowerController.Start()
