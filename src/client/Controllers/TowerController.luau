@@ -33,6 +33,7 @@ local MapConfig = require(Config:WaitForChild("Map"))
 
 local client = script.Parent.Parent
 local TowerVisual = require(client:WaitForChild("TowerVisual"))
+local TowerNameTag = require(client:WaitForChild("TowerNameTag"))
 local RobloxControls = require(client:WaitForChild("RobloxControls"))
 local Sfx = require(client:WaitForChild("Sfx"))
 local UiKit = require(client:WaitForChild("UiKit"))
@@ -71,6 +72,9 @@ local state = TowerModel.newState(player.UserId % 100000)
 local scoops: { string } = {}
 local params = TowerModel.params(scoops, Flavors.byId, Tuning, 1)
 local visual
+-- the name over the scoop just caught (TowerNameTag) and the place it is for; luck taking that catch over hides it
+local catchTag: TowerNameTag.Tag? = nil
+local catchIndex = 0
 local baseVelocityX, baseVelocityZ = 0, 0
 local accumulator = 0
 local toppledAt: number? = nil
@@ -207,6 +211,19 @@ local function onTowerChanged(newScoops: { string }, reason: string)
 		end
 		TowerModel.landingKick(state, Tuning, #scoops)
 		Sfx.catch(#scoops)
+		if reason == "catch" then
+			-- its name over it for a moment, in its rarity's colour (Config/TowerScoops nameTag); a beat later, so a
+			-- lucky change of this catch (TowerController.lucky, its own "LUCKY!") can take its place
+			local index, id = #scoops, scoops[#scoops]
+			catchIndex = index
+			task.delay(0.05, function()
+				local part = visual:scoopPart(index)
+				if catchIndex == index and scoops[index] == id and part then
+					TowerNameTag.hide(catchTag)
+					catchTag = TowerNameTag.show(part, id)
+				end
+			end)
+		end
 		if reason == "pickup" then
 			-- a spilled scoop picked up: the tower cannot topple on its own for a moment (Config/Tower graceSeconds),
 			-- at most once per graceCooldown
@@ -915,6 +932,12 @@ function TowerController.lucky(from: string, to: string, delay: number, changed:
 	if index == 0 or scoops[index] ~= to then
 		return false
 	end
+	-- "LUCKY!" names this catch: no plain name over it as well
+	if catchIndex == index then
+		catchIndex = 0
+	end
+	TowerNameTag.hide(catchTag)
+	catchTag = nil
 	local shown = table.clone(scoops)
 	shown[index] = from
 	visual:setFlavors(shown)

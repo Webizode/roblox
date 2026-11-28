@@ -47,6 +47,45 @@ return {
 		flash = 0.7,
 		flashTransparency = 0.15, -- how strong it lights up first (0 before 25.11.2026: a full Neon flash glared)
 	},
+	-- The ring under a tower scoop from uncommon on (user 28.11.2026: in the stack one could not tell the rarities apart;
+	-- TowerVisual, TowerMarks.ring), on every tower: a thin torus round the scoop's drip rim, where it sits on the scoop
+	-- below, in the colour of the landing circle and the trail (golden for a legendary). Plain from uncommon, glowing a
+	-- little (Neon, see-through) from `glowFrom`, a few gold glints from `sparkleFrom`; low VFX quality neither, medium
+	-- no glints. One part per scoop, no Highlight (Roblox draws only 31 at once).
+	rarityRing = {
+		part = "TowerRarityRing", -- ReplicatedStorage.<part>: the torus, 1.96 studs across and 0.1 thick at scale 1
+		height = -0.8, -- studs from the scoop's centre: its rim (radius about 0.89 there, all 52 Meshy models)
+		transparency = 0, -- plain
+		glowFrom = "epic",
+		glowTransparency = 0.3,
+		sparkleFrom = "legendary",
+		sparkle = {
+			texture = "star", -- Config/Vfx.textures
+			rate = 1.5, -- glints per second and ring
+			size = { 0.15, 0.3 },
+			lifetime = { 0.5, 0.9 },
+			lightEmission = 0.8,
+			maxDistance = 60, -- studs from the camera; farther rings do not glint
+		},
+	},
+	-- The name over a scoop: "EPIC Tiramisu" in the rarity's colour (the ring's), for `time` seconds, rising a little
+	-- and fading. Over the own tower's new top scoop when it is caught; over a rival's tower while one aims at it (the
+	-- crosshair in combat mode, else the mouse), naming its rarest scoop (TowerMarks.rarest). Never on every scoop.
+	nameTag = {
+		time = 1.5,
+		popTime = 0.15,
+		fadeTime = 0.35,
+		rise = 0.8, -- studs it rises meanwhile
+		above = 1.3, -- studs over the scoop's centre
+		width = 300, -- pixels
+		height = 34,
+		peek = {
+			maxDistance = 120, -- studs from the camera to a rival's tower
+			radius = 1.3, -- studs round the tower's column that count as aiming at it
+			again = 2, -- seconds before one tower's name shows again after aiming away and back (no flicker)
+			check = 0.1, -- seconds between two looks
+		},
+	},
 	-- how far the lowest drip is below the scoop's centre in the models (the same for every flavor: build_scoops.py
 	-- base shape). The importer centres a mesh on its bounding box; from the bottom of that box this finds the scoop's
 	-- centre, also for a flavor with something on top (the lemon slice)

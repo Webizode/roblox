@@ -22,6 +22,7 @@ local ORDER = {
 	"ShotRenderer",
 	"LootRenderer",
 	"RemoteTowers",
+	"TowerPeek",
 	"SettingsController",
 	"ChestController",
 	"UpgradeController",

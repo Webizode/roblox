@@ -107,6 +107,15 @@ local function onRenderStep(dt: number)
 	end
 end
 
+-- Every other player's drawn tower (TowerVisual), for looks at them (Controllers/TowerPeek).
+function RemoteTowers.visuals(): { [Player]: any }
+	local out = {}
+	for player, remote in towers do
+		out[player] = remote.visual
+	end
+	return out
+end
+
 function RemoteTowers.Init(reg)
 	registry = reg
 end

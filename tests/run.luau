@@ -11,6 +11,7 @@ require("./TowerModel.spec")
 require("./Bounce.spec")
 require("./Luck.spec")
 require("./RarityFlight.spec")
+require("./TowerMarks.spec")
 require("./Economy.spec")
 require("./Geometry.spec")
 require("./Catch.spec")
@@ -50,6 +51,7 @@ require("./AutoSell.spec")
 require("./Bosses.spec")
 require("./TouchLayout.spec")
 require("./FlavorOdds.spec")
+require("./ScoopIcons.spec")
 
 local syntaxErrors = {}
 local checkedFiles = 0
